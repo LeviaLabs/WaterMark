@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watermark map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@turf/turf@7.1.0/turf.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <div id="map" role="region" aria-label="Flood map"></div>
+
+    <div class="topbar">
+      <a class="wordmark" href="index.html"><span class="mark" aria-hidden="true"></span>Watermark</a>
+      <form class="search" id="search" role="search">
+        <label for="q" class="visually-hidden" style="position:absolute;left:-9999px">Search for a place</label>
+        <input class="input" id="q" placeholder="Search a ZIP code or place" autocomplete="off">
+        <button class="btn" type="submit">Search</button>
+      </form>
+      <div class="toolbar">
+        <button class="btn" id="draw" type="button" aria-pressed="false">Circle an area</button>
+        <button class="btn" id="reopen" type="button" hidden>Show data panel</button>
+      </div>
+      <span class="user-chip" id="user"></span>
+    </div>
+
+    <div class="legend" aria-label="Map layers">
+      <h2>Layers</h2>
+      <label><input type="checkbox" data-layer="sensors" checked> <span class="swatch round" style="background:#c2372b"></span> FloodNet sensors</label>
+      <label><input type="checkbox" data-layer="storm" checked> <span class="swatch" style="background:#2c7a86"></span> Heavy-rain flooding (model)</label>
+      <label><input type="checkbox" data-layer="fema"> <span class="swatch" style="background:#8fb8de"></span> FEMA flood zones</label>
+      <p class="meta" id="storm-note">Zoom in to see the heavy-rain model.</p>
+    </div>
+
+    <aside class="panel" id="panel" aria-label="Area data">
+      <div class="panel-head">
+        <div class="panel-handle gauge-strip" id="handle" tabindex="0"
+             aria-label="Data panel. Drag, or use arrow keys, to move it. Double-click to reset its position.">
+          <h2 id="panel-title">Area data</h2>
+        </div>
+        <div class="panel-actions">
+          <button class="icon-btn" id="stow" type="button" aria-label="Stow panel to the edge" title="Stow">&#8722;</button>
+          <button class="icon-btn" id="close" type="button" aria-label="Close panel" title="Close">&#215;</button>
+        </div>
+      </div>
+      <div class="panel-tabs" role="tablist">
+        <button class="tab" role="tab" id="tab-area" aria-selected="true" aria-controls="view-area">Area</button>
+        <button class="tab" role="tab" id="tab-alerts" aria-selected="false" aria-controls="view-alerts">Alerts</button>
+        <button class="tab" role="tab" id="tab-sources" aria-selected="false" aria-controls="view-sources">Sources</button>
+      </div>
+      <div class="panel-body">
+        <section id="view-area" role="tabpanel" aria-labelledby="tab-area">
+          <p class="empty">Circle an area on the map to see its flood data.</p>
+        </section>
+        <section id="view-alerts" role="tabpanel" aria-labelledby="tab-alerts" hidden>
+          <p class="empty">Circle an area to check for active weather alerts.</p>
+        </section>
+        <section id="view-sources" role="tabpanel" aria-labelledby="tab-sources" hidden></section>
+      </div>
+    </aside>
+
+    <button class="stow-tab" id="stow-tab" type="button" aria-label="Open data panel" hidden><span>Area data</span></button>
+    <div class="hint-bar" id="hint" role="status" hidden></div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -4,6 +4,22 @@
 
 const SOURCES = [
   {
+    id: "imerg",
+    name: "IMERG precipitation rate, 30-minute (near real time)",
+    publisher: "NASA Global Precipitation Measurement mission, via NASA GIBS",
+    use: "Where rain and snow are falling worldwide. The newest image is a few hours behind real time.",
+    url: "https://www.earthdata.nasa.gov/data/tools/gibs",
+    live: true,
+  },
+  {
+    id: "gdacs",
+    name: "Global Disaster Alert and Coordination System (GDACS): flood events",
+    publisher: "United Nations and the European Commission Joint Research Centre",
+    use: "Floods reported worldwide in the past 30 days, with alert level and dates.",
+    url: "https://www.gdacs.org/",
+    live: true,
+  },
+  {
     id: "floodnet",
     name: "FloodNet NYC: street flooding events and sensor locations",
     publisher: "FloodNet (NYU, CUNY and NYC agencies), via NYC Open Data",

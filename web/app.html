@@ -32,10 +32,13 @@
 
     <div class="legend" aria-label="Map layers">
       <h2>Layers</h2>
+      <label><input type="checkbox" data-layer="rain" checked> <span class="swatch" style="background:linear-gradient(90deg,#4fbf4f,#f2e23a,#e0362c)"></span> Rain falling now (NASA)</label>
+      <label><input type="checkbox" data-layer="floods" checked> <span class="swatch round" style="background:conic-gradient(#3d8b57 0 33%,#e07b1f 0 66%,#c2372b 0)"></span> Floods worldwide (GDACS alert level)</label>
       <label><input type="checkbox" data-layer="sensors" checked> <span class="swatch round" style="background:#c2372b"></span> FloodNet sensors</label>
       <label><input type="checkbox" data-layer="storm" checked> <span class="swatch" style="background:#2c7a86"></span> Heavy-rain flooding (model)</label>
       <label><input type="checkbox" data-layer="fema"> <span class="swatch" style="background:#8fb8de"></span> FEMA flood zones</label>
       <p class="meta" id="storm-note">Zoom in to see the heavy-rain model.</p>
+      <p class="meta" id="global-note"></p>
     </div>
 
     <aside class="panel" id="panel" aria-label="Area data">

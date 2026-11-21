@@ -21,7 +21,16 @@ const URLS = {
   storm: "https://services2.arcgis.com/IsDCghZ73NgoYoz5/ArcGIS/rest/services/Moderate_Current_Sea_Levels/FeatureServer/0/query",
   femaTiles: "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:28&f=image",
   femaQuery: "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query",
+  // NASA IMERG 30-minute rain rate; "default" is GIBS's newest available image.
+  imergTiles: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/IMERG_Precipitation_Rate_30min/default/default/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png",
+  gdacs: () => {
+    const day = (ms) => new Date(Date.now() - ms).toISOString().slice(0, 10);
+    return "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?" + new URLSearchParams({
+      eventlist: "FL", fromdate: day(30 * 864e5), todate: day(0), alertlevel: "red;orange;green", // GDACS returns nothing without alertlevel
+    });
+  },
 };
+const ALERT_COLOR = { Red: "#c2372b", Orange: "#e07b1f", Green: "#3d8b57" };
 
 const ZONE_TEXT = {
   AE: "High risk. A 1% chance of flooding each year; flood insurance is required for most mortgages.",
@@ -82,6 +91,12 @@ const EMPTY = { type: "FeatureCollection", features: [] };
 map.on("load", async () => {
   markFetched("basemap");
 
+  // Global rain rate (NASA IMERG). Coarse imagery, so only shown at country scale and wider.
+  map.addSource("rain", { type: "raster", tiles: [URLS.imergTiles], tileSize: 256, maxzoom: 6,
+    attribution: "Rain: NASA GPM IMERG via GIBS" });
+  map.addLayer({ id: "rain", type: "raster", source: "rain", maxzoom: 9, paint: { "raster-opacity": 0.75 } });
+  markFetched("imerg");
+
   // FEMA flood zones (raster tiles from FEMA's map service), off by default.
   map.addSource("fema", { type: "raster", tiles: [URLS.femaTiles], tileSize: 256,
     attribution: "Flood zones: FEMA NFHL" });
@@ -108,6 +123,26 @@ map.on("load", async () => {
     "circle-stroke-color": "#12324a", "circle-stroke-width": 1.5,
   } });
 
+  // Floods reported worldwide (GDACS): solid if still active, hollow if ended.
+  map.addSource("floods", { type: "geojson", data: EMPTY, attribution: "Floods: GDACS" });
+  map.addLayer({ id: "floods", type: "circle", source: "floods", paint: {
+    "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 6, 6, 9, 10, 12],
+    "circle-color": ["case", ["get", "active"], ["get", "color"], "#ffffff"],
+    "circle-stroke-color": ["get", "color"], "circle-stroke-width": 2.5,
+  } });
+  map.on("click", "floods", (e) => {
+    if (drawing) return;
+    const p = e.features[0].properties;
+    new maplibregl.Popup({ offset: 10 }).setLngLat(e.lngLat).setHTML(
+      `<strong>${esc(p.name)}</strong><br>${esc(p.alertlevel)} alert, ${p.active ? "still active" : "ended"}<br>
+       ${fmtDate(p.fromdate)} to ${fmtDate(p.todate)}<br>
+       <a href="${esc(p.report)}" target="_blank" rel="noopener">GDACS report</a>`
+    ).addTo(map);
+  });
+  map.on("mouseenter", "floods", () => { if (!drawing) map.getCanvas().style.cursor = "pointer"; });
+  map.on("mouseleave", "floods", () => { if (!drawing) map.getCanvas().style.cursor = ""; });
+
+  loadFloods();
   loadSensors();
   loadStorm();
   map.on("moveend", loadStorm);
@@ -149,6 +184,30 @@ async function loadSensors() {
   }
 }
 let sensorsFailed = false;
+
+let floods = null; // null = loading, "error", or a FeatureCollection
+async function loadFloods() {
+  const note = $("global-note");
+  try {
+    const fc = await getJSON(URLS.gdacs());
+    fc.features = (fc.features || []).filter((f) => f.geometry?.type === "Point").map((f) => {
+      const p = f.properties;
+      return { type: "Feature", geometry: f.geometry, properties: {
+        name: p.name, alertlevel: p.alertlevel, color: ALERT_COLOR[p.alertlevel] || "#3d8b57",
+        active: p.iscurrent === "true", fromdate: p.fromdate, todate: p.todate, report: p.url?.report || "https://www.gdacs.org/",
+      } };
+    });
+    floods = fc;
+    map.getSource("floods").setData(fc);
+    markFetched("gdacs");
+    const active = fc.features.filter((f) => f.properties.active).length;
+    note.textContent = `${active} active floods worldwide, ${fc.features.length} in the past 30 days. Rain shows the newest NASA image, a few hours old.`;
+  } catch (e) {
+    floods = "error";
+    note.textContent = "Worldwide flood reports didn't load. GDACS may be busy; reload to try again.";
+  }
+  if (current) renderArea();
+}
 
 let stormCtl;
 async function loadStorm() {
@@ -273,7 +332,8 @@ async function stormShare(circle) {
       if (part) area[f.properties.Flooding_Category] = (area[f.properties.Flooding_Category] || 0) + turf.area(part);
     } catch { /* skip invalid geometry */ }
   }
-  return { nuisance: (area[1] / total) * 100, deep: (area[2] / total) * 100, partial: !!fc.properties?.exceededTransferLimit };
+  return { nuisance: (area[1] / total) * 100, deep: (area[2] / total) * 100, partial: !!fc.properties?.exceededTransferLimit,
+    none: fc.features.length === 0 };
 }
 
 function row(k, v) { return `<div class="stat-row"><span>${k}</span><span class="v">${v}</span></div>`; }
@@ -304,10 +364,27 @@ function renderArea() {
     h += fetchedLine("FloodNet NYC");
   }
 
+  // Nearest flood reported by GDACS (works anywhere in the world)
+  h += `<h3>Nearest reported flood</h3>`;
+  if (floods === null) h += loading;
+  else if (floods === "error") h += failLine("worldwide flood reports");
+  else if (!floods.features.length) h += `<p class="empty">No floods reported worldwide in the past 30 days.</p>`;
+  else {
+    const near = floods.features.map((f) => ({ f, km: turf.distance(s.c, f.geometry.coordinates, { units: "kilometers" }) }))
+      .sort((a, b) => a.km - b.km)[0];
+    const p = near.f.properties, mi = near.km * 0.621371;
+    h += row("Event", esc(p.name)) + row("Distance", `${mi < 10 ? mi.toFixed(1) : Math.round(mi).toLocaleString()} mi`)
+      + row("Status", `${esc(p.alertlevel)} alert, ${p.active ? "active" : "ended " + fmtDate(p.todate)}`)
+      + `<p class="meta">GDACS lists floods large enough for international notice, so local street flooding won't appear here.
+         <a href="${esc(p.report)}" target="_blank" rel="noopener">Read the report</a>.</p>`
+      + fetchedLine("GDACS");
+  }
+
   // Stormwater model
   h += `<h3>Heavy-rain flood model</h3>`;
   if (s.storm === null) h += loading;
   else if (s.storm === "error") h += failLine("the NYC stormwater model");
+  else if (s.storm.none) h += `<p class="empty">No modeled heavy-rain flooding in this circle. The model covers New York City only.</p>`;
   else {
     h += `<p class="meta">If 2.13 inches of rain fell in an hour, this share of the area is modeled to flood:</p>`
       + row("4 inches to 1 foot deep", pct(s.storm.nuisance)) + row("1 foot or deeper", pct(s.storm.deep));
@@ -319,7 +396,7 @@ function renderArea() {
   h += `<h3>FEMA flood zone at the center</h3>`;
   if (s.zone === null) h += loading;
   else if (s.zone === "error") h += failLine("FEMA flood zones");
-  else if (s.zone === "none") h += `<p class="empty">No FEMA flood zone is mapped at this point.</p>`;
+  else if (s.zone === "none") h += `<p class="empty">No FEMA flood zone is mapped at this point. FEMA maps cover the US only.</p>`;
   else {
     const z = s.zone.FLD_ZONE;
     h += row("Zone", esc(z + (s.zone.ZONE_SUBTY ? ` (${s.zone.ZONE_SUBTY.toLowerCase()})` : "")));

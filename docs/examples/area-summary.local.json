@@ -1,0 +1,222 @@
+{
+  "apiVersion": "1.0",
+  "generatedAt": "2026-11-21T21:51:22.936Z",
+  "data": {
+    "center": {
+      "lat": 40.591699,
+      "lon": -73.809929
+    },
+    "radiusMeters": 1000,
+    "status": "insufficient_data",
+    "kind": "historical_area_evidence",
+    "source": {
+      "id": "nyc_floodnet",
+      "name": "FloodNet / NYC Open Data",
+      "url": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+      "geographicCoverage": "NYC sensor locations only"
+    },
+    "location": {
+      "lat": 40.591699,
+      "lon": -73.809929
+    },
+    "coverage": {
+      "method": "PostGIS intersection with the selected circle; cache is an incomplete sample, not a complete area survey"
+    },
+    "observedAt": null,
+    "forecastIssuedAt": null,
+    "validFrom": null,
+    "validTo": null,
+    "fetchedAt": "2026-11-21T21:51:22.936Z",
+    "sourceUpdatedAt": null,
+    "sourceLanguage": null,
+    "units": null,
+    "data": {
+      "stationCount": 5,
+      "cachedEventCount": 100,
+      "sampledHistoricalMaxDepthMm": 799.084,
+      "coverageStatus": "incomplete",
+      "zeroMatchesVerified": false,
+      "windowStart": "2026-08-23T21:51:22.958Z",
+      "windowEnd": "2026-11-21T21:51:22.958Z",
+      "cacheNewestFetchedAt": "2026-11-21T21:50:52.441Z",
+      "cacheOldestFetchedAt": "2026-11-21T21:50:52.441Z",
+      "areaForecastStatus": "insufficient_data",
+      "stations": [
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-72nd-st-almeda-ave-1a5hw0",
+          "name": "Q - Beach 72nd St/Almeda Ave",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.800994,
+              40.596572
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        },
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-72nd-st-gouverneur-ave-1zbc0d",
+          "name": "Q - Gouveneur Ave/Beach 72nd St",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.80083,
+              40.59335
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        },
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-84-st-0me680",
+          "name": "Q - Beach 84 St",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.80996,
+              40.59136
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        },
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-84th-st-beach-channel-dr-2nf0xc",
+          "name": "Q - Beach 84 St (2)",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.809929,
+              40.591699
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        },
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-90th-st-rockaway-freeway-2vfj80",
+          "name": "Q - Beach 90th St/ Rockaway Fwy",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.81419,
+              40.58759
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        }
+      ]
+    },
+    "qualityFlags": [
+      "CACHE_COVERAGE_INCOMPLETE",
+      "SOURCE_PUBLICATION_TIME_NOT_PROVIDED"
+    ],
+    "limitations": [
+      "Positive counts are cached lower bounds only. Null counts mean unknown, not zero flood events. Complete geographic coverage is never claimed.",
+      "Event/observation time and cache retrieval time are distinct. No area-wide forecast, flood frequency or safety conclusion is calculated."
+    ],
+    "cacheOldestFetchedAt": "2026-11-21T21:50:52.441Z",
+    "cacheNewestFetchedAt": "2026-11-21T21:50:52.441Z",
+    "metrics": {
+      "stationCount": 5,
+      "cachedEventCount": 100,
+      "sampledHistoricalMaxDepthMm": 799.084,
+      "coverageStatus": "incomplete",
+      "zeroMatchesVerified": false,
+      "windowStart": "2026-08-23T21:51:22.958Z",
+      "windowEnd": "2026-11-21T21:51:22.958Z",
+      "cacheNewestFetchedAt": "2026-11-21T21:50:52.441Z",
+      "cacheOldestFetchedAt": "2026-11-21T21:50:52.441Z",
+      "areaForecastStatus": "insufficient_data",
+      "stations": [
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-72nd-st-almeda-ave-1a5hw0",
+          "name": "Q - Beach 72nd St/Almeda Ave",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.800994,
+              40.596572
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        },
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-72nd-st-gouverneur-ave-1zbc0d",
+          "name": "Q - Gouveneur Ave/Beach 72nd St",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.80083,
+              40.59335
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        },
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-84-st-0me680",
+          "name": "Q - Beach 84 St",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.80996,
+              40.59136
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        },
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-84th-st-beach-channel-dr-2nf0xc",
+          "name": "Q - Beach 84 St (2)",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.809929,
+              40.591699
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        },
+        {
+          "sourceId": "nyc_floodnet",
+          "sourceName": "FloodNet / NYC Open Data",
+          "sourceUrl": "https://data.cityofnewyork.us/d/aq7i-eu5q",
+          "stationId": "Q-beach-90th-st-rockaway-freeway-2vfj80",
+          "name": "Q - Beach 90th St/ Rockaway Fwy",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.81419,
+              40.58759
+            ]
+          },
+          "metadataFetchedAt": "2026-11-21T21:50:52.441Z"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,267 @@
+/* "Accurate data": principles, evidence rules, provenance card and source list. */
+
+.principles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 36px;
+}
+
+.principle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.principle svg {
+  color: var(--accent);
+}
+
+.data-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.rules > li,
+.rules .reveal {
+  height: 100%;
+}
+
+.rule {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+}
+
+.rule p {
+  margin: 0;
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+
+.rule-is {
+  color: var(--text);
+}
+
+.rule-not {
+  margin-top: auto !important;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+  color: var(--text-muted);
+}
+
+.rule-not span {
+  color: var(--kind-official);
+  font-weight: 700;
+}
+
+.data-provenance {
+  position: sticky;
+  top: 100px;
+}
+
+.provenance {
+  padding: 26px;
+}
+
+.provenance-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.provenance-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.provenance-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.provenance-caption {
+  margin: 4px 0 0;
+  color: var(--kind-historical);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.provenance-fields {
+  margin: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg-deep) 55%, transparent);
+  overflow: hidden;
+}
+
+.provenance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+  transition: background-color 0.2s;
+}
+
+.provenance-row:last-child {
+  border-bottom: 0;
+}
+
+.provenance-row:hover {
+  background: var(--accent-soft);
+}
+
+.provenance-row dt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.provenance-row code {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.provenance-hint {
+  color: var(--text-subtle);
+  font-size: 0.74rem;
+}
+
+.provenance-row dd {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+/* ---- Sources ---- */
+
+.sources {
+  margin-top: clamp(48px, 7vw, 80px);
+}
+
+.sources-title {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  font-weight: 500;
+}
+
+.sources-list {
+  border-top: 1px solid var(--line);
+}
+
+.source-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) 140px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 8px;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  transition:
+    background-color 0.2s,
+    padding 0.3s var(--ease-out);
+}
+
+.source-row:hover {
+  padding-left: 16px;
+  background: var(--accent-soft);
+}
+
+.source-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.source-name svg {
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.source-row:hover .source-name svg {
+  opacity: 1;
+}
+
+.source-provider,
+.source-coverage {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.source-row .evidence-tag {
+  justify-self: end;
+}
+
+@media (max-width: 960px) {
+  .data-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .data-provenance {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .rules {
+    grid-template-columns: 1fr;
+  }
+
+  .source-row {
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+  }
+
+  .source-name {
+    grid-column: 1;
+  }
+
+  .source-provider {
+    grid-column: 1;
+    font-size: 0.84rem;
+  }
+
+  .source-coverage {
+    display: none;
+  }
+
+  .source-row .evidence-tag {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .provenance-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Text } from '@astryxdesign/core/Text'
 import { useI18n } from '../i18n/useI18n.ts'
 import type { Feature } from './session.ts'
 import { useAuth } from './useAuth.ts'
@@ -19,5 +20,5 @@ export function RequireAccount({ feature, children, fallback }: Props) {
   const { canUse } = useAuth()
   const { t } = useI18n()
   if (canUse(feature)) return <>{children}</>
-  return <>{fallback ?? <p>{t('auth.requiredForFeature')}</p>}</>
+  return <>{fallback ?? <Text as="p">{t('auth.requiredForFeature')}</Text>}</>
 }

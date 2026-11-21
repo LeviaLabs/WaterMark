@@ -1,12 +1,14 @@
+import { Button } from '@astryxdesign/core/Button'
+import { HStack } from '@astryxdesign/core/HStack'
+import { Text } from '@astryxdesign/core/Text'
 import { useI18n } from '../i18n/useI18n.ts'
 import { useAuth } from './useAuth.ts'
-import '../i18n/i18n.css'
 
 /**
  * Small sign-in status for a header. Announces changes politely to screen readers.
  * With no provider configured it only says the visitor is browsing as a guest.
  */
-export function AuthStatus({ className }: { className?: string }) {
+export function AuthStatus() {
   const { state, canSignIn, signIn, signOut } = useAuth()
   const { t } = useI18n()
 
@@ -18,16 +20,21 @@ export function AuthStatus({ className }: { className?: string }) {
     : t('auth.guest')
 
   return (
-    <div className={['wm-auth', className].filter(Boolean).join(' ')}>
-      <span role="status" aria-live="polite">{message}</span>
+    <HStack gap={2} vAlign="center" wrap="wrap">
+      <Text role="status" aria-live="polite" type="supporting" color="secondary">
+        {message}
+      </Text>
       {state.status === 'signed-in' && (
-        <button type="button" onClick={() => void signOut()}>{t('auth.signOut')}</button>
+        <Button label={t('auth.signOut')} variant="secondary" onClick={() => void signOut()} />
       )}
       {canSignIn && state.status !== 'signed-in' && (
-        <button type="button" onClick={() => void signIn()} disabled={state.status === 'loading'} aria-busy={state.status === 'loading'}>
-          {t('auth.signIn')}
-        </button>
+        <Button
+          label={t('auth.signIn')}
+          variant="primary"
+          isLoading={state.status === 'loading'}
+          onClick={() => void signIn()}
+        />
       )}
-    </div>
+    </HStack>
   )
 }

@@ -68,7 +68,6 @@ is guest-only and renders children immediately, so it cannot block the page.
 ```tsx
 import { I18nProvider } from './i18n/I18nProvider.tsx'
 import { AuthProvider } from './auth/AuthProvider.tsx'
-import './i18n/i18n.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -150,21 +149,32 @@ entry to `support: 'tested'`.
 
 ## 6. Accessibility in these components
 
-- Native `<select>` with a real `<label>` (visible by default; `hideLabel` keeps it for screen
-  readers); each option has its own `lang` so names are pronounced correctly.
-- `<html lang>` follows the selected language. Official text carries its own `lang`.
-- Visible focus outline on picker, auth buttons and source links; 44 px touch target.
-- Sign-in status uses `role="status"` with `aria-live="polite"`; the sign-in button sets
-  `aria-busy` while loading. Error and expired messages say the map still works.
-- Checked in a browser at 375 px width: no horizontal scroll.
+All visual parts use Astryx components and the app's theme. There is no custom CSS file, no
+raw `<div>`/`<span>`, no hex or px value and no inline style. `npx astryx doctor --built src/i18n`
+and `--built src/auth` both report "no raw element Astryx has a component for … and no custom
+styling".
 
-**Known conflict with the Astryx rules on `main`.** `WaterMark/AGENTS.md` now asks for Astryx
-components and tokens (no raw `<div>`, hex or px). `LanguageSelect` and `AuthStatus` use a plain
-`<div>` wrapper and `i18n.css` uses px and two hex colors. The hooks, pure helpers and voice
-contract are unaffected. Before or while mounting, the visual parts should be restyled with
-Astryx (for example an Astryx select for the picker, tokens in the CSS), keeping the label, `lang`
-attributes, focus outline and 44 px target. I have not done this here so the review stays about
-behavior; I can do it as a follow-up.
+| Component | Astryx parts |
+| --- | --- |
+| `LanguageSelect` | `Selector` (`size="lg"`, `presentation="adaptive"`, `isLabelHidden`), `SelectorOption` |
+| `AuthStatus` | `HStack` (`gap={2}`), `Text` (`type="supporting"`, `color="secondary"`), `Button` (`isLoading`) |
+| `OfficialText` | `VStack` as `figure`/`figcaption`/`section`, `Text`, `Blockquote`, `Link` (`isExternalLink`), `Divider`, `Heading` |
+| `RequireAccount` | `Text` |
+
+- The picker is a labelled combobox (`<label for>`; `hideLabel` keeps the label for screen
+  readers). It has native-select typeahead, the Astryx focus ring, Escape returns focus to it, and
+  it opens as a bottom sheet on small screens.
+- Astryx components do not accept `lang`. Language names, official text and translations are
+  wrapped in `<bdi lang="…">` so they keep their language and are pronounced correctly.
+  Official text keeps its line breaks with `<br>`.
+- `<html lang>` follows the selected language.
+- Sign-in status is `Text` with `role="status"` and `aria-live="polite"`. The sign-in `Button`
+  uses `isLoading` (aria-busy, stays focusable). Error and expired messages say the map still works.
+- The picker control is 36 px tall at `size="lg"` in the neutral theme. That meets WCAG 2.2 AA
+  target size (24 px) but is below the 44 px used before. A larger control is a theme-level
+  change (`astryx editor`), not a per-component override.
+- Checked in a browser at 1280 px and 375 px, in English, Spanish and Hindi: no horizontal
+  scroll, keyboard selection, saved choice, live-region text.
 
 Not covered here (owned by Ryan Lin/Ryan B): keyboard support for map tabs and the draggable
 panel, dialogs, and page-level loading states. I can review them when those pages exist.
@@ -200,5 +210,4 @@ DOM test runner in the repo.
 3. Who will review each language before the demo?
 4. Codex: accept `sourceLanguage` on provider text fields?
 5. Ryan B: accept `SpeechSegment` / `SpeechSink`, and which ElevenLabs model will you use?
-6. Astryx restyle of `LanguageSelect`, `AuthStatus`, `OfficialText` (section 6): before merge, or
-   as a follow-up PR?
+6. Ryan B: is the 36 px picker height acceptable, or should the theme raise control size?

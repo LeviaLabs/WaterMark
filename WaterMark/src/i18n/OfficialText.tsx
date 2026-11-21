@@ -1,6 +1,11 @@
 import { useId } from 'react'
+import { Blockquote } from '@astryxdesign/core/Blockquote'
+import { Divider } from '@astryxdesign/core/Divider'
+import { Heading } from '@astryxdesign/core/Heading'
+import { Link } from '@astryxdesign/core/Link'
+import { Text } from '@astryxdesign/core/Text'
+import { VStack } from '@astryxdesign/core/VStack'
 import { useI18n } from './useI18n.ts'
-import './i18n.css'
 
 export interface OfficialTextTranslation {
   text: string
@@ -26,20 +31,25 @@ interface Props {
   translation?: OfficialTextTranslation
 }
 
+/** Keeps the agency's own line breaks without restyling the text. */
+const withLineBreaks = (text: string) =>
+  text.split('\n').flatMap((line, i) => (i === 0 ? [line] : [<br key={i} />, line]))
+
 /**
  * Shows an official warning so that its meaning cannot be changed by localization:
  * the original text first, in its own language, with source, issue time and link;
  * an optional translation second, clearly marked as unofficial.
+ * Language-tagged text uses <bdi lang> because Astryx components do not accept lang.
  */
 export function OfficialText({ text, sourceName, sourceUrl, sourceLanguage, issuedAt, timeZone, translation }: Props) {
   const { t, formatDateTime, languageName } = useI18n()
   const headingId = useId()
   return (
-    <figure className="wm-official" aria-labelledby={headingId}>
-      <figcaption id={headingId} className="wm-official__caption">
-        {t('official.asIssued', { source: sourceName })}
-      </figcaption>
-      <p className="wm-official__meta">
+    <VStack as="figure" gap={2} aria-labelledby={headingId}>
+      <VStack as="figcaption" id={headingId}>
+        <Text weight="semibold">{t('official.asIssued', { source: sourceName })}</Text>
+      </VStack>
+      <Text as="p" type="supporting" color="secondary">
         {t('official.originalLanguage', { language: languageName(sourceLanguage) })}
         {issuedAt && (
           <>
@@ -47,24 +57,27 @@ export function OfficialText({ text, sourceName, sourceUrl, sourceLanguage, issu
             <time dateTime={issuedAt}>{t('data.issuedAt', { time: formatDateTime(issuedAt, timeZone) })}</time>
           </>
         )}
-      </p>
-      <blockquote className="wm-official__text" lang={sourceLanguage} cite={sourceUrl}>
-        {text}
-      </blockquote>
+      </Text>
+      <Blockquote>
+        <bdi lang={sourceLanguage}>{withLineBreaks(text)}</bdi>
+      </Blockquote>
       {sourceUrl && (
-        <p className="wm-official__link">
-          <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
-            {t('official.openSource', { source: sourceName })}
-          </a>
-        </p>
+        <Link href={sourceUrl} isExternalLink isStandalone>
+          {t('official.openSource', { source: sourceName })}
+        </Link>
       )}
       {translation && (
-        <section className="wm-official__translation" data-method={translation.method}>
-          <h4 className="wm-official__translation-label">{t('official.unofficialTranslation')}</h4>
-          <p lang={translation.locale} className="wm-official__text">{translation.text}</p>
-          <p className="wm-official__note">{t('official.translationNote')}</p>
-        </section>
+        <VStack as="section" gap={1} data-method={translation.method}>
+          <Divider />
+          <Heading level={4}>{t('official.unofficialTranslation')}</Heading>
+          <Text as="p">
+            <bdi lang={translation.locale}>{withLineBreaks(translation.text)}</bdi>
+          </Text>
+          <Text as="p" type="supporting" color="secondary">
+            {t('official.translationNote')}
+          </Text>
+        </VStack>
       )}
-    </figure>
+    </VStack>
   )
 }

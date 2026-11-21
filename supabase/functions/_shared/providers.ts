@@ -1,9 +1,11 @@
 import type {
   EnvironmentalResult,
+  FloodEvent,
   FloodNetData,
   ForecastData,
   Location,
   OfficialAlert,
+  ProviderFailure,
   Source,
   Station,
 } from "./contracts.ts";
@@ -87,6 +89,44 @@ export async function safely<T>(
         ...(e.retryAfterSeconds ? { retryAfterSeconds: e.retryAfterSeconds } : {}),
       },
     };
+  }
+}
+function noteFailure(
+  result: EnvironmentalResult,
+  error: unknown,
+  stage: ProviderFailure["stage"],
+): ProviderFailure {
+  const e = error instanceof ProviderError ? error : new ProviderError("INVALID_PROVIDER_RESPONSE");
+  const failure = {
+    stage,
+    code: e.code,
+    ...(e.httpStatus ? { httpStatus: e.httpStatus } : {}),
+    ...(e.retryAfterSeconds ? { retryAfterSeconds: e.retryAfterSeconds } : {}),
+  };
+  result.diagnostics ??= {};
+  (result.diagnostics.failures ??= []).push(failure);
+  return failure;
+}
+function rejectFloodNetRecord(
+  result: EnvironmentalResult,
+  error: unknown,
+  stage: "stations" | "events",
+) {
+  const code = error instanceof ProviderError ? error.code : "INVALID_PROVIDER_RESPONSE";
+  result.diagnostics ??= {};
+  const errors = result.diagnostics.recordErrors ??= [];
+  const existing = errors.find((entry) => entry.stage === stage && entry.code === code);
+  if (existing) existing.count++;
+  else errors.push({ stage, code, count: 1 });
+  const field = stage === "stations" ? "rejectedStationRecords" : "rejectedEventRecords";
+  result.diagnostics[field] = (result.diagnostics[field] ?? 0) + 1;
+  for (
+    const flag of [
+      "PARTIAL_DATA",
+      stage === "stations" ? "STATION_RECORD_REJECTED" : "EVENT_RECORD_REJECTED",
+    ]
+  ) {
+    if (!result.qualityFlags.includes(flag)) result.qualityFlags.push(flag);
   }
 }
 export async function forecast(
@@ -203,7 +243,8 @@ export async function alerts(
       if (
         error instanceof ProviderError && (error.httpStatus === 400 || error.httpStatus === 404)
       ) return unsupported();
-      throw error;
+      noteFailure(result, error, "nws_point_lookup");
+      result.qualityFlags.push("NWS_POINT_LOOKUP_FAILED", "GEOGRAPHIC_RESOLUTION_INCOMPLETE");
     }
     const raw = record(
       await fetchJson(
@@ -241,15 +282,17 @@ export async function alerts(
     if (result.status === "stale") {
       result.qualityFlags.push("STALE_PROVIDER_UPDATE", "SOURCE_UPDATE_TIME_IS_NOT_A_HEARTBEAT");
     }
-    result.diagnostics = { rejectedAlertRecords, excludedAlertRecords };
+    result.diagnostics = { ...result.diagnostics, rejectedAlertRecords, excludedAlertRecords };
     if (rejectedAlertRecords) result.qualityFlags.push("ALERT_RECORD_REJECTED");
     if (rows.some((r) => r.sourceLanguage === null)) {
       result.qualityFlags.push("SOURCE_LANGUAGE_NOT_PROVIDED");
     }
     result.data = rows;
-    result.validFrom = rows.map((r) =>
-      r.onset ?? r.effective ?? r.sent
-    ).filter((t): t is string => t !== null).sort()[0] ?? null;
+    result.validFrom = rows.map((r) => {
+      const start = r.onset ?? r.effective ?? r.sent;
+      // An update after the expected end is not the start of that hazard.
+      return r.ends && start && r.ends < start ? null : start;
+    }).filter((t): t is string => t !== null).sort()[0] ?? null;
     result.validTo = rows.map((r) =>
       r.ends ?? (r.expires && (!r.onset || r.expires >= r.onset) ? r.expires : null)
     ).filter((t): t is string =>
@@ -263,8 +306,9 @@ export async function alerts(
         message: "No usable alert records remain; warning status is unknown.",
       };
     }
-    result.coverage.method =
-      "NWS forecast-point verification and point-filtered alert areas; polygons can be absent";
+    result.coverage.method = result.qualityFlags.includes("NWS_POINT_LOOKUP_FAILED")
+      ? "NWS point-filtered alert response; secondary forecast-point resolution incomplete; polygons can be absent"
+      : "NWS forecast-point verification and point-filtered alert areas; polygons can be absent";
     result.limitations = [
       "No matching messages does not establish safe conditions. Active means the expected official/fallback hazard window, not an observed flood.",
       "Hurricane and tropical-storm messages are multi-hazard context, not direct evidence of flooding. Missing or expired hazard bounds never imply safety.",
@@ -305,26 +349,44 @@ export async function floodnet(
       "$order": "sensor_id",
       "$limit": "51",
     }).toString();
-    const raw = await fetchJson(sensorUrl.href, {}, fetcher);
-    if (!Array.isArray(raw) || raw.length > 51) {
-      throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+    const load = async (
+      url: string,
+      stage: "floodnet_stations" | "floodnet_events",
+    ): Promise<unknown[]> => {
+      try {
+        const rows = await fetchJson(url, {}, fetcher);
+        if (!Array.isArray(rows) || rows.length > (stage === "floodnet_stations" ? 51 : 101)) {
+          throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+        }
+        return rows;
+      } catch (error) {
+        noteFailure(result, error, stage);
+        throw error;
+      }
+    };
+    const raw = await load(sensorUrl.href, "floodnet_stations");
+    result.diagnostics = { rejectedStationRecords: 0, rejectedEventRecords: 0 };
+    const stations: Station[] = [];
+    for (const row of raw.slice(0, 50)) {
+      try {
+        const r = record(row);
+        const id = text(r.sensor_id, 120);
+        if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+        const lat = Number(text(r.latitude, 30)), lon = Number(text(r.longitude, 30));
+        if (
+          !Number.isFinite(lat) || !Number.isFinite(lon) || lat < 40.45 || lat > 40.95 ||
+          lon < -74.3 || lon > -73.65
+        ) throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+        stations.push({
+          id,
+          name: text(r.sensor_name, 200),
+          location: { lat, lon },
+          geometry: { type: "Point", coordinates: [lon, lat] },
+        });
+      } catch (error) {
+        rejectFloodNetRecord(result, error, "stations");
+      }
     }
-    const stations = raw.slice(0, 50).map((row): Station => {
-      const r = record(row);
-      const id = text(r.sensor_id, 120);
-      if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new ProviderError("INVALID_PROVIDER_RESPONSE");
-      const lat = Number(text(r.latitude, 30)), lon = Number(text(r.longitude, 30));
-      if (
-        !Number.isFinite(lat) || !Number.isFinite(lon) || lat < 40.45 || lat > 40.95 ||
-        lon < -74.3 || lon > -73.65
-      ) throw new ProviderError("INVALID_PROVIDER_RESPONSE");
-      return {
-        id,
-        name: text(r.sensor_name, 200),
-        location: { lat, lon },
-        geometry: { type: "Point", coordinates: [lon, lat] },
-      };
-    });
     result.coverage = {
       method: "up to 50 sensors within 1000 m; measurements apply only beneath sensors",
     };
@@ -345,7 +407,9 @@ export async function floodnet(
     ];
     if (raw.length > 50) result.qualityFlags.push("TRUNCATED_STATIONS");
     if (!stations.length) {
-      result.qualityFlags.push("SOURCE_SENSOR_QUERY_EMPTY");
+      result.qualityFlags.push(
+        raw.length ? "NO_VALID_STATION_RECORDS" : "SOURCE_SENSOR_QUERY_EMPTY",
+      );
       return result;
     }
     const since = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 19);
@@ -358,9 +422,20 @@ export async function floodnet(
       "$order": "flood_start_time DESC,sensor_id",
       "$limit": "101",
     }).toString();
-    const events = await fetchJson(eventUrl.href, {}, fetcher);
-    if (!Array.isArray(events) || events.length > 101) {
-      throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+    let events: unknown[];
+    try {
+      events = await load(eventUrl.href, "floodnet_events");
+    } catch (error) {
+      const e = error instanceof ProviderError
+        ? error
+        : new ProviderError("INVALID_PROVIDER_RESPONSE");
+      result.error = {
+        code: e.code,
+        message: "Sensor metadata is available; historical event retrieval failed.",
+        ...(e.retryAfterSeconds ? { retryAfterSeconds: e.retryAfterSeconds } : {}),
+      };
+      result.qualityFlags.push("PARTIAL_DATA", "FLOODNET_EVENT_QUERY_FAILED");
+      return result;
     }
     result.data.queryEvidence = {
       eventSearchCompleted: true,
@@ -369,27 +444,34 @@ export async function floodnet(
       windowEnd: now.toISOString(),
     };
     if (!events.length) result.qualityFlags.push("NO_EVENTS_IN_FETCHED_SENSOR_QUERY");
-    result.data.events = events.slice(0, 100).map((row) => {
-      const r = record(row), stationId = text(r.sensor_id, 120);
-      if (!stations.some((s) => s.id === stationId)) {
-        throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+    const validEvents: FloodEvent[] = [];
+    for (const row of events.slice(0, 100)) {
+      try {
+        const r = record(row), stationId = text(r.sensor_id, 120);
+        if (!stations.some((s) => s.id === stationId)) {
+          throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+        }
+        const rawDepth = text(r.max_depth_inches, 30);
+        if (!/^\d+(?:\.\d+)?$/.test(rawDepth)) throw new ProviderError("INVALID_PROVIDER_UNITS");
+        const maxDepthMm = Number(rawDepth) * 25.4;
+        const startedAt = timestamp(r.flood_start_time, true),
+          endedAt = r.flood_end_time ? timestamp(r.flood_end_time, true) : null;
+        if (Date.parse(startedAt) > now.getTime() || (endedAt && endedAt < startedAt)) {
+          throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+        }
+        validEvents.push({
+          stationId,
+          startedAt,
+          endedAt,
+          maxDepthMm,
+          classification: classifyDepth(maxDepthMm),
+        });
+      } catch (error) {
+        rejectFloodNetRecord(result, error, "events");
       }
-      const rawDepth = text(r.max_depth_inches, 30);
-      if (!/^\d+(?:\.\d+)?$/.test(rawDepth)) throw new ProviderError("INVALID_PROVIDER_UNITS");
-      const maxDepthMm = Number(rawDepth) * 25.4;
-      const startedAt = timestamp(r.flood_start_time, true),
-        endedAt = r.flood_end_time ? timestamp(r.flood_end_time, true) : null;
-      if (Date.parse(startedAt) > now.getTime() || (endedAt && endedAt < startedAt)) {
-        throw new ProviderError("INVALID_PROVIDER_RESPONSE");
-      }
-      return {
-        stationId,
-        startedAt,
-        endedAt,
-        maxDepthMm,
-        classification: classifyDepth(maxDepthMm),
-      };
-    });
+    }
+    result.data.events = validEvents;
+    if (events.length && !validEvents.length) result.qualityFlags.push("NO_VALID_EVENT_RECORDS");
     if (events.length > 100) result.qualityFlags.push("TRUNCATED_EVENTS");
     result.status = result.data.events.length ? "available" : "insufficient_data";
     result.validFrom = result.data.events.map((e) => e.startedAt).sort()[0] ?? null;

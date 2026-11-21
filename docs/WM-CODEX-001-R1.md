@@ -1,5 +1,9 @@
 # WM-CODEX-001-R1 backend review corrections
 
+R2 follow-up and current release gates: [WM-CODEX-001-R2.md](WM-CODEX-001-R2.md).
+This report preserves R1's evidence; R2 supersedes its ended-hazard and
+mandatory-successful-NWS-lookup semantics.
+
 Human owner: Decong. Branch: `feat/decong-data-api`. Target: draft PR #4.
 Reviewed baseline: `dbd292288052205ff1b9b98d6a36107d31209eb5`.
 No teammate files, unrelated PRs, hosted project or infrastructure were changed.

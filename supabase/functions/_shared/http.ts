@@ -15,13 +15,22 @@ export async function fetchJson(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetcher(url, { ...init, redirect: "error", signal: controller.signal });
+    let response: Response;
+    try {
+      response = await fetcher(url, { ...init, redirect: "error", signal: controller.signal });
+    } catch (error) {
+      if (error instanceof ProviderError) throw error;
+      throw new ProviderError(
+        controller.signal.aborted ? "PROVIDER_TIMEOUT" : "PROVIDER_NETWORK_ERROR",
+      );
+    }
     if (response.status === 429) {
       const retry = Number(response.headers.get("retry-after"));
       await response.body?.cancel();
       throw new ProviderError(
         "PROVIDER_RATE_LIMITED",
         Number.isFinite(retry) && retry > 0 ? Math.min(retry, 3600) : 60,
+        429,
       );
     }
     if (!response.ok) {

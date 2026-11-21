@@ -292,7 +292,7 @@ Deno.test("FloodNet threshold is source-defined, strict, and is not a risk perce
   assert.throws(() => classifyDepth(NaN));
   assert.match(classifyDepth(11).basis, /FloodNet/);
 });
-Deno.test("missing FloodNet measurements fail; out-of-coverage points make no request", async () => {
+Deno.test("missing FloodNet measurements stay unknown; out-of-coverage points make no request", async () => {
   const result = await floodnet(
     point,
     now,
@@ -303,8 +303,10 @@ Deno.test("missing FloodNet measurements fail; out-of-coverage points make no re
         )
         : fixtureFetch(input, init),
   );
-  assert.equal(result.status, "error");
-  assert.equal(result.data, null);
+  assert.equal(result.status, "insufficient_data");
+  assert.deepEqual(result.data?.events, []);
+  assert.equal(result.data?.stations.length, 1);
+  assert.equal(result.data?.queryEvidence?.zeroEventMatchesVerified, false);
   let calls = 0;
   const outside = await floodnet({ lat: 0, lon: 0 }, now, () => {
     calls++;

@@ -18,11 +18,30 @@ for (const result of results) {
       fetchedAt: result.fetchedAt,
       sourceUpdatedAt: result.sourceUpdatedAt,
       units: result.units,
-      error: result.error?.code,
+      error: result.error,
+      diagnostics: result.diagnostics,
       qualityFlags: result.qualityFlags,
     }),
   );
-  assert.notEqual(result.status, "error", `${result.source.id}: ${result.error?.code}`);
+  assert.notEqual(
+    result.status,
+    "error",
+    JSON.stringify({
+      source: result.source.id,
+      error: result.error,
+      diagnostics: result.diagnostics,
+      qualityFlags: result.qualityFlags,
+    }),
+  );
+  assert.equal(
+    result.error,
+    undefined,
+    JSON.stringify({
+      source: result.source.id,
+      error: result.error,
+      diagnostics: result.diagnostics,
+    }),
+  );
   assert.notEqual(result.status, "unsupported");
 }
 assert.ok(results[0].data?.samples.length);

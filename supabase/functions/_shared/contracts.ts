@@ -26,6 +26,12 @@ export type AlertGeometry = { type: "Polygon"; coordinates: number[][][] } | {
   type: "MultiPolygon";
   coordinates: number[][][][];
 };
+export interface ProviderFailure {
+  stage: "nws_point_lookup" | "floodnet_stations" | "floodnet_events";
+  code: string;
+  httpStatus?: number;
+  retryAfterSeconds?: number;
+}
 export interface EnvironmentalResult<T = unknown> {
   status: Status;
   kind: string;
@@ -41,7 +47,14 @@ export interface EnvironmentalResult<T = unknown> {
   sourceLanguage: string | null;
   cacheNewestFetchedAt?: string | null;
   cacheOldestFetchedAt?: string | null;
-  diagnostics?: { rejectedAlertRecords: number; excludedAlertRecords: number };
+  diagnostics?: {
+    rejectedAlertRecords?: number;
+    excludedAlertRecords?: number;
+    rejectedStationRecords?: number;
+    rejectedEventRecords?: number;
+    recordErrors?: { stage: "stations" | "events"; code: string; count: number }[];
+    failures?: ProviderFailure[];
+  };
   units: string | null;
   data: T | null;
   qualityFlags: string[];
@@ -72,7 +85,7 @@ export interface OfficialAlert {
   messageType: "Alert" | "Update";
   messageInForce: boolean | null;
   messageValidity: "in_force" | "upcoming" | "expired" | "unknown";
-  hazardTiming: "upcoming" | "active" | "unknown";
+  hazardTiming: "upcoming" | "active" | "ended" | "unknown";
   hazardTimingReason: string;
   timingAssumptions: string[];
   floodRelevance: "flood_hazard_notice" | "multi_hazard_context";

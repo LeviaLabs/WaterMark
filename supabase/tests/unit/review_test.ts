@@ -76,7 +76,7 @@ Deno.test("H1 expired messages are excluded and ended hazard windows are never a
   assert.deepEqual(expired.data, []);
   const ended = await get([row({ ends: "2026-11-21T11:59:00Z" })]);
   assert.equal(ended.data?.[0].messageInForce, true);
-  assert.equal(ended.data?.[0].hazardTiming, "unknown");
+  assert.equal(ended.data?.[0].hazardTiming, "ended");
   assert.equal(ended.data?.[0].hazardTimingReason, "hazard_window_ended");
 });
 Deno.test("H1 updated messages preserve Update and their revised future onset", async () => {

@@ -116,18 +116,19 @@ export function parseAlert(value: unknown, now: Date): OfficialAlert | null {
   if (!ends && expires) timingAssumptions.push("HAZARD_END_USES_MESSAGE_EXPIRY_NOT_CONFIRMED_END");
   let hazardTiming: OfficialAlert["hazardTiming"] = "unknown",
     hazardTimingReason = "missing_time_bounds";
-  if (hazardStart && ends && ends <= hazardStart) {
+  if (onset && ends && ends <= onset) {
     qualityFlags.push("INCONSISTENT_HAZARD_TIMES");
     hazardTimingReason = "inconsistent_bounds";
+  } else if (ends && Date.parse(ends) <= now.getTime()) {
+    hazardTiming = "ended";
+    hazardTimingReason = "hazard_window_ended";
+    qualityFlags.push("HAZARD_WINDOW_ENDED");
   } else if (hazardStart && Date.parse(hazardStart) > now.getTime()) {
     hazardTiming = "upcoming";
     hazardTimingReason = "future_hazard_start";
     if (!ends && expires && expires <= hazardStart) {
       timingAssumptions.push("MESSAGE_EXPIRES_BEFORE_HAZARD_START_END_UNKNOWN");
     }
-  } else if (hazardEnd && Date.parse(hazardEnd) <= now.getTime()) {
-    hazardTimingReason = "hazard_window_ended";
-    qualityFlags.push("HAZARD_WINDOW_ENDED");
   } else if (hazardStart && hazardEnd && messageInForce === true) {
     hazardTiming = "active";
     hazardTimingReason = "within_official_or_fallback_window";
@@ -185,7 +186,8 @@ export function parseAlert(value: unknown, now: Date): OfficialAlert | null {
 }
 
 // Broad candidate regions only; /points confirms a supported NWS forecast
-// point before requesting alerts. These are not political or flood boundaries.
+// point where possible. A failed secondary lookup cannot invalidate a successful
+// point-filtered alert response. These are not political or flood boundaries.
 export function nwsCandidate({ lat, lon }: { lat: number; lon: number }): boolean {
   return [
     [24, 50, -125, -66],

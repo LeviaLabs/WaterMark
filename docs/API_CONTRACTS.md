@@ -2,7 +2,7 @@
 
 Task: WM-CODEX-001. Human owner: Decong. Branch: `feat/decong-data-api`.
 Status: proposed; Ryan Lin's acceptance and Grokbot's overlap check are pending.
-Revision proposal: WM-CODEX-001-R1. Existing endpoint paths, `apiVersion: "1.0"`,
+Revision proposal: WM-CODEX-001-R2. Existing endpoint paths, `apiVersion: "1.0"`,
 status values and center/radius input remain in place. The corrections below
 require Ryan Lin's explicit acceptance before integration; nullable alert text
 and unknown (null) area counts correct unsafe assumptions in the original draft.
@@ -115,12 +115,18 @@ the known message interval, false before effectiveness, or null if unknown.
 Expired messages are excluded and counted in diagnostics. For retained records,
 `messageValidity` is `in_force | upcoming | unknown`.
 
-`hazardTiming` is `upcoming | active | unknown`. A future onset remains upcoming
+`hazardTiming` is `upcoming | active | ended | unknown`. **R2 adds `ended` to this
+draft enum; Ryan Lin's explicit acceptance is still required.** A future onset remains upcoming
 even if the message expires earlier. Hazard start uses onset, else effective,
 else sent; end uses ends, else message expiry as an uncertain fallback.
 `timingAssumptions` distinguishes CAP's effective-to-sent default from the
-WaterMark hazard fallbacks. Missing/ended/inconsistent windows remain unknown,
-with `hazardTimingReason` and quality flags. Active means inside the expected
+WaterMark hazard fallbacks. An official `ends <= now` becomes `ended`, even while
+the message remains in force or an update was issued after the expected end.
+Contradictory explicit onset/end bounds remain unknown; message time alone does
+not establish a contradictory hazard onset. Missing bounds remain unknown.
+Use `hazardTimingReason` and quality flags alongside the state. Ended describes
+the expected official window, not verified cessation of actual flooding.
+Active means inside the expected
 official/fallback window, never an observed flood. Result `validFrom`/`validTo`
 span hazard windows, not message validity; use individual alert times for display.
 
@@ -144,14 +150,23 @@ claims. Sensors and up to 100 cached area stations expose GeoJSON Points.
 References: [NWS schema](https://api.weather.gov/openapi.json) and
 [CAP 1.2](https://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2-os.html).
 
-NWS queries first require a verified `/points` forecast-office lookup within
+NWS queries first attempt a `/points` forecast-office lookup within
 documented candidate regions: CONUS, Alaska/Aleutians, Hawaii, Puerto Rico/USVI,
 Guam/CNMI and American Samoa. Candidate bounds are not political boundaries.
 The lookup uses NWS's observed four-decimal canonical form, without enabling
 redirects; alert queries retain original coordinates. Clearly outside candidates
 returns unsupported without network access. Coverage lookup 400/404 returns
-unsupported before requesting alerts. Marine-only and other NWS coverage is
-not supported by this adapter; unsupported never means safe or globally down.
+unsupported before requesting alerts. Other lookup failures no longer discard
+an independently successful point-filtered alert response. They add
+`NWS_POINT_LOOKUP_FAILED` and `GEOGRAPHIC_RESOLUTION_INCOMPLETE`; coverage then
+describes only the provider's point-filtered alert result, without claiming a
+verified forecast office or resolved zone polygon. `diagnostics.failures` retains
+the `nws_point_lookup` stage, sanitized code, HTTP status or retry delay where
+known. Empty successful alert results still do not prove safety. If the alerts
+request also fails, status is `error` and the lookup diagnostic remains.
+There are no secondary zone requests in this adapter. Marine-only and other
+NWS coverage is not intentionally supported; candidate boxes are only a request
+guard, not complete jurisdiction polygons. Unsupported never means safe or globally down.
 
 Area `body.data` now has the environmental envelope. Canonical metrics are in
 `body.data.data`, with compatibility aliases `center`, `radiusMeters` and
@@ -172,6 +187,75 @@ The 15-minute NWS update-age flag remains a conservative draft content-age polic
 with `SOURCE_UPDATE_TIME_IS_NOT_A_HEARTBEAT`; it does not set provider health or
 hide retained warnings. Live empty collections carried recent updates, but the
 field's all-conditions heartbeat semantics remain unverified (U4 in the R1 report).
+
+## R2 partial FloodNet data and failure diagnostics
+
+Sensors and historical event rows are validated independently. Rejected rows
+never enter the SoQL station filter or database cache. Valid rows survive with
+`PARTIAL_DATA`, `STATION_RECORD_REJECTED` / `EVENT_RECORD_REJECTED`, rejection
+counts in `diagnostics.rejectedStationRecords` / `rejectedEventRecords`, and
+aggregated `{stage, code, count}` entries in `diagnostics.recordErrors`.
+These are request diagnostics; the limited historical cache stores valid records
+only and never claims complete geographic coverage.
+
+With usable events the result remains `available`, including partial samples.
+All rejected sensors/events produce `insufficient_data`, not an assertion of
+zero floods. An event request failure retains validated sensor metadata under
+`insufficient_data`, a structured `error`, `PARTIAL_DATA` and
+`FLOODNET_EVENT_QUERY_FAILED`. Clients must inspect `error` and `qualityFlags`
+even when `data` is present. Failed sensor retrieval remains `error` with null
+data. `diagnostics.failures` identifies `floodnet_stations` or `floodnet_events`,
+the sanitized error code, HTTP status and/or bounded retry delay when known.
+Transport rejection now has `PROVIDER_NETWORK_ERROR`; it does not establish an
+outage or the reason for a connection failure. Invalid JSON/shape stays
+`INVALID_PROVIDER_RESPONSE`, timeout stays `PROVIDER_TIMEOUT`, HTTP errors stay
+`PROVIDER_HTTP_ERROR`, and 429 stays `PROVIDER_RATE_LIMITED`.
+
+Each provider request has a six-second abort deadline and bounded response size.
+There are **no automatic retries**: FloodNet makes at most one sensor request
+and one event request; NWS makes at most one point lookup and one alert request.
+Two sequential requests can take up to two such deadlines. A 429's numeric
+`Retry-After` is preserved with a 3,600-second cap (60-second fallback); it is a
+hint for subsequent requests, not permission for a client retry storm.
+`eventSearchCompleted` is false when the event request fails or is not made.
+`zeroEventMatchesVerified` is true only for an actually empty successful source
+query of the retained sensor IDs, never because invalid records were discarded.
+It does not establish area-wide absence, including omitted or truncated sensors.
+
+## Ryan Lin integration example — acceptance pending
+
+[Full area response](examples/area-summary.local.json) was captured from the
+local Edge Function/PostGIS flow on November 21, 2026 at the response's
+`generatedAt`. It is dated local evidence, not a hosted endpoint or a current
+flood report. Request:
+
+```json
+{"center":{"lat":40.591699,"lon":-73.809929},"radiusMeters":1000}
+```
+
+It returns five cached station points and 100 historical events, while status
+stays `insufficient_data` because the cache is an incomplete sample. These
+counts are lower bounds. This is the proposed consumer mapping, not a claim
+that frontend callers are already implemented:
+
+| Consumer | Fields to read | Display rule |
+| --- | --- | --- |
+| Map selection | `body.data.center`, `radiusMeters` | Draw the selected circle; request remains center/radius |
+| Map station layer | `body.data.data.stations[].geometry`, `name`, `sourceName`, `sourceUrl`, `metadataFetchedAt` | GeoJSON Point in longitude/latitude order; sensor footprint only |
+| Map data panel | `body.data.status`, `qualityFlags`, `limitations`, `source`, `data.coverageStatus`, `data.zeroMatchesVerified` | Explain incomplete/unknown coverage before displaying metrics |
+| Area statistics | `body.data.data.stationCount`, `cachedEventCount`, `sampledHistoricalMaxDepthMm`, `windowStart`, `windowEnd` | Null means unknown; historical sample maximum is not present depth or flood frequency |
+| Freshness label | `body.data.data.cacheOldestFetchedAt`, `cacheNewestFetchedAt`, `body.generatedAt` | Cache age and response generation are separate from event times |
+| Landing resources/bibliography, if consuming the API | `body.data.source.name`, `url`, `geographicCoverage` | Attribution and coverage only; no live safety/area-risk claim |
+| Alert panel from `/alerts` or summary | `messageValidity`, `hazardTiming`, `floodRelevance`, source times and text, quality flags | Upcoming/ended/unknown are never flooding happening now; active is still not an observation |
+
+Canonical area metrics are `body.data.data`. `body.data.metrics` remains an
+identical compatibility alias; do not combine the two as different datasets.
+No new table is needed: existing `monitoring_stations`, `flood_events`,
+`historical_observations` and `source_status` support these reads. R2 adds no
+migration or notification table. Contract acceptance, landing-page readiness
+and effective gateway CORS remain open integration gates. Ryan's preliminary
+support and request for this example are recorded in
+[his PR comment](https://github.com/LeviaLabs/WaterMark/pull/4#issuecomment-7069514336).
 
 ## Review requests
 

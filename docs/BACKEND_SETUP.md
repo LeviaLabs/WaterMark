@@ -3,6 +3,11 @@
 WM-CODEX-001. Draft for Decong and teammate review. No hosted project was
 created, linked, migrated, or deployed. The existing `WaterMark/` app is unchanged.
 
+Current correction evidence and the authorization-gated hosted verification plan
+are in [WM-CODEX-001-R2.md](WM-CODEX-001-R2.md). Provider requests do not retry
+automatically. Partial FloodNet results can contain sensor data plus an event
+retrieval error; inspect diagnostics/quality flags as described in the API contract.
+
 ## Local tools
 
 Verified on Windows with Git 2.55.0, Node 24.22.1, npm 12.2.1, Docker 29.9.3,

@@ -19,7 +19,17 @@ for (const name of ["rainfall", "riverDischarge", "officialAlerts", "historicalF
   assert.notEqual(
     result.status,
     "error",
-    JSON.stringify({ layer: name, error: result.error, qualityFlags: result.qualityFlags }),
+    JSON.stringify({
+      layer: name,
+      error: result.error,
+      diagnostics: result.diagnostics,
+      qualityFlags: result.qualityFlags,
+    }),
+  );
+  assert.equal(
+    result.error,
+    undefined,
+    JSON.stringify({ layer: name, error: result.error, diagnostics: result.diagnostics }),
   );
   const flags = result.qualityFlags;
   assert.ok(Array.isArray(flags));
@@ -62,7 +72,16 @@ assert.equal(denied.status, 403);
 await denied.body?.cancel();
 const rockaway = record(await get("/location-summary?lat=40.591699&lon=-73.809929"));
 const rockawayHistory = record(rockaway.historicalFloods);
-assert.equal(rockawayHistory.status, "available");
+assert.equal(
+  rockawayHistory.status,
+  "available",
+  JSON.stringify({
+    layer: "rockawayHistory",
+    error: rockawayHistory.error,
+    diagnostics: rockawayHistory.diagnostics,
+    qualityFlags: rockawayHistory.qualityFlags,
+  }),
+);
 const rockawayEvents = record(rockawayHistory.data).events;
 assert.ok(Array.isArray(rockawayEvents) && rockawayEvents.length > 0);
 const rockawayFlags = rockawayHistory.qualityFlags;

@@ -14,7 +14,7 @@ There is no paths filter. The frontend lives in `WaterMark/`, but skipping other
 | Typecheck | Runs | `npx tsc --noEmit -p tsconfig.app.json` and `npx tsc --noEmit -p tsconfig.node.json` |
 | Lint | Runs | `npm run lint` (`eslint .`) |
 | Build | Runs | `npm run build` (`tsc -b && vite build`) |
-| Test | Skipped | `npm test` only when `package.json` has a `test` script |
+| Test | NOT RUN | `npm test` only when `package.json` has a `test` script |
 
 Node is **22**. The repo has no `.nvmrc` and the app `package.json` has no `engines` field. The lockfile is the hint: `@astryxdesign/cli` requires `node >= 22.13.0`, and ESLint 10 accepts `^22.13.0` or `>= 24`. Node 20 does not satisfy that floor. `actions/setup-node` is set to major version `22`, which installs a current 22.x release (past 22.13). `@types/node` is `^24`; that is a type package, not the runtime the workflow uses. Node 24 also satisfies the lockfile engines if the team later standardizes on it.
 
@@ -45,14 +45,13 @@ The current app does not read `import.meta.env` or any `VITE_*` variable, and th
 
 ### Test
 
-`WaterMark/package.json` has no `test` script. The test step writes:
+Test suite: NOT RUN, because the current main branch has no npm test script. This is not a pass.
 
-```text
-::warning::SKIPPED: no test script in package.json
-SKIPPED: no test script in package.json
-```
+`WaterMark/package.json` has no `test` script. A detection step reads `package.json` with `node -e` and sets `has_test`. `Run npm test` has `if: steps.detect-test.outputs.has_test == 'true'`, so GitHub shows that step as skipped. It does not turn green. A separate step, `Tests: NOT RUN (no npm test script on main)`, runs only when `has_test` is `false` and emits a `::warning::`. The job still succeeds.
 
-The step exits 0 after that warning so a missing script does not fail every pull request. It is not a silent pass: the annotation and the job summary both say `SKIPPED`. When a `test` script is added, the same workflow runs `npm test` on the next push or pull request. No edit to the workflow is required.
+The last step always writes a job-summary table for Install, Typecheck, ESLint, Build, and Tests. Each cell is PASSED, FAILED, or NOT RUN. Tests are PASSED only when `has_test` is true and `npm test` succeeded. On current `main` the Tests row is NOT RUN.
+
+When a `test` script is added, the same workflow runs `npm test` without an edit.
 
 ## How to run it locally
 
@@ -82,7 +81,7 @@ Recorded on commit `4d020c947cf0160f07ad342376840e1a98f71b84` (the `main` this b
 | `npx tsc --noEmit -p tsconfig.json` | Exit 0, but `--listFilesOnly` lists 0 files. Not used as a gate. |
 | `npm run lint` | Pass. Exit 0, no eslint output. |
 | `npm run build` | Pass. `tsc -b` then Vite 8.3.8. A direct run built in 594ms. Replaying the workflow script built in 679ms. |
-| `npm test` | Skipped. No `test` script in `package.json`. |
+| `npm test` | NOT RUN. Test suite: NOT RUN, because the current main branch has no npm test script. This is not a pass. |
 
 No existing check failed, so no step is marked `continue-on-error`.
 

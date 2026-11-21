@@ -1,7 +1,6 @@
 # Frontend quality gates for the Vite app in WaterMark/.
-# Scripts that are not in package.json are reported as SKIPPED.
-# They are not treated as a pass. Detection reads package.json at runtime
-# so a later test or typecheck script is picked up without editing this file.
+# A missing npm test script does not run tests and is not a pass.
+# That step stays skipped. The job summary marks Tests as NOT RUN.
 
 name: Frontend CI
 
@@ -44,12 +43,14 @@ jobs:
           cache-dependency-path: WaterMark/package-lock.json
 
       - name: Install
+        id: install
         run: |
           set -euo pipefail
           npm ci
           echo "PASS: install (npm ci)" >> "${GITHUB_STEP_SUMMARY:?}"
 
       - name: Typecheck
+        id: typecheck
         run: |
           set -euo pipefail
           summary="${GITHUB_STEP_SUMMARY:?}"
@@ -129,6 +130,7 @@ jobs:
           echo "PASS: typecheck (npx tsc --noEmit -p ${projects[*]})" >> "${summary}"
 
       - name: Lint
+        id: lint
         run: |
           set -euo pipefail
           summary="${GITHUB_STEP_SUMMARY:?}"
@@ -178,6 +180,7 @@ jobs:
           echo "PASS: lint (npx eslint .)" >> "${summary}"
 
       - name: Build
+        id: build
         # No VITE_* variables are read by the app, and there is no .env.example.
         # Do not put real secrets here. If a later build requires VITE_* names,
         # set obviously fake placeholders (for example VITE_EXAMPLE=placeholder).
@@ -204,26 +207,116 @@ jobs:
           npm run build
           echo "PASS: build (npm run build)" >> "${summary}"
 
-      - name: Test
+      - name: Detect npm test script
+        id: detect-test
         run: |
           set -euo pipefail
-          summary="${GITHUB_STEP_SUMMARY:?}"
-          mode="$(node -e '
+          has_test="$(node -e '
             const fs = require("fs");
             const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
             const scripts = pkg.scripts || {};
             const test = typeof scripts.test === "string" ? scripts.test.trim() : "";
-            console.log(test ? "script" : "skip");
+            process.stdout.write(test ? "true" : "false");
           ')"
-          if [[ "${mode}" == "skip" ]]; then
-            reason="no test script in package.json"
-            echo "::warning::SKIPPED: ${reason}"
-            echo "SKIPPED: ${reason}" >> "${summary}"
-            exit 0
-          fi
-          if [[ "${mode}" != "script" ]]; then
-            echo "::error::unrecognized test plan: ${mode}"
+          if [[ "${has_test}" != "true" && "${has_test}" != "false" ]]; then
+            echo "::error::unrecognized test detection result"
             exit 1
           fi
+          echo "has_test=${has_test}" >> "${GITHUB_OUTPUT:?}"
+
+      - name: Run npm test
+        id: test
+        if: steps.detect-test.outputs.has_test == 'true'
+        run: |
+          set -euo pipefail
           npm test
-          echo "PASS: test (npm test)" >> "${summary}"
+
+      - name: "Tests: NOT RUN (no npm test script on main)"
+        id: tests-not-run
+        if: steps.detect-test.outputs.has_test == 'false'
+        run: |
+          set -euo pipefail
+          echo "::warning::Test suite: NOT RUN, because the current main branch has no npm test script. This is not a pass."
+
+      - name: Quality gate summary
+        if: always()
+        working-directory: ${{ github.workspace }}
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          HAS_TEST: ${{ steps.detect-test.outputs.has_test }}
+        run: |
+          set -euo pipefail
+          summary_file="${GITHUB_STEP_SUMMARY:?}"
+
+          result_for() {
+            case "$1" in
+              success) printf '%s' "PASSED" ;;
+              failure) printf '%s' "FAILED" ;;
+              *) printf '%s' "NOT RUN" ;;
+            esac
+          }
+
+          reason_for() {
+            local outcome="$1"
+            local result="$2"
+            if [[ "${result}" == "PASSED" ]]; then
+              printf '%s' ""
+              return
+            fi
+            if [[ "${result}" == "FAILED" ]]; then
+              printf '%s' "command failed"
+              return
+            fi
+            case "${outcome}" in
+              skipped) printf '%s' "step was skipped" ;;
+              cancelled) printf '%s' "step was cancelled" ;;
+              "") printf '%s' "step did not run" ;;
+              *) printf '%s' "outcome: ${outcome}" ;;
+            esac
+          }
+
+          install_outcome="${INSTALL_OUTCOME-}"
+          typecheck_outcome="${TYPECHECK_OUTCOME-}"
+          lint_outcome="${LINT_OUTCOME-}"
+          build_outcome="${BUILD_OUTCOME-}"
+          test_outcome="${TEST_OUTCOME-}"
+          has_test="${HAS_TEST-}"
+
+          install_result="$(result_for "${install_outcome}")"
+          typecheck_result="$(result_for "${typecheck_outcome}")"
+          lint_result="$(result_for "${lint_outcome}")"
+          build_result="$(result_for "${build_outcome}")"
+          install_reason="$(reason_for "${install_outcome}" "${install_result}")"
+          typecheck_reason="$(reason_for "${typecheck_outcome}" "${typecheck_result}")"
+          lint_reason="$(reason_for "${lint_outcome}" "${lint_result}")"
+          build_reason="$(reason_for "${build_outcome}" "${build_result}")"
+
+          if [[ "${has_test}" == "true" && "${test_outcome}" == "success" ]]; then
+            tests_result="PASSED"
+            tests_reason=""
+          elif [[ "${has_test}" == "true" && "${test_outcome}" == "failure" ]]; then
+            tests_result="FAILED"
+            tests_reason="npm test failed"
+          elif [[ "${has_test}" == "false" ]]; then
+            tests_result="NOT RUN"
+            tests_reason="Test suite: NOT RUN, because the current main branch has no npm test script. This is not a pass."
+          else
+            tests_result="NOT RUN"
+            tests_reason="npm test did not run"
+          fi
+
+          {
+            echo "### Quality gates"
+            echo ""
+            echo "| Check | Result | Reason |"
+            echo "| --- | --- | --- |"
+            echo "| Install | ${install_result} | ${install_reason} |"
+            echo "| Typecheck | ${typecheck_result} | ${typecheck_reason} |"
+            echo "| ESLint | ${lint_result} | ${lint_reason} |"
+            echo "| Build | ${build_result} | ${build_reason} |"
+            echo "| Tests | ${tests_result} | ${tests_reason} |"
+          } >> "${summary_file}"

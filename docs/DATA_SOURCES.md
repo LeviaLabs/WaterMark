@@ -2,6 +2,12 @@
 
 Verified on November 21, 2026 using actual HTTP responses and the implemented
 adapters. These are informational model/sensor/alert products, not safety guarantees.
+R1 follow-up: onset/end and message validity are distinct; surge and contextual
+tropical products are included. A verified NWS forecast point now gates alert
+queries. NYC lookup/alerts returned 200; direct London/Toronto alert probes
+returned 400 and point probes 404. The adapter rejects London without a request
+and Toronto after one coverage lookup, without querying alerts. It does not
+claim all NWS marine coverage. See `WM-CODEX-001-R1.md` for the complete evidence.
 
 | Source | Verified contract and interpretation |
 | --- | --- |
@@ -16,6 +22,10 @@ GloFAS at a Berlin river-model location; FloodNet at a public Rockaway sensor
 location. Rockaway returned historical events with explicit truncation at 100.
 A Coney Island query returned sensor metadata but no matching recent events:
 the adapter correctly returned `insufficient_data` rather than zero hazard.
+R1 distinguishes a verified empty upstream event query from unqueried cache/area
+absence. Absent area counts are null; cache coverage stays incomplete. Stored
+cache age over 24 hours is stale, separately from event/observation time and
+unknown source publication freshness.
 
 Open-Meteo's [current terms](https://open-meteo.com/en/terms) restrict its free
 service to noncommercial use and publish minute/hour/day limits. Its data

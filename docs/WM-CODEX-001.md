@@ -1,5 +1,9 @@
 # WM-CODEX-001 integration handoff
 
+**Current behavior/test counts: [WM-CODEX-001-R1](WM-CODEX-001-R1.md).** This
+original handoff records `dbd2922`; its area, alert, credential and health
+descriptions are superseded by the R1 corrections.
+
 Human owner: Decong. Feature branch: `feat/decong-data-api`.
 Baseline: clean `main` at `9f862b5`. Status: implemented and locally tested draft;
 Ryan Lin contract acceptance and Grokbot overlap review remain pending, as

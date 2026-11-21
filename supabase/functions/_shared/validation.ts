@@ -33,6 +33,12 @@ export function location(value: unknown): Location {
 }
 export function area(value: unknown): Area {
   const v = object(value);
+  if (Object.hasOwn(v, "geometry")) {
+    throw new InputError(
+      "GEOMETRY_CONTRACT_PENDING",
+      "Polygon input awaits the agreed frontend contract. Use center and radiusMeters for this draft.",
+    );
+  }
   keys(v, ["center", "radiusMeters"]);
   const radiusMeters = numeric(v.radiusMeters, "radiusMeters");
   if (radiusMeters < 100 || radiusMeters > 10000) {

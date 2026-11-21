@@ -1,7 +1,7 @@
 import { readBounded } from "./validation.ts";
 export type Fetcher = typeof fetch;
 export class ProviderError extends Error {
-  constructor(public code: string, public retryAfterSeconds?: number) {
+  constructor(public code: string, public retryAfterSeconds?: number, public httpStatus?: number) {
     super(code);
   }
 }
@@ -26,7 +26,7 @@ export async function fetchJson(
     }
     if (!response.ok) {
       await response.body?.cancel();
-      throw new ProviderError("PROVIDER_HTTP_ERROR");
+      throw new ProviderError("PROVIDER_HTTP_ERROR", undefined, response.status);
     }
     if (allowNoContent && response.status === 204) return null;
     if (

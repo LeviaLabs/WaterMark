@@ -27,7 +27,7 @@ export function createStore(baseUrl: string, key: string, fetcher: Fetcher = fet
     },
     async providerStatus() {
       const value = await fetchJson(
-        `${baseUrl}/rest/v1/source_status?select=source_id,status,checked_at,error_code&order=source_id`,
+        `${baseUrl}/rest/v1/source_status?select=source_id,last_success_at&order=source_id`,
         { headers },
         fetcher,
         4000,
@@ -35,31 +35,29 @@ export function createStore(baseUrl: string, key: string, fetcher: Fetcher = fet
       if (!Array.isArray(value)) throw new Error("Invalid provider status");
       return value.map((v): ProviderStatus => {
         const row = record(v);
+        const checkedAt = row.last_success_at === null ? null : timestamp(row.last_success_at);
         return {
           source_id: text(row.source_id, 100),
-          status: text(row.status, 30),
-          checked_at: row.checked_at === null ? null : timestamp(row.checked_at),
-          error_code: row.error_code === null ? null : text(row.error_code, 100),
+          status: checkedAt === null
+            ? "unknown"
+            : Date.now() - Date.parse(checkedAt) > 3600000
+            ? "stale"
+            : "available",
+          checked_at: checkedAt,
+          error_code: null,
+          scope: "last_successful_contact",
+          globalAvailability: "unknown",
         };
       });
     },
     async recordStatus(result: EnvironmentalResult) {
-      const response = await fetcher(
-        `${baseUrl}/rest/v1/source_status?source_id=eq.${encodeURIComponent(result.source.id)}`,
-        {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify({
-            status: result.status,
-            checked_at: result.fetchedAt,
-            error_code: result.error?.code ?? null,
-          }),
-          signal: AbortSignal.timeout(4000),
-          redirect: "error",
-        },
-      );
-      await response.body?.cancel();
-      if (!response.ok) throw new Error("Status update failed");
+      // Location absence, coverage and individual errors are not global outages.
+      // A successful contact is only evidence of reachability, never global uptime.
+      if (result.status !== "available" && result.status !== "stale") return;
+      await rpc("watermark_record_provider_success", {
+        p_source_id: result.source.id,
+        p_checked_at: result.fetchedAt,
+      });
     },
     async cacheFloodNet(data: FloodNetData) {
       await rpc(

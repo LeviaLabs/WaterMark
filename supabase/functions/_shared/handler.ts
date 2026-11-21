@@ -1,10 +1,12 @@
 import type {
+  Area,
   BackendStore,
   EnvironmentalResult,
   HistoricalMeasurement,
   Location,
 } from "./contracts.ts";
-import { alerts, base, classifyDepth, exposure, floodnet, forecast } from "./providers.ts";
+import { alerts, base, classifyDepth, exposure, floodnet, forecast, SOURCES } from "./providers.ts";
+import { CACHE_MAX_AGE_MS, cacheFreshness } from "./cache-quality.ts";
 import { type Fetcher, finite, record, text, timestamp } from "./http.ts";
 import { area, InputError, query, queryLocation, readBounded } from "./validation.ts";
 
@@ -20,7 +22,7 @@ export function historicalResult(point: Location, rows: unknown, now: Date): Env
     {
       id: "watermark_cache",
       name: "WaterMark historical cache",
-      url: "https://github.com/LeviaLabs/WaterMark",
+      url: SOURCES.floodnet.url,
       geographicCoverage: "Cached public sensor footprints only",
     },
     "historical_observations",
@@ -35,27 +37,33 @@ export function historicalResult(point: Location, rows: unknown, now: Date): Env
       typeof r.stale !== "boolean" || !Array.isArray(r.quality_flags) ||
       r.quality_flags.some((f) => typeof f !== "string")
     ) throw new Error("Invalid historical row");
+    const fetchedAt = timestamp(r.fetched_at);
     return {
       source_id: text(r.source_id, 100),
       source_name: text(r.source_name, 200),
       source_url: text(r.source_url, 500),
       station_id: text(r.station_id, 120),
       observed_at: timestamp(r.observed_at),
-      fetched_at: timestamp(r.fetched_at),
+      fetched_at: fetchedAt,
       metric: text(r.metric, 30),
       value: finite(r.value),
       units: text(r.units, 20),
       quality_flags: r.quality_flags.map((f) => text(f, 100)),
       stale: r.stale,
+      cacheFreshness: now.getTime() - Date.parse(fetchedAt) > CACHE_MAX_AGE_MS ? "stale" : "fresh",
     };
   });
-  result.observedAt = result.data[0]?.observed_at ?? null;
+  result.observedAt = result.data.map((r) => r.observed_at).sort().at(-1) ?? null;
   result.status = !result.data.length
     ? "insufficient_data"
-    : result.data.every((r) => r.stale)
+    : result.data.some((r) => r.stale)
     ? "stale"
     : "available";
   result.qualityFlags = rows.length ? ["LIMITED_HISTORICAL_CACHE"] : ["MISSING_MEASUREMENTS"];
+  if (result.data.some((r) => r.stale)) result.qualityFlags.push("STALE_OBSERVATIONS");
+  if (cacheFreshness(result, result.data.map((r) => r.fetched_at), now) && result.data.length) {
+    result.status = "stale";
+  }
   result.limitations = [
     "No current observations are inferred from missing or old sensor measurements. Units and source are attached to each row.",
   ];
@@ -66,7 +74,7 @@ export function eventHistoryResult(point: Location, rows: unknown, now: Date): E
     {
       id: "watermark_cache",
       name: "WaterMark historical event cache",
-      url: "https://github.com/LeviaLabs/WaterMark",
+      url: SOURCES.floodnet.url,
       geographicCoverage: "Cached public sensor footprints only",
     },
     "historical_flood_events",
@@ -77,6 +85,7 @@ export function eventHistoryResult(point: Location, rows: unknown, now: Date): E
   const events = rows.slice(0, 100).map((value) => {
     const r = record(value), maxDepthMm = finite(r.max_depth_mm);
     if (r.units !== "mm" || maxDepthMm < 0) throw new Error("Invalid cached event units");
+    const fetchedAt = timestamp(r.fetched_at);
     return {
       sourceId: text(r.source_id, 100),
       sourceName: text(r.source_name, 200),
@@ -84,7 +93,8 @@ export function eventHistoryResult(point: Location, rows: unknown, now: Date): E
       stationId: text(r.station_id, 120),
       startedAt: timestamp(r.started_at),
       endedAt: r.ended_at === null ? null : timestamp(r.ended_at),
-      fetchedAt: timestamp(r.fetched_at),
+      fetchedAt,
+      cacheFreshness: now.getTime() - Date.parse(fetchedAt) > CACHE_MAX_AGE_MS ? "stale" : "fresh",
       maxDepthMm,
       classification: classifyDepth(maxDepthMm),
     };
@@ -100,10 +110,85 @@ export function eventHistoryResult(point: Location, rows: unknown, now: Date): E
     "LIMITED_HISTORICAL_CACHE",
     ...(rows.length > 100 ? ["TRUNCATED_EVENTS"] : []),
   ];
+  if (cacheFreshness(result, events.map((e) => e.fetchedAt), now) && events.length) {
+    result.status = "stale";
+  }
+  result.qualityFlags.push("SOURCE_PUBLICATION_TIME_NOT_PROVIDED");
   result.limitations = [
     "Incomplete historical sample; counts are not a flood frequency or a current hazard. Query location is not stored.",
   ];
   return result;
+}
+
+export function areaResult(selection: Area, value: unknown, now: Date) {
+  const raw = record(value);
+  const count = (value: unknown): number | null => {
+    if (value === null) return null;
+    const parsed = finite(value);
+    if (!Number.isSafeInteger(parsed) || parsed < 0) throw new Error("Invalid area count");
+    return parsed === 0 ? null : parsed;
+  };
+  if (
+    raw.coverageStatus !== "incomplete" || raw.areaForecastStatus !== "insufficient_data" ||
+    !Array.isArray(raw.stations) || raw.stations.length > 100
+  ) throw new Error("Invalid spatial response");
+  const stations = raw.stations.map((value) => {
+    const station = record(value), geometry = record(station.geometry);
+    const coords = geometry.coordinates;
+    if (
+      geometry.type !== "Point" || !Array.isArray(coords) || coords.length !== 2 ||
+      typeof coords[0] !== "number" || typeof coords[1] !== "number" ||
+      !Number.isFinite(coords[0]) || !Number.isFinite(coords[1]) ||
+      Math.abs(coords[0]) > 180 || Math.abs(coords[1]) > 90
+    ) throw new Error("Invalid station geometry");
+    return {
+      sourceId: text(station.sourceId, 100),
+      sourceName: text(station.sourceName, 200),
+      sourceUrl: text(station.sourceUrl, 500),
+      stationId: text(station.stationId, 120),
+      name: text(station.name, 200),
+      geometry: { type: "Point", coordinates: [coords[0], coords[1]] },
+      metadataFetchedAt: timestamp(station.metadataFetchedAt),
+    };
+  });
+  const newest = raw.cacheNewestFetchedAt === null ? null : timestamp(raw.cacheNewestFetchedAt);
+  const oldest = raw.cacheOldestFetchedAt === null ? null : timestamp(raw.cacheOldestFetchedAt);
+  if ((oldest === null) !== (newest === null) || (oldest && newest && oldest > newest)) {
+    throw new Error("Invalid cache times");
+  }
+  const maximum = raw.sampledHistoricalMaxDepthMm === null
+    ? null
+    : finite(raw.sampledHistoricalMaxDepthMm);
+  if (maximum !== null && maximum < 0) throw new Error("Invalid depth");
+  const metrics = {
+    stationCount: count(raw.stationCount),
+    cachedEventCount: count(raw.cachedEventCount),
+    sampledHistoricalMaxDepthMm: maximum,
+    coverageStatus: "incomplete",
+    zeroMatchesVerified: false,
+    windowStart: timestamp(raw.windowStart),
+    windowEnd: timestamp(raw.windowEnd),
+    cacheNewestFetchedAt: newest,
+    cacheOldestFetchedAt: oldest,
+    areaForecastStatus: "insufficient_data",
+    stations,
+  };
+  const result = base(SOURCES.floodnet, "historical_area_evidence", selection.center, now);
+  result.data = metrics;
+  result.coverage.method =
+    "PostGIS intersection with the selected circle; cache is an incomplete sample, not a complete area survey";
+  result.qualityFlags = ["CACHE_COVERAGE_INCOMPLETE", "SOURCE_PUBLICATION_TIME_NOT_PROVIDED"];
+  if (metrics.stationCount === null || metrics.cachedEventCount === null) {
+    result.qualityFlags.push("ZERO_MATCHES_NOT_VERIFIED");
+  }
+  if (cacheFreshness(result, [oldest, newest].filter((t): t is string => t !== null), now)) {
+    result.status = "stale";
+  }
+  result.limitations = [
+    "Positive counts are cached lower bounds only. Null counts mean unknown, not zero flood events. Complete geographic coverage is never claimed.",
+    "Event/observation time and cache retrieval time are distinct. No area-wide forecast, flood frequency or safety conclusion is calculated.",
+  ];
+  return { ...result, ...selection, metrics };
 }
 export function createHandler(options: Options): (request: Request) => Promise<Response> {
   return async (request) => {
@@ -200,10 +285,7 @@ export function createHandler(options: Options): (request: Request) => Promise<R
         return reply(200, {
           data: {
             ...selection,
-            metrics: await store.area(selection),
-            limitations: [
-              "Cached sensor evidence only; no complete flood frequency or circle-wide forecast is calculated.",
-            ],
+            ...areaResult(selection, await store.area(selection), now),
           },
         });
       }

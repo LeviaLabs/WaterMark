@@ -31,6 +31,8 @@ const area = record(
   }),
 );
 const metrics = record(area.metrics);
+assert.equal(area.status, "insufficient_data");
+assert.equal(record(area.source).id, "nyc_floodnet");
 assert.ok(typeof metrics.stationCount === "number" && metrics.stationCount > 0);
 assert.equal(metrics.areaForecastStatus, "insufficient_data");
 const historical = record(await get(`/series?${point}&kind=historical_observations`));
@@ -68,6 +70,33 @@ const cachedSeries = record(
 assert.equal(cachedSeries.status, "available");
 const cachedEvents = record(cachedSeries.data).events;
 assert.ok(Array.isArray(cachedEvents) && cachedEvents.length > 0);
+const before = record(await get("/health")), statusesBefore = before.providers;
+assert.ok(Array.isArray(statusesBefore));
+const floodnetBefore = record(
+  statusesBefore.find((value) => record(value).source_id === "nyc_floodnet"),
+);
+assert.equal(floodnetBefore.status, "available");
+assert.equal(floodnetBefore.globalAvailability, "unknown");
+const abroad = record(await get("/location-summary?lat=51.5&lon=-0.12"));
+assert.equal(record(abroad.officialAlerts).status, "unsupported");
+assert.equal(record(abroad.historicalFloods).status, "unsupported");
+const after = record(await get("/health")), statusesAfter = after.providers;
+assert.ok(Array.isArray(statusesAfter));
+const floodnetAfter = record(
+  statusesAfter.find((value) => record(value).source_id === "nyc_floodnet"),
+);
+assert.equal(floodnetAfter.checked_at, floodnetBefore.checked_at);
+assert.equal(floodnetAfter.status, "available");
+const uncachedArea = record(
+  await get("/area-summary", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ center: { lat: 0, lon: 0 }, radiusMeters: 1000 }),
+  }),
+);
+assert.equal(uncachedArea.status, "insufficient_data");
+assert.equal(record(uncachedArea.metrics).cachedEventCount, null);
+assert.equal(record(uncachedArea.metrics).zeroMatchesVerified, false);
 console.log(JSON.stringify({
   outcome: "PASS",
   layers: Object.fromEntries(
@@ -80,5 +109,5 @@ console.log(JSON.stringify({
   historicalMeasurements: historical.status,
   cachedHistoricalEventCount: cachedEvents.length,
   checks:
-    "guest HTTP, live providers, database persistence, spatial aggregation, historical no-data, malformed coordinates, radius bounds, application origin enforcement; effective CORS headers tested separately",
+    "guest HTTP, live providers, database persistence, spatial aggregation, unknown area data, cached event freshness, unsupported coverage, provider health isolation, malformed coordinates, radius bounds, application origin enforcement; effective CORS headers tested separately",
 }));

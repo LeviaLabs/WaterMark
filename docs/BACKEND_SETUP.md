@@ -32,10 +32,17 @@ Copy `supabase/.env.example` to the ignored `supabase/functions/.env` and config
 | `WATERMARK_ALLOWED_ORIGINS` | Exact comma-separated frontend origins; empty means browser requests are rejected |
 | `WATERMARK_NWS_USER_AGENT` | Application identity and public project/contact reference for NWS |
 | `SUPABASE_URL` | Runtime backend URL, supplied automatically by local/hosted Supabase |
-| `SUPABASE_SECRET_KEY` | Optional server-side replacement for legacy service-role credentials |
+| `SUPABASE_SECRET_KEYS` | Platform-injected JSON dictionary; default server secret is supported |
+| `WATERMARK_SUPABASE_SECRET_KEY` | Optional server-only override using a permitted custom secret name |
 | `SUPABASE_SERVICE_ROLE_KEY` | Legacy server-only credential supplied by the Supabase function runtime |
 
-Only the first two variables belong in the local function env template. Never
+Only WaterMark-prefixed variables belong in custom secrets. The `SUPABASE_`
+prefix is reserved; do not attempt to configure a custom singular
+`SUPABASE_SECRET_KEY`. Its legacy read is retained only for runtime compatibility.
+Malformed injected dictionaries fail closed without logging values. Hosted
+injection/permissions remain unverified. `WATERMARK_NWS_USER_AGENT` is required
+for supported NWS queries; an owner-supplied monitored contact is a release prerequisite.
+Never
 put privileged credentials in frontend variables, examples, logs, or handoffs.
 The browser needs only the proposed `VITE_WATERMARK_API_BASE_URL` variable after
 Ryan Lin agrees to integrate; it does not need a server credential.
@@ -83,11 +90,11 @@ substitute for applying these additive migrations.
 
 ## Schema
 
-Four CLI-generated migrations create and refine these tables:
+Five CLI-generated migrations create and refine these tables:
 
 | Table | Keys, data and purpose |
 | --- | --- |
-| `public.source_status` | Provider ID primary key; name, official URL, last-request status/check UTC time and sanitized error code. Initial status is unknown. |
+| `public.source_status` | Provider ID primary key; name, official URL, legacy outcome columns and atomic `last_success_at`. R1 health ignores legacy location outcomes; only newer successful contacts update success/check timestamps. |
 | `public.monitoring_stations` | Composite provider/station primary key; source foreign key; name; `geography(Point,4326)`; metadata fetch time; measurement freshness interval. GiST location index. |
 | `public.flood_events` | Composite provider/station/event-start primary key; composite station foreign key; UTC start/end; peak depth in mm; fetch time; time index. Event peaks are not instantaneous gauge readings. |
 | `public.historical_observations` | UUID primary key; composite station foreign key; unique provider/station/metric/observation time; UTC observation and retrieval times; metric, normalized units, value and quality flags. Station/time index. No production measurement ingestion is claimed. |
@@ -109,6 +116,12 @@ and reports a historical maximum **among those cached sensors**. It does not
 return a circle-average rainfall estimate or complete flood frequency.
 `watermark_history` and `watermark_event_history` select bounded 1,000 m / 90-day
 samples. All counts explicitly have incomplete cache coverage.
+R1 changes absent counts to null, exposes oldest/newest cache fetch times and up
+to 100 GeoJSON station points, and validates the RPC response in the HTTP layer.
+Cached rows over 24 hours old are stale, independently of source measurement time.
+`watermark_record_provider_success` is a server-only invoker RPC with conditional
+timestamp updates. Health describes contact evidence, not continuous monitoring;
+global availability stays unknown. Apply the R1 migration before using its handler.
 
 `watermark_cache_floodnet` accepts up to 50 validated stations and 100 historical
 events per batch; it upserts source records and prunes records older than 90 days
@@ -140,6 +153,11 @@ configured Origin, and an actual request with an unconfigured Origin returns
 handle preflight itself. No credentialed CORS response is enabled. This matches
 the [upstream gateway report](https://github.com/supabase/supabase/issues/52346).
 No gateway image/configuration was patched as an undocumented workaround.
+R1 directly inspected this stack's `functions-v1` CORS plugin: origins are unset,
+`preflight_continue=false`, credentials disabled. Allowed/disallowed GET statuses
+were 200/403 with wildcard headers; OPTIONS for either origin returned 200 with
+wildcard headers. This establishes local gateway interception rather than merely
+assuming it shares an upstream self-hosting issue. Hosted behavior remains unknown.
 Run the retained strict `test:cors` gate against the eventual deployment and
 resolve effective headers before claiming a restricted production CORS policy.
 Hosted behavior remains **UNVERIFIED**.

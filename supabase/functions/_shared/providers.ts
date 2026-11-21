@@ -5,7 +5,9 @@ import type {
   Location,
   OfficialAlert,
   Source,
+  Station,
 } from "./contracts.ts";
+import { nwsCandidate, parseAlert } from "./alert-semantics.ts";
 import { type Fetcher, fetchJson, finite, ProviderError, record, text, timestamp } from "./http.ts";
 
 export const SOURCES: Record<string, Source> = {
@@ -175,8 +177,34 @@ export async function alerts(
   fetcher: Fetcher = fetch,
 ): Promise<EnvironmentalResult<OfficialAlert[]>> {
   const result = base<OfficialAlert[]>(SOURCES.alerts, "official_alert", location, now);
+  const unsupported = (): EnvironmentalResult<OfficialAlert[]> => ({
+    ...result,
+    status: "unsupported",
+    limitations: [
+      "This adapter requires a verified NWS forecast point in its documented US/territory candidate regions. Marine-only and other regions are not supported; this says nothing about flood safety.",
+    ],
+  });
+  if (!nwsCandidate(location)) return unsupported();
   return await safely(result, async () => {
     if (!userAgent.trim()) throw new ProviderError("PROVIDER_NOT_CONFIGURED");
+    try {
+      // NWS canonicalizes this endpoint to four decimals with a 301. Keep
+      // redirects disabled and construct the canonical lookup directly.
+      const pointLat = Number(location.lat.toFixed(4)), pointLon = Number(location.lon.toFixed(4));
+      const point = record(
+        await fetchJson(`https://api.weather.gov/points/${pointLat},${pointLon}`, {
+          headers: { "User-Agent": userAgent, Accept: "application/geo+json" },
+        }, fetcher),
+      );
+      if (!/^[A-Z]{3}$/.test(text(record(point.properties).cwa, 3))) {
+        throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+      }
+    } catch (error) {
+      if (
+        error instanceof ProviderError && (error.httpStatus === 400 || error.httpStatus === 404)
+      ) return unsupported();
+      throw error;
+    }
     const raw = record(
       await fetchJson(
         `https://api.weather.gov/alerts/active?point=${location.lat},${location.lon}`,
@@ -188,58 +216,58 @@ export async function alerts(
       raw.type !== "FeatureCollection" || !Array.isArray(raw.features) ||
       raw.features.length > 500 || raw.pagination
     ) throw new ProviderError("INVALID_PROVIDER_RESPONSE");
-    const updated = timestamp(raw.updated);
+    let updated: string | null = null;
+    try {
+      updated = raw.updated == null ? null : timestamp(raw.updated);
+    } catch {
+      result.qualityFlags.push("INVALID_SOURCE_UPDATE_TIME");
+    }
+    if (!updated) result.qualityFlags.push("SOURCE_UPDATE_TIME_UNKNOWN");
     result.sourceUpdatedAt = updated;
     const rows: OfficialAlert[] = [];
+    let rejectedAlertRecords = 0, excludedAlertRecords = 0;
     for (const feature of raw.features) {
-      const p = record(record(feature).properties);
-      const event = text(p.event, 200);
-      if (!/flood|heavy rain|excessive rain/i.test(event)) continue;
-      if (p.status !== "Actual" || p.messageType === "Cancel") continue;
-      const sent = timestamp(p.sent),
-        effective = timestamp(p.effective),
-        expires = timestamp(p.expires);
-      if (Date.parse(expires) <= now.getTime()) continue;
-      if (!["Extreme", "Severe", "Moderate", "Minor", "Unknown"].includes(text(p.severity, 20))) {
-        throw new ProviderError("INVALID_PROVIDER_RESPONSE");
+      try {
+        const alert = parseAlert(feature, now);
+        if (alert) rows.push(alert);
+        else excludedAlertRecords++;
+      } catch {
+        rejectedAlertRecords++;
       }
-      const sourceLanguage = p.language === undefined || p.language === null
-        ? null
-        : text(p.language, 60);
-      if (sourceLanguage !== null) {
-        try {
-          Intl.getCanonicalLocales(sourceLanguage);
-        } catch {
-          throw new ProviderError("INVALID_PROVIDER_RESPONSE");
-        }
-      } else if (!result.qualityFlags.includes("SOURCE_LANGUAGE_NOT_PROVIDED")) {
-        result.qualityFlags.push("SOURCE_LANGUAGE_NOT_PROVIDED");
-      }
-      rows.push({
-        sourceLanguage,
-        id: text(record(feature).id, 500),
-        event,
-        severity: text(p.severity, 20),
-        urgency: text(p.urgency, 30),
-        certainty: text(p.certainty, 30),
-        sent,
-        effective,
-        expires,
-        areaDescription: text(p.areaDesc, 5000),
-        headline: text(p.headline, 2000),
-        description: text(p.description),
-        instruction: p.instruction === null ? null : text(p.instruction),
-        severityBasis: "Original NWS CAP severity; not a WaterMark calculation",
-      });
     }
-    result.status = now.getTime() - Date.parse(updated) > 15 * 60000 ? "stale" : "available";
-    if (result.status === "stale") result.qualityFlags.push("STALE_PROVIDER_UPDATE");
+    result.status = updated && now.getTime() - Date.parse(updated) > 15 * 60000
+      ? "stale"
+      : "available";
+    if (result.status === "stale") {
+      result.qualityFlags.push("STALE_PROVIDER_UPDATE", "SOURCE_UPDATE_TIME_IS_NOT_A_HEARTBEAT");
+    }
+    result.diagnostics = { rejectedAlertRecords, excludedAlertRecords };
+    if (rejectedAlertRecords) result.qualityFlags.push("ALERT_RECORD_REJECTED");
+    if (rows.some((r) => r.sourceLanguage === null)) {
+      result.qualityFlags.push("SOURCE_LANGUAGE_NOT_PROVIDED");
+    }
     result.data = rows;
-    result.validFrom = rows.length ? rows.map((r) => r.effective).sort()[0] : null;
-    result.validTo = rows.length ? rows.map((r) => r.expires).sort().at(-1)! : null;
-    result.coverage.method = "NWS point-filtered alert areas; polygons can be absent";
+    result.validFrom = rows.map((r) =>
+      r.onset ?? r.effective ?? r.sent
+    ).filter((t): t is string => t !== null).sort()[0] ?? null;
+    result.validTo = rows.map((r) =>
+      r.ends ?? (r.expires && (!r.onset || r.expires >= r.onset) ? r.expires : null)
+    ).filter((t): t is string =>
+      t !== null
+    ).sort().at(-1) ?? null;
+    if (!rows.length && rejectedAlertRecords) {
+      result.status = "error";
+      result.data = null;
+      result.error = {
+        code: "NO_VALID_ALERT_RECORDS",
+        message: "No usable alert records remain; warning status is unknown.",
+      };
+    }
+    result.coverage.method =
+      "NWS forecast-point verification and point-filtered alert areas; polygons can be absent";
     result.limitations = [
-      "No matching active flood/rain alerts does not establish safe conditions.",
+      "No matching messages does not establish safe conditions. Active means the expected official/fallback hazard window, not an observed flood.",
+      "Hurricane and tropical-storm messages are multi-hazard context, not direct evidence of flooding. Missing or expired hazard bounds never imply safety.",
       "Alert text is untrusted plain text; never render as HTML.",
     ];
     return result;
@@ -281,7 +309,7 @@ export async function floodnet(
     if (!Array.isArray(raw) || raw.length > 51) {
       throw new ProviderError("INVALID_PROVIDER_RESPONSE");
     }
-    const stations = raw.slice(0, 50).map((row) => {
+    const stations = raw.slice(0, 50).map((row): Station => {
       const r = record(row);
       const id = text(r.sensor_id, 120);
       if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new ProviderError("INVALID_PROVIDER_RESPONSE");
@@ -290,19 +318,36 @@ export async function floodnet(
         !Number.isFinite(lat) || !Number.isFinite(lon) || lat < 40.45 || lat > 40.95 ||
         lon < -74.3 || lon > -73.65
       ) throw new ProviderError("INVALID_PROVIDER_RESPONSE");
-      return { id, name: text(r.sensor_name, 200), location: { lat, lon } };
+      return {
+        id,
+        name: text(r.sensor_name, 200),
+        location: { lat, lon },
+        geometry: { type: "Point", coordinates: [lon, lat] },
+      };
     });
     result.coverage = {
       method: "up to 50 sensors within 1000 m; measurements apply only beneath sensors",
     };
     result.units = "mm";
-    result.data = { stations, events: [] };
+    result.data = {
+      stations,
+      events: [],
+      queryEvidence: {
+        eventSearchCompleted: false,
+        zeroEventMatchesVerified: false,
+        windowStart: null,
+        windowEnd: now.toISOString(),
+      },
+    };
     result.limitations = [
       "Historical event peaks, not current street conditions or neighborhood flood frequency.",
       "Dataset is periodically published; fetch time is not observation time.",
     ];
     if (raw.length > 50) result.qualityFlags.push("TRUNCATED_STATIONS");
-    if (!stations.length) return result;
+    if (!stations.length) {
+      result.qualityFlags.push("SOURCE_SENSOR_QUERY_EMPTY");
+      return result;
+    }
     const since = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 19);
     const eventUrl = new URL("https://data.cityofnewyork.us/resource/aq7i-eu5q.json");
     eventUrl.search = new URLSearchParams({
@@ -317,6 +362,13 @@ export async function floodnet(
     if (!Array.isArray(events) || events.length > 101) {
       throw new ProviderError("INVALID_PROVIDER_RESPONSE");
     }
+    result.data.queryEvidence = {
+      eventSearchCompleted: true,
+      zeroEventMatchesVerified: events.length === 0,
+      windowStart: since + "Z",
+      windowEnd: now.toISOString(),
+    };
+    if (!events.length) result.qualityFlags.push("NO_EVENTS_IN_FETCHED_SENSOR_QUERY");
     result.data.events = events.slice(0, 100).map((row) => {
       const r = record(row), stationId = text(r.sensor_id, 120);
       if (!stations.some((s) => s.id === stationId)) {

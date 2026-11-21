@@ -53,6 +53,9 @@ function alertRow(overrides = {}) {
 }
 const fixtureFetch: Fetcher = (input) => {
   const url = String(input);
+  if (url.includes("api.weather.gov/points/")) {
+    return Promise.resolve(json({ type: "Feature", properties: { cwa: "OKX" } }));
+  }
   if (url.includes("api.weather.gov")) {
     return Promise.resolve(
       json({ type: "FeatureCollection", updated: now.toISOString(), features: [alertRow()] }),
@@ -112,7 +115,18 @@ class Store implements BackendStore {
   }
   area(selection: Area) {
     this.lastArea = selection;
-    return Promise.resolve({ stationCount: 0, areaForecastStatus: "insufficient_data" });
+    return Promise.resolve({
+      stationCount: null,
+      cachedEventCount: null,
+      sampledHistoricalMaxDepthMm: null,
+      cacheNewestFetchedAt: null,
+      cacheOldestFetchedAt: null,
+      coverageStatus: "incomplete",
+      stations: [],
+      windowStart: "2026-08-23T12:00:00Z",
+      windowEnd: now.toISOString(),
+      areaForecastStatus: "insufficient_data",
+    });
   }
   history(_location: Location) {
     return Promise.resolve([]);
@@ -232,8 +246,8 @@ Deno.test("river output retains daily modeled discharge units", async () => {
   assert.equal(result.data?.samples[0].validTo, "2026-11-22T00:00:00.000Z");
 });
 Deno.test("official severity is unchanged and unrelated, canceled, test, expired alerts are excluded", async () => {
-  const fetcher: Fetcher = () =>
-    Promise.resolve(json({
+  const fetcher: Fetcher = (input, init) =>
+    String(input).includes("/points/") ? fixtureFetch(input, init) : Promise.resolve(json({
       type: "FeatureCollection",
       updated: now.toISOString(),
       features: [
@@ -254,8 +268,8 @@ Deno.test("empty alerts remain available with limitations; old provider updates 
     point,
     "WaterMark fixture",
     now,
-    () =>
-      Promise.resolve(
+    (input, init) =>
+      String(input).includes("/points/") ? fixtureFetch(input, init) : Promise.resolve(
         json({ type: "FeatureCollection", updated: "2026-11-21T10:00:00Z", features: [] }),
       ),
   );

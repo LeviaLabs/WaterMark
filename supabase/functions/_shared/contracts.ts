@@ -18,6 +18,14 @@ export interface Source {
   url: string;
   geographicCoverage: string;
 }
+export interface PointGeometry {
+  type: "Point";
+  coordinates: [number, number];
+}
+export type AlertGeometry = { type: "Polygon"; coordinates: number[][][] } | {
+  type: "MultiPolygon";
+  coordinates: number[][][][];
+};
 export interface EnvironmentalResult<T = unknown> {
   status: Status;
   kind: string;
@@ -31,6 +39,9 @@ export interface EnvironmentalResult<T = unknown> {
   fetchedAt: string;
   sourceUpdatedAt: string | null;
   sourceLanguage: string | null;
+  cacheNewestFetchedAt?: string | null;
+  cacheOldestFetchedAt?: string | null;
+  diagnostics?: { rejectedAlertRecords: number; excludedAlertRecords: number };
   units: string | null;
   data: T | null;
   qualityFlags: string[];
@@ -53,12 +64,23 @@ export interface OfficialAlert {
   severity: string;
   urgency: string;
   certainty: string;
-  sent: string;
-  effective: string;
-  expires: string;
+  sent: string | null;
+  effective: string | null;
+  expires: string | null;
+  onset: string | null;
+  ends: string | null;
+  messageType: "Alert" | "Update";
+  messageInForce: boolean | null;
+  messageValidity: "in_force" | "upcoming" | "expired" | "unknown";
+  hazardTiming: "upcoming" | "active" | "unknown";
+  hazardTimingReason: string;
+  timingAssumptions: string[];
+  floodRelevance: "flood_hazard_notice" | "multi_hazard_context";
+  geometry: AlertGeometry | null;
+  qualityFlags: string[];
   areaDescription: string;
-  headline: string;
-  description: string;
+  headline: string | null;
+  description: string | null;
   instruction: string | null;
   severityBasis: string;
 }
@@ -66,6 +88,7 @@ export interface Station {
   id: string;
   name: string;
   location: Location;
+  geometry: PointGeometry;
 }
 export interface FloodEvent {
   stationId: string;
@@ -77,6 +100,12 @@ export interface FloodEvent {
 export interface FloodNetData {
   stations: Station[];
   events: FloodEvent[];
+  queryEvidence?: {
+    eventSearchCompleted: boolean;
+    zeroEventMatchesVerified: boolean;
+    windowStart: string | null;
+    windowEnd: string;
+  };
 }
 export interface LocationSummary {
   location: Location;
@@ -91,6 +120,8 @@ export interface ProviderStatus {
   status: string;
   checked_at: string | null;
   error_code: string | null;
+  scope?: "last_successful_contact";
+  globalAvailability?: "unknown";
 }
 export interface HistoricalMeasurement {
   source_id: string;

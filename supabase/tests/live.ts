@@ -28,6 +28,33 @@ for (const result of results) {
 assert.ok(results[0].data?.samples.length);
 assert.ok(results[1].data?.samples.length);
 assert.ok(results[3].data?.stations.length);
+for (
+  const [name, location] of [
+    ["London", { lat: 51.5, lon: -0.12 }],
+    ["Toronto", { lat: 43.65, lon: -79.38 }],
+  ] as const
+) {
+  let calls = 0;
+  const unsupported = await alerts(
+    location,
+    "WaterMark R1 local verification",
+    new Date(),
+    (input, init) => {
+      calls++;
+      return fetch(input, init);
+    },
+  );
+  assert.equal(unsupported.status, "unsupported");
+  assert.equal(calls, name === "London" ? 0 : 1);
+  console.log(
+    JSON.stringify({
+      source: "nws",
+      location: name,
+      status: unsupported.status,
+      upstreamCalls: calls,
+    }),
+  );
+}
 assert.ok(
   results[3].data?.events.length,
   "Verified Rockaway historical-event sample should include at least one event; investigate upstream changes if empty.",

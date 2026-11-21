@@ -1,6 +1,6 @@
 import { Selector, SelectorOption } from '@astryxdesign/core/Selector'
-import { LOCALES } from './locales.ts'
-import { useI18n } from './useI18n.ts'
+import { LOCALES } from '../scripting/localization/localize.ts'
+import { useLocalization } from '../hooks/useLocalization.ts'
 
 interface Props {
   /** Hide the visible label (it stays available to screen readers). */
@@ -16,7 +16,7 @@ const findLocale = (code: string) => LOCALES.find((l) => l.code === code)
  * (Astryx components do not accept a lang prop).
  */
 export function LanguageSelect({ hideLabel = false }: Props) {
-  const { locale, setLocale, t, languageName } = useI18n()
+  const { locale, setLocale, t, languageName } = useLocalization()
 
   const nativeName = (code: string) => <bdi lang={code}>{findLocale(code)?.nativeName ?? code}</bdi>
 
@@ -33,7 +33,7 @@ export function LanguageSelect({ hideLabel = false }: Props) {
         <SelectorOption
           label={nativeName(option.value)}
           description={
-            findLocale(option.value)?.status === 'pending'
+            findLocale(option.value)?.pending
               ? t('lang.pending', { language: languageName(option.value) })
               : undefined
           }

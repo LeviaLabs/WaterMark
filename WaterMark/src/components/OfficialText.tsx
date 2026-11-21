@@ -5,7 +5,7 @@ import { Heading } from '@astryxdesign/core/Heading'
 import { Link } from '@astryxdesign/core/Link'
 import { Text } from '@astryxdesign/core/Text'
 import { VStack } from '@astryxdesign/core/VStack'
-import { useI18n } from './useI18n.ts'
+import { useLocalization } from '../hooks/useLocalization.ts'
 
 export interface OfficialTextTranslation {
   text: string
@@ -42,7 +42,7 @@ const withLineBreaks = (text: string) =>
  * Language-tagged text uses <bdi lang> because Astryx components do not accept lang.
  */
 export function OfficialText({ text, sourceName, sourceUrl, sourceLanguage, issuedAt, timeZone, translation }: Props) {
-  const { t, formatDateTime, languageName } = useI18n()
+  const { t, formatDateTime, languageName } = useLocalization()
   const headingId = useId()
   return (
     <VStack as="figure" gap={2} aria-labelledby={headingId}>

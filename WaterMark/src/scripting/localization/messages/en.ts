@@ -1,5 +1,5 @@
 // English source strings. Every other language must define exactly these keys
-// (enforced by the type below and by src/i18n/core.test.ts).
+// (enforced by the type below and by src/tests/localization.test.ts).
 //
 // Rules for translators:
 // - Keep {placeholders} exactly as written.

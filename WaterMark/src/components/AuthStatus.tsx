@@ -1,8 +1,8 @@
 import { Button } from '@astryxdesign/core/Button'
 import { HStack } from '@astryxdesign/core/HStack'
 import { Text } from '@astryxdesign/core/Text'
-import { useI18n } from '../i18n/useI18n.ts'
-import { useAuth } from './useAuth.ts'
+import { useLocalization } from '../hooks/useLocalization.ts'
+import { useAuth } from '../hooks/useAuth.ts'
 
 /**
  * Small sign-in status for a header. Announces changes politely to screen readers.
@@ -10,7 +10,7 @@ import { useAuth } from './useAuth.ts'
  */
 export function AuthStatus() {
   const { state, canSignIn, signIn, signOut } = useAuth()
-  const { t } = useI18n()
+  const { t } = useLocalization()
 
   const message =
     state.status === 'loading' ? t('auth.loading')

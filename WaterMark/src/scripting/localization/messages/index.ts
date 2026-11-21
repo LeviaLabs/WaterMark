@@ -1,4 +1,4 @@
-import type { LocaleCode } from '../locales.ts'
+import type { LocaleCode } from '../localize.ts'
 import { en, type Messages } from './en.ts'
 import { es } from './es.ts'
 import { hi } from './hi.ts'

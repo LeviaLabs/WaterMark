@@ -1,9 +1,16 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { guestAdapter } from './guestAdapter.ts'
-import { ACCOUNT_FEATURES, canUse, evaluateSession, PUBLIC_FEATURES, sanitizeState } from './session.ts'
-import { GUEST, type AuthState } from './types.ts'
+import {
+  ACCOUNT_FEATURES,
+  canUse,
+  evaluateSession,
+  GUEST,
+  guestAdapter,
+  PUBLIC_FEATURES,
+  sanitizeState,
+  type AuthState,
+} from '../src/services/auth/session.ts'
 
 const NOW = 1_800_000_000_000
 const signedIn = (expiresAt: number | null): AuthState => ({

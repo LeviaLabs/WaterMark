@@ -1,10 +1,17 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { resolveVoiceLanguage, speechFallbackText, VOICE_LANGUAGES } from '../voice/contract.ts'
-import { detectLocale, formatDateTime, formatMeasurement, formatNumber, matchLocale, translate } from './core.ts'
-import { LOCALES } from './locales.ts'
-import { MESSAGES, type MessageKey } from './messages/index.ts'
+import { resolveVoiceLanguage, speechFallbackText, VOICE_LANGUAGES } from '../src/services/voice/voiceLanguages.ts'
+import {
+  detectLocale,
+  formatDateTime,
+  formatMeasurement,
+  formatNumber,
+  LOCALES,
+  matchLocale,
+  translate,
+} from '../src/scripting/localization/localize.ts'
+import { MESSAGES, type MessageKey } from '../src/scripting/localization/messages/index.ts'
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
 

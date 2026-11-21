@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { Text } from '@astryxdesign/core/Text'
-import { useI18n } from '../i18n/useI18n.ts'
-import type { Feature } from './session.ts'
-import { useAuth } from './useAuth.ts'
+import { useLocalization } from '../hooks/useLocalization.ts'
+import type { Feature } from '../services/auth/session.ts'
+import { useAuth } from '../hooks/useAuth.ts'
 
 interface Props {
   /** An account-only feature such as 'savedPlaces'. Public features always render. */
@@ -18,7 +18,7 @@ interface Props {
  */
 export function RequireAccount({ feature, children, fallback }: Props) {
   const { canUse } = useAuth()
-  const { t } = useI18n()
+  const { t } = useLocalization()
   if (canUse(feature)) return <>{children}</>
   return <>{fallback ?? <Text as="p">{t('auth.requiredForFeature')}</Text>}</>
 }

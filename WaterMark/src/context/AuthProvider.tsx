@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AuthContext, type AuthValue } from './context.ts'
-import { guestAdapter } from './guestAdapter.ts'
-import { canUse, evaluateSession, sanitizeState } from './session.ts'
-import { GUEST, type AuthAdapter, type AuthState } from './types.ts'
+import { AuthContext, type AuthValue } from '../hooks/useAuth.ts'
+import {
+  canUse,
+  evaluateSession,
+  GUEST,
+  guestAdapter,
+  sanitizeState,
+  type AuthAdapter,
+  type AuthState,
+} from '../services/auth/session.ts'
 
-interface Props {
-  children: ReactNode
-  /** Sign-in provider. Defaults to guest-only (no provider configured). */
-  adapter?: AuthAdapter
-}
-
-const EXPIRY_CHECK_MS = 30_000
+/** Longest delay setTimeout accepts (about 24.8 days). */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
 
 /**
- * Optional sign-in state. Children always render, whatever the auth state, so the map and
- * warnings never wait on or depend on a login provider.
+ * Optional sign-in state. Children always render whatever the auth state, so the map and
+ * warnings never wait on a login provider. With no `adapter` the app is guest-only.
  */
-export function AuthProvider({ children, adapter = guestAdapter }: Props) {
+export function AuthProvider({ children, adapter = guestAdapter }: { children: ReactNode; adapter?: AuthAdapter }) {
   const [state, setState] = useState<AuthState>(adapter.canSignIn ? { ...GUEST, status: 'loading' } : GUEST)
 
   useEffect(() => {
@@ -27,10 +28,13 @@ export function AuthProvider({ children, adapter = guestAdapter }: Props) {
     return () => { active = false }
   }, [adapter])
 
+  // One timer at the session's expiry time, so the status text changes to "expired" on time.
+  // Access checks do not depend on it: canUse() compares against the clock on every call.
   useEffect(() => {
     if (state.status !== 'signed-in' || state.expiresAt === null) return
-    const id = window.setInterval(() => setState((s) => evaluateSession(s)), EXPIRY_CHECK_MS)
-    return () => window.clearInterval(id)
+    const delay = Math.min(Math.max(state.expiresAt - Date.now(), 0), MAX_TIMEOUT_MS)
+    const id = window.setTimeout(() => setState((s) => evaluateSession(s)), delay)
+    return () => window.clearTimeout(id)
   }, [state.status, state.expiresAt])
 
   const signIn = useCallback(async () => {

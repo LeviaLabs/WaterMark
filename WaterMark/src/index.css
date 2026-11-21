@@ -1,3 +1,4 @@
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
+@import './styling/fonts.css';
 @import './styling/global.css';

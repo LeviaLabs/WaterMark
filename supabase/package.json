@@ -1,0 +1,18 @@
+{
+  "name": "watermark-backend",
+  "private": true,
+  "scripts": {
+    "check": "deno check functions/watermark-v1/index.ts tests/live.ts tests/local.ts tests/cors.ts",
+    "test": "deno test --allow-env tests/unit",
+    "test:live": "deno run --allow-env --allow-net tests/live.ts",
+    "test:local": "deno run --allow-net=127.0.0.1:55321 tests/local.ts",
+    "test:cors": "deno run --allow-net=127.0.0.1:55321 tests/cors.ts",
+    "fmt": "deno fmt functions tests",
+    "lint": "deno lint functions tests"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "deno": "2.9.6",
+    "supabase": "3.2.0"
+  }
+}

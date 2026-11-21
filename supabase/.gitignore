@@ -1,0 +1,16 @@
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+
+# Backend-only dependencies and local runtime configuration.
+node_modules/
+.cache/
+.env
+.env.*
+!.env.example
+*.log

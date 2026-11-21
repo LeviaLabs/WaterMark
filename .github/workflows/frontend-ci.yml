@@ -1,0 +1,229 @@
+# Frontend quality gates for the Vite app in WaterMark/.
+# Scripts that are not in package.json are reported as SKIPPED.
+# They are not treated as a pass. Detection reads package.json at runtime
+# so a later test or typecheck script is picked up without editing this file.
+
+name: Frontend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: WaterMark frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: WaterMark
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          # No .nvmrc and no engines field on the app package.
+          # WaterMark/package-lock.json requires Node >=22.13.0
+          # (@astryxdesign/cli) and ESLint 10 accepts ^22.13.0 or >=24.
+          # Node 20 does not meet that floor. Major 22 resolves to a
+          # current 22.x release, which is past 22.13.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: WaterMark/package-lock.json
+
+      - name: Install
+        run: |
+          set -euo pipefail
+          npm ci
+          echo "PASS: install (npm ci)" >> "${GITHUB_STEP_SUMMARY:?}"
+
+      - name: Typecheck
+        run: |
+          set -euo pipefail
+          summary="${GITHUB_STEP_SUMMARY:?}"
+          plan="$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const scripts = pkg.scripts || {};
+            const typecheck = typeof scripts.typecheck === "string" ? scripts.typecheck.trim() : "";
+            if (typecheck) {
+              console.log("script");
+              process.exit(0);
+            }
+            const names = fs.readdirSync(".").filter((name) => /^tsconfig.*\.json$/.test(name)).sort();
+            const projects = [];
+            let solution = false;
+            for (const name of names) {
+              const text = fs.readFileSync(name, "utf8");
+              let cfg = null;
+              try {
+                cfg = JSON.parse(text);
+              } catch {
+                projects.push(name);
+                continue;
+              }
+              const references = Array.isArray(cfg.references) ? cfg.references : [];
+              const files = Array.isArray(cfg.files) ? cfg.files : null;
+              const include = cfg.include;
+              const emptySolution = references.length > 0 && files && files.length === 0 && include == null;
+              if (emptySolution) {
+                solution = true;
+                continue;
+              }
+              projects.push(name);
+            }
+            if (projects.length > 0) {
+              console.log("projects");
+              for (const name of projects) console.log(name);
+              process.exit(0);
+            }
+            if (solution) {
+              console.log("build");
+              process.exit(0);
+            }
+            console.log("skip");
+          ')"
+          mode="$(printf '%s\n' "${plan}" | head -n 1)"
+          if [[ "${mode}" == "skip" ]]; then
+            reason="no typecheck script and no tsconfig"
+            echo "::warning::SKIPPED: ${reason}"
+            echo "SKIPPED: ${reason}" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" == "script" ]]; then
+            npm run typecheck
+            echo "PASS: typecheck (npm run typecheck)" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" == "build" ]]; then
+            # A solution tsconfig with "files": [] does not check referenced
+            # projects under `tsc --noEmit -p`. Use the build-mode compiler.
+            npx tsc -b --pretty false
+            echo "PASS: typecheck (npx tsc -b --pretty false)" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" != "projects" ]]; then
+            echo "::error::unrecognized typecheck plan: ${mode}"
+            exit 1
+          fi
+          mapfile -t projects < <(printf '%s\n' "${plan}" | tail -n +2)
+          if [[ "${#projects[@]}" -eq 0 ]]; then
+            echo "::error::typecheck project list was empty"
+            exit 1
+          fi
+          for project in "${projects[@]}"; do
+            npx tsc --noEmit -p "${project}"
+          done
+          echo "PASS: typecheck (npx tsc --noEmit -p ${projects[*]})" >> "${summary}"
+
+      - name: Lint
+        run: |
+          set -euo pipefail
+          summary="${GITHUB_STEP_SUMMARY:?}"
+          mode="$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const scripts = pkg.scripts || {};
+            const lint = typeof scripts.lint === "string" ? scripts.lint.trim() : "";
+            if (lint) {
+              console.log("script");
+              process.exit(0);
+            }
+            const configs = [
+              "eslint.config.js",
+              "eslint.config.mjs",
+              "eslint.config.cjs",
+              "eslint.config.ts",
+              ".eslintrc",
+              ".eslintrc.js",
+              ".eslintrc.cjs",
+              ".eslintrc.json",
+              ".eslintrc.yml",
+              ".eslintrc.yaml"
+            ];
+            if (configs.some((file) => fs.existsSync(file))) {
+              console.log("config");
+              process.exit(0);
+            }
+            console.log("skip");
+          ')"
+          if [[ "${mode}" == "skip" ]]; then
+            reason="no lint script and no eslint config"
+            echo "::warning::SKIPPED: ${reason}"
+            echo "SKIPPED: ${reason}" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" == "script" ]]; then
+            npm run lint
+            echo "PASS: lint (npm run lint)" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" != "config" ]]; then
+            echo "::error::unrecognized lint plan: ${mode}"
+            exit 1
+          fi
+          npx eslint .
+          echo "PASS: lint (npx eslint .)" >> "${summary}"
+
+      - name: Build
+        # No VITE_* variables are read by the app, and there is no .env.example.
+        # Do not put real secrets here. If a later build requires VITE_* names,
+        # set obviously fake placeholders (for example VITE_EXAMPLE=placeholder).
+        run: |
+          set -euo pipefail
+          summary="${GITHUB_STEP_SUMMARY:?}"
+          mode="$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const scripts = pkg.scripts || {};
+            const build = typeof scripts.build === "string" ? scripts.build.trim() : "";
+            console.log(build ? "script" : "skip");
+          ')"
+          if [[ "${mode}" == "skip" ]]; then
+            reason="no build script in package.json"
+            echo "::warning::SKIPPED: ${reason}"
+            echo "SKIPPED: ${reason}" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" != "script" ]]; then
+            echo "::error::unrecognized build plan: ${mode}"
+            exit 1
+          fi
+          npm run build
+          echo "PASS: build (npm run build)" >> "${summary}"
+
+      - name: Test
+        run: |
+          set -euo pipefail
+          summary="${GITHUB_STEP_SUMMARY:?}"
+          mode="$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const scripts = pkg.scripts || {};
+            const test = typeof scripts.test === "string" ? scripts.test.trim() : "";
+            console.log(test ? "script" : "skip");
+          ')"
+          if [[ "${mode}" == "skip" ]]; then
+            reason="no test script in package.json"
+            echo "::warning::SKIPPED: ${reason}"
+            echo "SKIPPED: ${reason}" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" != "script" ]]; then
+            echo "::error::unrecognized test plan: ${mode}"
+            exit 1
+          fi
+          npm test
+          echo "PASS: test (npm test)" >> "${summary}"

@@ -1,78 +1,37 @@
-# React + TypeScript + Vite
+# WaterMark web app
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Vite + React 19 + TypeScript frontend for WaterMark. The project brief is in the [root README](../README.md); the rules for working in this folder are in [AGENTS.md](./AGENTS.md) (Frontend conventions).
 
-Currently, two official plugins are available:
+## Commands
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm ci          # install the locked dependencies
+npm run dev     # local dev server
+npm test        # Vitest unit tests in tests/
+npm run lint    # ESLint
+npm run build   # typecheck + production build into dist/
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+## What is here
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **Landing page** (`/`): interactive WebGL sea in the hero (move to stir it, tap for ripples), a scroll-driven parallax "evidence stack", the data principles and source list, planned features, team credits and a footer thanking EvoHacks II and its sponsors.
+- **Light and dark mode**: `src/context/ThemeProvider.tsx`, remembered in `localStorage`, defaulting to the system setting.
+- **Routing**: React Router in `src/App.tsx`. `/map` is reserved for the map page (Ryan Lin); `/login` and `/signup` are a shell until MojoAuth sign-in (Decong Huang) is connected.
+- **Astryx design system**: the custom `watermark` theme (`themes/watermark/`, generated into `src/themes/`) styles Astryx controls such as `Button`, `TextInput` and `Avatar`. Page layout and visuals are plain CSS in `src/styling/`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Folder map
 
+```text
+public/            icons and web manifest only
+src/
+  App.tsx          providers + routes
+  components/      layout/, hero/, landing/, common/, pages/
+  styling/         CSS files (tokens.css holds the theme colors)
+  scripting/       pure logic: theme rules, WebGL renderer + GLSL shaders, page content
+  context/         React contexts and providers
+  hooks/           custom hooks
+  services/        integrations with outside tools (none yet)
+  assets/          images imported by code
+  themes/          generated Astryx theme (do not edit by hand)
+tests/             Vitest tests
 ```

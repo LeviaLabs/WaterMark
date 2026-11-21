@@ -1,0 +1,174 @@
+/* Footer: credits, thanks and the disclaimer. */
+
+.footer {
+  position: relative;
+  margin-top: var(--section-space);
+  padding: clamp(56px, 8vw, 96px) var(--gutter) 28px;
+  background: var(--bg-deep);
+  border-top: 1px solid var(--line);
+}
+
+/* A thin animated waterline along the top edge (pure CSS, transform only). */
+.footer-wave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 2px;
+  overflow: hidden;
+}
+
+.footer-wave::before {
+  content: '';
+  position: absolute;
+  inset: 0 -50% 0 -50%;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--kind-forecast), transparent);
+  animation: footer-sweep 7s linear infinite;
+}
+
+@keyframes footer-sweep {
+  from {
+    transform: translateX(-35%);
+  }
+  to {
+    transform: translateX(35%);
+  }
+}
+
+.footer-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: clamp(32px, 5vw, 64px);
+  max-width: var(--page-max);
+  margin: 0 auto;
+}
+
+.footer-tagline {
+  margin: 16px 0 12px;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.footer-disclaimer,
+.footer-thanks p,
+.footer-role {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.footer-disclaimer {
+  margin: 0 0 18px;
+}
+
+.footer-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.footer-github:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.footer-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.footer-team ul {
+  display: grid;
+  gap: 18px;
+}
+
+.footer-team li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.footer-member {
+  font-weight: 700;
+}
+
+.footer-thanks p {
+  margin: 0 0 12px;
+}
+
+.footer-sponsors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.footer-sponsors li {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.footer-thanks .footer-data-credit {
+  color: var(--text-subtle);
+  font-size: 0.8rem;
+}
+
+.footer-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: var(--page-max);
+  margin: clamp(40px, 6vw, 64px) auto 0;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  color: var(--text-subtle);
+  font-size: 0.82rem;
+}
+
+.footer-bottom-links {
+  display: flex;
+  gap: 18px;
+}
+
+.footer-bottom-links a {
+  text-decoration: none;
+}
+
+.footer-bottom-links a:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .footer-inner {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .footer-inner {
+    grid-template-columns: 1fr;
+  }
+}

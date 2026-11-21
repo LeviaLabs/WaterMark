@@ -1,0 +1,24 @@
+{
+  "name": "watermark",
+  "like": "neutral",
+  "mode": "both",
+  "settings": [
+    {
+      "thing": "accent",
+      "value": "#0b7f99",
+      "source": "dial"
+    },
+    {
+      "thing": "corners",
+      "value": "round",
+      "source": "dial"
+    },
+    {
+      "thing": "--color-accent",
+      "value": "light-dark(#0b7f99, #5fd8ea)",
+      "source": "token"
+    }
+  ],
+  "lifted": [],
+  "palette": "5cd0ce78ce4f86162313be62d29d0b323373a492f0fb35ef7c90a876ff6ed8f0"
+}

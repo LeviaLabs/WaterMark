@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "astryx": {
+      "command": "node",
+      "args": ["${workspaceFolder}/node_modules/@astryxdesign/cli/clients/cli/bin/astryx.mjs", "mcp"]
+    }
+  }
+}

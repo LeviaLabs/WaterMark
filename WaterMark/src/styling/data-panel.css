@@ -1,0 +1,78 @@
+@import './tokens.css';
+
+.data-panel {
+  position: absolute; z-index: 6; top: 80px; right: 16px; width: 400px; max-height: calc(100% - 112px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--wm-surface); border-radius: var(--wm-radius-m); box-shadow: var(--wm-shadow);
+}
+
+/* Yellow staff-gauge header: minor ticks every 10px, a foot mark every 50px. */
+.panel-head {
+  display: flex; align-items: stretch; color: var(--wm-gauge-ink);
+  background:
+    repeating-linear-gradient(to right, var(--wm-gauge-ink) 0 2px, transparent 2px 10px) bottom / 100% 6px no-repeat,
+    repeating-linear-gradient(to right, var(--wm-gauge-ink) 0 2px, transparent 2px 50px) bottom / 100% 12px no-repeat,
+    var(--wm-gauge);
+}
+.panel-handle {
+  flex: 1; min-width: 0; padding: 14px 16px 22px; cursor: grab; touch-action: none; user-select: none;
+}
+.panel-handle:active { cursor: grabbing; }
+.panel-handle:focus-visible { outline: 3px solid var(--wm-gauge-ink); outline-offset: -3px; }
+.panel-title {
+  margin: 0; font-family: var(--wm-font-display); font-weight: 700; font-size: 22px; line-height: 1.15;
+  color: var(--wm-gauge-ink); overflow-wrap: anywhere;
+}
+.panel-actions { display: flex; align-items: flex-start; gap: 2px; padding: 10px 8px 0 0; color: var(--wm-gauge-ink); }
+/* Astryx ghost buttons inherit the ink color on yellow in both schemes */
+.panel-actions button { color: var(--wm-gauge-ink); }
+
+.panel-tabs { padding: 6px 10px 0; border-bottom: 1px solid var(--wm-line); }
+.panel-body { overflow: auto; padding: 14px 18px 20px; overscroll-behavior: contain; }
+
+.report-section + .report-section { margin-top: 18px; }
+.report-title { margin: 0 0 6px; font-family: var(--wm-font-display); font-weight: 700; font-size: 18px; line-height: 1.2; }
+.report-text { margin: 6px 0 0; font-size: 15px; line-height: 1.5; }
+.panel-empty { margin: 0; font-size: 15px; line-height: 1.5; color: var(--wm-ink-2); }
+.stat-row {
+  display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 6px 0;
+  border-bottom: 1px solid var(--wm-line); font-size: 15px;
+}
+.stat-value { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.callout { margin: 8px 0 0; padding: 10px 12px; border-radius: var(--wm-radius-xs); font-size: 15px; line-height: 1.5; }
+.callout p { margin: 4px 0 0; }
+.callout strong { display: block; }
+.callout-alert { border-left: 4px solid var(--wm-surge); background: var(--wm-alert-bg); }
+.callout-info { border-left: 4px solid var(--wm-tide); background: var(--wm-ok-bg); }
+.callout a, .panel-body .map-meta a { color: var(--wm-tide-deep); }
+
+.rain-bars { display: flex; align-items: flex-end; gap: 4px; height: 64px; margin-top: 6px; }
+.rain-bar { flex: 1; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--wm-tide); }
+.rain-bar-labels { display: flex; gap: 4px; font-size: 12px; color: var(--wm-ink-2); }
+.rain-bar-labels span { flex: 1; text-align: center; }
+
+/* Stowed: the panel shrinks to a gauge tab on the right edge */
+.stow-tab {
+  position: absolute; z-index: 6; right: 0; top: 38%; width: 44px; height: 180px; cursor: pointer;
+  display: grid; place-items: center; color: var(--wm-gauge-ink);
+  border: 2px solid var(--wm-gauge-ink); border-right: 0; border-radius: var(--wm-radius-m) 0 0 var(--wm-radius-m);
+  box-shadow: var(--wm-shadow);
+  background:
+    repeating-linear-gradient(to top, var(--wm-gauge-ink) 0 2px, transparent 2px 12px) left / 10px 100% no-repeat,
+    repeating-linear-gradient(to top, var(--wm-gauge-ink) 0 2px, transparent 2px 60px) left / 20px 100% no-repeat,
+    var(--wm-gauge);
+}
+.stow-tab:focus-visible { outline: 3px solid var(--wm-ink); outline-offset: 2px; }
+.stow-tab span {
+  writing-mode: vertical-rl; transform: rotate(180deg); padding-left: 8px;
+  font-family: var(--wm-font-display); font-weight: 700; font-size: 16px;
+}
+
+/* Phones: a bottom sheet instead of a floating window */
+@media (max-width: 700px) {
+  .data-panel {
+    left: 0 !important; right: 0 !important; top: auto !important; bottom: 0; width: auto; max-height: 55%;
+    border-radius: var(--wm-radius-m) var(--wm-radius-m) 0 0;
+  }
+  .panel-handle { cursor: default; }
+}

@@ -1,0 +1,46 @@
+/* Watermark brand tokens. Motif: the flood staff gauge (the striped depth ruler on piers and seawalls).
+   Light is harbor ink on mist; dark is the same harbor at night, with data colors brightened. */
+@import '@fontsource/barlow-semi-condensed/700.css';
+
+:root {
+  --wm-ink: #12324a;
+  --wm-ink-2: #4a6578;
+  --wm-canvas: #e8edef;
+  --wm-surface: #ffffff;
+  --wm-raised: #f3f6f7;
+  --wm-line: #d6dee3;
+  --wm-gauge: #f0b81c;
+  --wm-gauge-ink: #12324a; /* ticks and text on gauge yellow, the same in both schemes */
+  --wm-tide: #2c7a86;
+  --wm-tide-deep: #1b5560;
+  --wm-surge: #c2372b;
+  --wm-alert-bg: #fbefee;
+  --wm-ok-bg: #eaf4f5;
+  --wm-shadow: 0 10px 30px rgba(18, 50, 74, 0.14);
+  --wm-radius-xs: 6px;
+  --wm-radius-s: 10px;
+  --wm-radius-m: 12px;
+  --wm-font: var(--font-family-body, 'Figtree', system-ui, sans-serif);
+  --wm-font-display: 'Barlow Semi Condensed', var(--wm-font);
+}
+
+:root[data-theme='dark'] {
+  --wm-ink: #e8edef;
+  --wm-ink-2: #9fb3c1;
+  --wm-canvas: #0e1820;
+  --wm-surface: #14212b;
+  --wm-raised: #1b2c38;
+  --wm-line: #2a3e4d;
+  --wm-gauge: #f5c437;
+  --wm-tide: #3fb7c9;
+  --wm-tide-deep: #8be3ef;
+  --wm-surge: #ff6a5c;
+  --wm-alert-bg: rgba(255, 106, 92, 0.14);
+  --wm-ok-bg: rgba(63, 183, 201, 0.14);
+  /* A thin rim of light instead of a heavy drop shadow */
+  --wm-shadow: 0 0 0 1px rgba(232, 237, 239, 0.08), 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}

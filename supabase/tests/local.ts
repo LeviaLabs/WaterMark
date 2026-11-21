@@ -16,7 +16,11 @@ assert.equal(health.status, "ready");
 const summary = record(await get(`/location-summary?${point}`));
 for (const name of ["rainfall", "riverDischarge", "officialAlerts", "historicalFloods"]) {
   const result = record(summary[name]);
-  assert.notEqual(result.status, "error", name);
+  assert.notEqual(
+    result.status,
+    "error",
+    JSON.stringify({ layer: name, error: result.error, qualityFlags: result.qualityFlags }),
+  );
   const flags = result.qualityFlags;
   assert.ok(Array.isArray(flags));
   assert.equal(flags.includes("PROVIDER_STATUS_NOT_PERSISTED"), false);

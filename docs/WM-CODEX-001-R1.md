@@ -52,6 +52,13 @@ The live coverage check caught NWS's 301 canonicalization of high-precision
 keeps redirects disabled; the alerts query retains the original coordinates.
 A deterministic regression and live NYC verification cover this correction.
 
+One later repeat HTTP smoke check failed at the FloodNet layer; its original
+assertion did not retain the structured error code. The next diagnostic Coney
+query and full smoke rerun passed without a runtime-code change. The cause of
+that intervening provider failure is **UNVERIFIED**, not assumed to be a timeout
+or quota error. The smoke assertion now includes sanitized layer errors/flags
+for future diagnostics. Successful samples are not an uninterrupted availability claim.
+
 No live severe-warning occurrence was fabricated to test temporal semantics;
 those edge cases use clearly synthetic deterministic fixtures. Historical
 queries remain bounded/incomplete, not a calibrated flood frequency or probability.

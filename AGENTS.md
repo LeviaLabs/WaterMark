@@ -114,11 +114,11 @@ The web app is the Vite + React + TypeScript project in **`WaterMark/`**. Every 
 | `index.html` | Page metadata and the tiny pre-paint script that sets `data-theme` (keep it in sync with `src/scripting/theme/themeStorage.ts`). |
 | `src/main.tsx` | Renders `<App />` and nothing else. |
 | `src/App.tsx` | Providers, global stylesheet imports and **every React Router route**. A new page is a new `<Route>` here; secondary pages are `lazy()`-loaded. |
-| `src/components/` | React components, grouped as `layout/`, `hero/`, `landing/`, `common/` (incl. `SplitText` title animation and `RollText` hover text), `pages/`, `city/` (the SVG flooding city) and `features/` (reusable evidence panels typed against the backend contract). |
+| `src/components/` | React components, grouped as `layout/`, `hero/`, `landing/`, `common/` (incl. `SplitText` title animation and `RollText` hover text), `pages/`, `city/` (the SVG flooding city in "How it works"), `hero/` (the tide chart) and `features/` (reusable evidence panels typed against the backend contract). |
 | `src/styling/` | All CSS. Imported once in `App.tsx`, applied with `className`. Design tokens (colors per theme, spacing, fonts) live in `tokens.css`. |
-| `src/scripting/` | Pure logic with no React and no network: theme rules, city geometry and flood level (`city/`), frontend mirror of the API contract plus formatting (`evidence/`), title splitting (`text/`), landing-page content and clearly labeled example data (`content/`). |
+| `src/scripting/` | Pure logic with no React and no network: theme rules, city geometry (`city/`), hero tide-chart contours (`tide/`), custom scrollbar math (`scroll/`), frontend mirror of the API contract plus formatting (`evidence/`), title splitting and the decrypt effect (`text/`), landing-page content and clearly labeled example data (`content/`). |
 | `src/context/` | React contexts and their providers (e.g. `ThemeContext` + `ThemeProvider`). Keep the context object in a `.ts` file and the provider in a `.tsx` file. |
-| `src/hooks/` | Custom hooks (`useTheme`, `useInView`, `useScrollProgress`, `usePointerTilt`, `usePointerParallax`, `useRainFlood`, `useMediaQuery`). |
+| `src/hooks/` | Custom hooks (`useTheme`, `useInView`, `useScrollProgress`, `usePointerTilt`, `usePointerParallax`, `useMediaQuery`). |
 | `src/services/` | Code that integrates outside tools and providers (Supabase, ElevenLabs, LLMs), one folder per integration. |
 | `src/assets/` | Images and SVGs imported by code. |
 | `src/themes/` | **Generated** Astryx theme. Do not edit; change it with `npx astryx experimental theme editor set watermark …` (source in `themes/watermark/`). |
@@ -137,7 +137,7 @@ The web app is the Vite + React + TypeScript project in **`WaterMark/`**. Every 
 - No `console.log` left in code, no `setInterval`, no artificial waits or timeouts, and no listeners that are not needed.
 - Prefer `IntersectionObserver` to scroll listeners. When scroll position is truly needed, attach a **passive** listener only while the element is on screen and throttle work to `requestAnimationFrame` (see `useScrollProgress`).
 - Animate only `transform` and `opacity`. Keep `backdrop-filter` to a handful of elements.
-- Graphics are plain SVG and CSS, no WebGL or canvas, so they render without hardware acceleration. The city is generated once from seeded geometry (`scripting/city/`); windows are one SVG `<pattern>` per layer; waves are periodic paths slid with `transform`; the water level is one `--level` CSS variable. Animations pause when the city is off screen (`.city--paused`), and the rain loop only runs `requestAnimationFrame` while the water is moving. Under `prefers-reduced-motion` everything is static. Keep new graphics to the same rules.
+- Graphics are plain SVG and CSS, no WebGL or canvas, so they render without hardware acceleration. The city is generated once from seeded geometry (`scripting/city/`); windows are one SVG `<pattern>` per layer; waves are periodic paths slid with `transform`; the water level is one `--level` CSS variable. In "How it works" the water level follows the scroll through `--progress`. The hero tide chart animates one registered CSS number (`--tide`) with no script per frame. Animations pause off screen (`.city--paused`, `.tide-chart--paused`). Under `prefers-reduced-motion` everything is static. Keep new graphics to the same rules.
 - Respect `prefers-reduced-motion` everywhere, and check every change at a phone width (375 px) as well as desktop.
 - Keep state local. Use context only for app-wide state (theme now; auth and locale when they are integrated).
 

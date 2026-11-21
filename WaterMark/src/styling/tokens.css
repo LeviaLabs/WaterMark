@@ -87,6 +87,23 @@
   --boat-sail: #c7d6e4;
   --story-scrim: linear-gradient(90deg, rgba(2, 8, 18, 0.88) 0%, rgba(2, 8, 18, 0.55) 42%, rgba(2, 8, 18, 0.05) 75%);
 
+  /* Hero tide chart at night: a glowing sonar-style chart. */
+  --topo-sea: #03101f;
+  --topo-grid: rgba(95, 216, 234, 0.07);
+  --topo-depth: rgba(95, 216, 234, 0.28);
+  --topo-land-low: #0f1c26;
+  --topo-land-high: #2b3f4c;
+  --topo-flood: #0f5f96;
+  --topo-line: #5fd8ea;
+  --topo-glow: rgba(95, 216, 234, 0.55);
+  --topo-ripple: rgba(150, 225, 255, 0.55);
+  --topo-label-bg: rgba(6, 24, 41, 0.82);
+
+  /* Custom page scrollbar. */
+  --scroll-track: rgba(95, 216, 234, 0.1);
+  --scroll-thumb: linear-gradient(180deg, #8af0ff, #2fbfd6 55%, #3b82f6);
+  --scroll-glow: rgba(47, 191, 214, 0.75);
+
   color-scheme: dark;
 }
 
@@ -147,6 +164,23 @@
   --boat-hull: #ffffff;
   --boat-sail: #fefefe;
   --story-scrim: linear-gradient(90deg, rgba(238, 246, 250, 0.94) 0%, rgba(238, 246, 250, 0.7) 42%, rgba(238, 246, 250, 0.05) 75%);
+
+  /* Hero tide chart by day: a paper nautical chart. */
+  --topo-sea: #cfe7f2;
+  --topo-grid: rgba(11, 127, 153, 0.1);
+  --topo-depth: rgba(11, 100, 140, 0.35);
+  --topo-land-low: #f3ead2;
+  --topo-land-high: #d8c393;
+  --topo-flood: #7cc3df;
+  --topo-line: #8a6a3a;
+  --topo-glow: rgba(11, 127, 153, 0.35);
+  --topo-ripple: rgba(11, 100, 140, 0.45);
+  --topo-label-bg: rgba(255, 255, 255, 0.85);
+
+  /* Custom page scrollbar. */
+  --scroll-track: rgba(11, 127, 153, 0.12);
+  --scroll-thumb: linear-gradient(180deg, #38d3ea, #0b7f99 55%, #1d5fd1);
+  --scroll-glow: rgba(11, 127, 153, 0.5);
 
   color-scheme: light;
 }

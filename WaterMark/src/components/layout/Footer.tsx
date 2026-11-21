@@ -22,26 +22,6 @@ export function Footer() {
           </a>
         </section>
 
-        <section className="footer-team" aria-labelledby="footer-team-title">
-          <h2 id="footer-team-title" className="footer-heading">Built by</h2>
-          <ul>
-            {TEAM.map((member) => (
-              <li key={member.name}>
-                <span className="footer-member">{member.name}</span>
-                <span className="footer-role">{member.role}</span>
-                <ul className="footer-work">
-                  {member.work.map((item) => (
-                    <li key={item.text}>
-                      {item.text}
-                      {item.status !== 'built' && <span className="footer-status"> ({STATUS_LABELS[item.status].toLowerCase()})</span>}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         <section className="footer-thanks" aria-labelledby="footer-thanks-title">
           <h2 id="footer-thanks-title" className="footer-heading">
             <Icon name="heart" size={16} /> Thank you
@@ -61,6 +41,26 @@ export function Footer() {
             Data credit: NWS, NOAA, FEMA, USGS, NYC Open Data, FloodNet NYC, Open-Meteo and Copernicus GloFAS. AI coding assistants (Claude, Cursor, Codex and Grok) helped write parts of this project.
           </p>
         </section>
+        <section className="footer-team" aria-labelledby="footer-team-title">
+          <h2 id="footer-team-title" className="footer-heading">Built by</h2>
+          <ul className="footer-members">
+            {TEAM.map((member) => (
+              <li key={member.name}>
+                <span className="footer-member">{member.name}</span>
+                <span className="footer-role">{member.role}</span>
+                <ul className="footer-work">
+                  {member.work.map((item) => (
+                    <li key={item.text}>
+                      {item.text}
+                      {item.status !== 'built' && <span className="footer-status"> ({STATUS_LABELS[item.status].toLowerCase()})</span>}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </section>
+
       </div>
       <div className="footer-bottom">
         <span>

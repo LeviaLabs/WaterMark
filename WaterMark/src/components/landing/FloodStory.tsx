@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useInView } from '../../hooks/useInView'
 import { useScrollProgress } from '../../hooks/useScrollProgress'
 import { useMediaQuery, usePrefersReducedMotion } from '../../hooks/useMediaQuery'
-import { storyLevel } from '../../scripting/city/floodLevel'
 import { STATUS_LABELS, STORY_STEPS, activeStepIndex, type StoryStep } from '../../scripting/content/featureStory'
 import { PRIORITY_LABELS } from '../../scripting/content/features'
 import { CityScene } from '../city/CityScene'
@@ -63,13 +62,16 @@ function CompactStep({ step, index, onActive }: { step: StoryStep; index: number
 }
 
 /**
- * "How it works": the city floods one step at a time as you scroll, and each
+ * "How it works": the water climbs with the scroll, continuously, and each
  * step brings up one feature of the app as a working panel. Scroll position is
- * the single source of truth; the step buttons scroll to their step.
+ * the single source of truth: useScrollProgress writes --progress on the
+ * section and story.css maps it to the water level, so the city floods
+ * smoothly between steps instead of jumping. The step buttons scroll to their
+ * step.
  *
  * On phones and short windows (a desktop zoomed far in) one sticky screen
  * cannot hold a step and its panel, so the city becomes a sticky backdrop and
- * the steps scroll over it; each step that reaches mid-screen raises the water.
+ * the steps scroll over it; the water still follows the scroll.
  */
 export function FloodStory() {
   const compact = useMediaQuery('(max-width: 860px), (max-height: 600px)')
@@ -77,12 +79,14 @@ export function FloodStory() {
 }
 
 function CompactStory() {
+  const sectionRef = useRef<HTMLElement>(null)
   const [active, setActive] = useState(0)
-  const level = storyLevel(active, STORY_STEPS.length, 0.08, 0.42)
+  // Writes --progress on the section; story.css turns it into the water level.
+  useScrollProgress(sectionRef)
   return (
-    <section id="how" className="story story--compact" aria-labelledby="story-title">
+    <section id="how" ref={sectionRef} className="story story--compact" aria-labelledby="story-title">
       <div className="story-backdrop" aria-hidden="true">
-        <CityScene level={level} rain={STEP_RAIN[active] ?? 0} boat className="story-city" />
+        <CityScene rain={STEP_RAIN[active] ?? 0} boat className="story-city" />
         <span className="story-scrim" />
       </div>
       <Reveal className="story-intro story-intro--compact">
@@ -116,7 +120,6 @@ function StickyStory() {
   }
 
   const step = STORY_STEPS[active]
-  const level = storyLevel(active, STORY_STEPS.length, 0.1, 0.46)
 
   return (
     <section
@@ -127,7 +130,7 @@ function StickyStory() {
       style={{ '--steps': STORY_STEPS.length } as CSSProperties}
     >
       <div className="story-sticky">
-        <CityScene level={level} rain={STEP_RAIN[active] ?? 0} boat className="story-city" />
+        <CityScene rain={STEP_RAIN[active] ?? 0} boat className="story-city" />
         <span className="story-scrim" aria-hidden="true" />
 
         <div className="story-inner">
@@ -164,13 +167,6 @@ function StickyStory() {
             </ol>
           </nav>
         </div>
-
-        <span className="story-gauge" aria-hidden="true" style={{ '--gauge': level.toFixed(3) } as CSSProperties}>
-          <span className="story-gauge-fill" />
-          {[0, 1, 2, 3, 4].map((tick) => (
-            <span key={tick} className="story-gauge-tick" style={{ '--t': tick } as CSSProperties} />
-          ))}
-        </span>
       </div>
     </section>
   )

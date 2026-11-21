@@ -1,11 +1,10 @@
-import { DATA_SOURCES, EVIDENCE_RULES } from '../../scripting/content/dataSources'
+import { DATA_SOURCES } from '../../scripting/content/dataSources'
 import { EvidenceTag } from '../common/EvidenceTag'
 import { Icon, type IconName } from '../common/Icon'
 import { Reveal } from '../common/Reveal'
 import { RollText } from '../common/RollText'
 import { SplitText } from '../common/SplitText'
-import { TiltCard } from '../common/TiltCard'
-import { ProvenanceCard } from './ProvenanceCard'
+import { EvidenceRain } from './EvidenceRain'
 
 const TITLE = ['Evidence, labeled.', '\n', { text: 'Never guessed.', accent: true }] as const
 
@@ -25,8 +24,8 @@ export function DataSection() {
           <SplitText parts={TITLE} />
         </h2>
         <p className="section-lede">
-          Most flood tools blend everything into one colorful score. WaterMark keeps each kind of evidence separate and
-          tells you what it is, and what it is not.
+          Most flood tools blend everything into one colorful score. WaterMark keeps seven kinds of evidence separate,
+          each with its own color. Catch a drop to see what it is, what it is not, and how we label it.
         </p>
       </Reveal>
 
@@ -39,26 +38,9 @@ export function DataSection() {
         ))}
       </ul>
 
-      <div className="data-grid">
-        <ul className="rules" aria-label="Kinds of evidence">
-          {EVIDENCE_RULES.map((rule, index) => (
-            <li key={rule.kind}>
-              <Reveal delay={(index % 2) * 80}>
-                <TiltCard className="rule">
-                  <EvidenceTag kind={rule.kind} />
-                  <p className="rule-is">{rule.is}</p>
-                  <p className="rule-not">
-                    <span>Not:</span> {rule.isNot}
-                  </p>
-                </TiltCard>
-              </Reveal>
-            </li>
-          ))}
-        </ul>
-        <Reveal className="data-provenance">
-          <ProvenanceCard />
-        </Reveal>
-      </div>
+      <Reveal className="data-rain">
+        <EvidenceRain />
+      </Reveal>
 
       {/* Ryan Lin's resources / bibliography component mounts below this list (README Section 10). */}
       <Reveal className="sources">

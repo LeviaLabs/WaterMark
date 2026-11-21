@@ -9,6 +9,7 @@ import './styling/base.css'
 import './styling/glass.css'
 import './styling/nav.css'
 import './styling/hero.css'
+import './styling/tide.css'
 import './styling/sections.css'
 import './styling/motion.css'
 import './styling/city.css'
@@ -17,7 +18,10 @@ import './styling/features.css'
 import './styling/data.css'
 import './styling/footer.css'
 import './styling/pages.css'
+import './styling/scrollbar.css'
+import './styling/rain.css'
 import { ThemeProvider } from './context/ThemeProvider'
+import { ScrollGlow } from './components/layout/ScrollGlow'
 import { SiteLayout } from './components/layout/SiteLayout'
 import { LandingPage } from './components/pages/LandingPage'
 
@@ -43,6 +47,7 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
+        <ScrollGlow />
       </BrowserRouter>
     </ThemeProvider>
   )

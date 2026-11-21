@@ -1,4 +1,4 @@
-/* "Accurate data": principles, evidence rules, provenance card and source list. */
+/* "Accurate data": principles and the source list (the raindrops live in rain.css). */
 
 .principles {
   display: flex;
@@ -18,154 +18,28 @@
   font-weight: 600;
 }
 
+.principle {
+  transition:
+    transform 0.45s var(--ease-spring),
+    border-color 0.25s;
+}
+
 .principle svg {
   color: var(--accent);
+  transition: transform 0.6s var(--ease-spring);
 }
 
-.data-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
+.principle:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
 }
 
-.rules {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+.principle:hover svg {
+  transform: rotate(-14deg) scale(1.2);
 }
 
-.rules > li,
-.rules .reveal {
-  height: 100%;
-}
-
-.rule {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 22px;
-}
-
-.rule p {
-  margin: 0;
-  font-size: 0.93rem;
-  line-height: 1.5;
-}
-
-.rule-is {
-  color: var(--text);
-}
-
-.rule-not {
-  margin-top: auto !important;
-  padding-top: 12px;
-  border-top: 1px dashed var(--line-strong);
-  color: var(--text-muted);
-}
-
-.rule-not span {
-  color: var(--kind-official);
-  font-weight: 700;
-}
-
-.data-provenance {
-  position: sticky;
-  top: 100px;
-}
-
-.provenance {
-  padding: 26px;
-}
-
-.provenance-header {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  margin-bottom: 18px;
-}
-
-.provenance-header h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.provenance-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.provenance-caption {
-  margin: 4px 0 0;
-  color: var(--kind-historical);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.provenance-fields {
-  margin: 0;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg-deep) 55%, transparent);
-  overflow: hidden;
-}
-
-.provenance-row {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 12px;
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--line);
-}
-
-.provenance-row:last-child {
-  border-bottom: 0;
-}
-
-.provenance-row > * {
-  transition: transform 0.45s var(--ease-spring);
-}
-
-.provenance-row:hover dt {
-  transform: translateX(6px);
-}
-
-.provenance-row:hover dd {
-  transform: translateX(-4px);
-}
-
-.provenance-row dt {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.provenance-row code {
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-}
-
-.provenance-hint {
-  color: var(--text-subtle);
-  font-size: 0.74rem;
-}
-
-.provenance-row dd {
-  margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.4;
+.data-rain {
+  margin-bottom: 8px;
 }
 
 /* ---- Sources ---- */
@@ -256,21 +130,7 @@
   justify-self: end;
 }
 
-@media (max-width: 960px) {
-  .data-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .data-provenance {
-    position: static;
-  }
-}
-
 @media (max-width: 640px) {
-  .rules {
-    grid-template-columns: 1fr;
-  }
-
   .source-row {
     grid-template-columns: 1fr auto;
     gap: 4px 12px;
@@ -292,10 +152,5 @@
   .source-row .evidence-tag {
     grid-column: 2;
     grid-row: 1 / span 2;
-  }
-
-  .provenance-row {
-    grid-template-columns: 1fr;
-    gap: 4px;
   }
 }

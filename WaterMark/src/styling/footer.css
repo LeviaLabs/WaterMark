@@ -35,12 +35,30 @@
   }
 }
 
+/* Row 1: WaterMark and the thank-you side by side. Row 2: the full team, in a row. */
 .footer-inner {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-areas:
+    'brand thanks'
+    'team team';
   gap: clamp(32px, 5vw, 64px);
   max-width: var(--page-max);
   margin: 0 auto;
+}
+
+.footer-brand {
+  grid-area: brand;
+}
+
+.footer-thanks {
+  grid-area: thanks;
+}
+
+.footer-team {
+  grid-area: team;
+  padding-top: clamp(28px, 4vw, 44px);
+  border-top: 1px solid var(--line);
 }
 
 .footer-tagline {
@@ -99,19 +117,59 @@
   text-transform: uppercase;
 }
 
-.footer-team ul {
+.footer-members {
   display: grid;
-  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 3vw, 40px);
 }
 
-.footer-team li {
+.footer-members > li {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding-left: 16px;
+  border-left: 2px solid var(--line);
+  transition: border-color 0.3s;
+}
+
+/* A waterline climbs the member's left edge on hover. */
+.footer-members > li::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(0deg, var(--accent), var(--kind-forecast));
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.6s var(--ease-out);
+}
+
+.footer-members > li:hover::before {
+  transform: scaleY(1);
+}
+
+.footer-members > li > * {
+  transition: transform 0.5s var(--ease-spring);
+}
+
+.footer-members > li:hover .footer-member {
+  transform: translateX(6px);
+}
+
+.footer-members > li:hover .footer-role {
+  transform: translateX(3px);
 }
 
 .footer-member {
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+
+.footer-member {
+  font-weight: 600;
 }
 
 .footer-work {
@@ -186,16 +244,23 @@
 
 @media (max-width: 900px) {
   .footer-inner {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .footer-brand {
-    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'brand'
+      'thanks'
+      'team';
   }
 }
 
-@media (max-width: 600px) {
-  .footer-inner {
+@media (max-width: 760px) {
+  .footer-members {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footer-members > li::before,
+  .footer-members > li > * {
+    transition: none;
   }
 }

@@ -1,6 +1,6 @@
 /*
- * Hero: the flooding city fills the screen, the headline floats in the sky.
- * Press and hold anywhere on the city to make it rain (hooks/useRainFlood).
+ * Hero: a living tide chart fills the screen (TideChart.tsx, tide.css) and
+ * the headline sits over its open water on the left.
  */
 
 .hero {
@@ -11,33 +11,18 @@
   padding: clamp(6.5rem, 4rem + 8svh, 10rem) var(--gutter) clamp(9rem, 6rem + 10svh, 12rem);
   overflow: hidden;
   isolation: isolate;
-  background: var(--sky-top);
-  touch-action: pan-y;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  cursor: crosshair;
+  background: var(--topo-sea);
 }
 
-.hero.is-raining {
-  cursor: grabbing;
-}
-
-.city.hero-city {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-}
-
-/* A soft wash behind the words so they stay readable over any building. */
+/* A soft wash behind the words so they stay readable over the chart. */
 .hero-shade {
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(70% 55% at 22% 30%, color-mix(in srgb, var(--sky-top) 70%, transparent), transparent 70%),
-    linear-gradient(0deg, var(--bg) 0%, transparent 14%);
+    radial-gradient(75% 60% at 18% 38%, color-mix(in srgb, var(--topo-sea) 82%, transparent), transparent 72%),
+    linear-gradient(0deg, var(--bg) 0%, transparent 16%);
 }
 
 .hero-content {
@@ -90,7 +75,7 @@
   font-variation-settings: 'opsz' 144, 'SOFT' 100;
   line-height: 0.98;
   letter-spacing: -0.035em;
-  text-shadow: 0 2px 40px color-mix(in srgb, var(--sky-top) 60%, transparent);
+  text-shadow: 0 2px 40px color-mix(in srgb, var(--topo-sea) 70%, transparent);
 }
 
 .hero-lede {
@@ -127,69 +112,6 @@
 .hero-secondary:hover svg,
 .hero-secondary:focus-visible svg {
   transform: translateY(4px);
-}
-
-/* ---- Hold to make it rain ---- */
-
-.rain-button {
-  position: absolute;
-  right: max(var(--gutter), calc((100% - var(--page-max)) / 2));
-  bottom: clamp(6.5rem, 5rem + 4svh, 8rem);
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px 10px 10px;
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  background: var(--glass-solid);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
-  cursor: pointer;
-  touch-action: none;
-  animation: rise-in 1s 1.6s var(--ease-out) both;
-  transition: transform 0.35s var(--ease-spring), border-color 0.3s;
-}
-
-.rain-button:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent);
-}
-
-.rain-button:active,
-.rain-button[aria-pressed='true'] {
-  transform: scale(0.96);
-  border-color: var(--accent);
-}
-
-.rain-button svg {
-  color: var(--accent);
-  transition: transform 0.4s var(--ease-spring);
-}
-
-.rain-button[aria-pressed='true'] svg {
-  animation: drip 0.6s ease-in infinite;
-}
-
-/* A little gauge that fills as the water rises. --level comes from the hook. */
-.rain-meter {
-  position: relative;
-  width: 8px;
-  height: 26px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--accent-soft);
-}
-
-.rain-meter-fill {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--accent);
-  transform-origin: bottom;
-  transform: scaleY(clamp(0.08, calc((var(--level, 0.16) - 0.16) / 0.28), 1));
 }
 
 /* ---- Data providers: an endless marquee ---- */
@@ -263,21 +185,9 @@
   }
 }
 
-@keyframes drip {
-  50% {
-    transform: translateY(3px) scaleY(1.08);
-  }
-}
-
 @media (max-width: 720px) {
   .hero {
-    padding-bottom: clamp(16rem, 10rem + 18svh, 22rem);
-  }
-
-  .hero .city-orb {
-    top: 4.6rem;
-    right: 26%;
-    width: 2.6rem;
+    padding-bottom: clamp(9rem, 6rem + 10svh, 12rem);
   }
 
   .hero-providers {
@@ -287,12 +197,6 @@
 
   .hero-providers-label {
     display: none;
-  }
-
-  .rain-button {
-    left: 50%;
-    right: auto;
-    translate: -50% 0;
   }
 }
 
@@ -306,10 +210,6 @@
 
   .hero-title {
     font-size: clamp(2.4rem, 1.6rem + 4vw, 4.4rem);
-  }
-
-  .rain-button {
-    bottom: 5.25rem;
   }
 }
 

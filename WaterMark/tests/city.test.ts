@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { buildingPath, beaconPoint } from '../src/scripting/city/buildingPath'
-import { HERO_FLOOD, isSettled, stepFlood, storyLevel } from '../src/scripting/city/floodLevel'
 import { createRandom } from '../src/scripting/city/random'
 import { LAYER_HEIGHT, SKYLINE_LAYERS, WORLD_WIDTH, generateLayer, viewBoxFor } from '../src/scripting/city/skyline'
 import { WAVE_BOX, WAVE_PATHS, waveHeight, wavePath } from '../src/scripting/city/wave'
@@ -123,37 +122,5 @@ describe('wave', () => {
       expect(Math.min(...ys)).toBeGreaterThan(0)
       expect(Math.max(...ys)).toBeLessThanOrEqual(WAVE_BOX.height)
     }
-  })
-})
-
-describe('flood level', () => {
-  it('rises while raining, but never past the maximum', () => {
-    let level = HERO_FLOOD.rest
-    for (let i = 0; i < 600; i++) level = stepFlood(level, true, 1 / 60)
-    expect(level).toBeCloseTo(HERO_FLOOD.max, 3)
-    expect(isSettled(level, true)).toBe(true)
-  })
-
-  it('drains back to rest and then stops', () => {
-    let level = HERO_FLOOD.max
-    let frames = 0
-    while (!isSettled(level, false) && frames < 10_000) {
-      level = stepFlood(level, false, 1 / 60)
-      frames++
-    }
-    expect(level).toBe(HERO_FLOOD.rest)
-    expect(frames).toBeLessThan(10_000)
-  })
-
-  it('ignores huge frame gaps (a background tab) instead of jumping', () => {
-    expect(stepFlood(HERO_FLOOD.rest, true, 30)).toBeLessThan(HERO_FLOOD.rest + 0.02)
-  })
-
-  it('rises steadily through the story', () => {
-    const levels = Array.from({ length: 8 }, (_, step) => storyLevel(step, 8))
-    expect(levels[0]).toBeCloseTo(0.1)
-    expect(levels[7]).toBeCloseTo(0.5)
-    for (let i = 1; i < levels.length; i++) expect(levels[i]).toBeGreaterThan(levels[i - 1])
-    expect(storyLevel(3, 1)).toBe(0.1)
   })
 })

@@ -23,8 +23,8 @@
   padding: var(--spacing-5);
   border-radius: var(--radius-container);
   border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-background-surface) 86%, transparent);
-  box-shadow: 0 16px 40px color-mix(in srgb, var(--color-shadow) 75%, transparent);
+  background: var(--color-background-surface);
+  box-shadow: 0 14px 36px color-mix(in srgb, #021820 12%, transparent);
   transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
   transform-style: preserve-3d;
   overflow: hidden;
@@ -34,22 +34,54 @@
   border-color: color-mix(in srgb, var(--wm-tide) 55%, var(--color-border));
 }
 
-.glass-card::before {
+.glass-card::before,
+.glass-card::after {
   content: '';
   position: absolute;
-  inset: 0;
   pointer-events: none;
+}
+
+.glass-card::before {
+  inset: 0;
   background: radial-gradient(
-    28rem circle at var(--glare-x) var(--glare-y),
-    color-mix(in srgb, white 22%, transparent),
+    22rem circle at var(--glare-x) var(--glare-y),
+    color-mix(in srgb, white 45%, transparent),
     transparent 42%
   );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.glass-card::after {
+  width: 160%;
+  height: 70%;
+  left: var(--glare-x);
+  top: var(--glare-y);
+  background: linear-gradient(
+    115deg,
+    transparent 36%,
+    color-mix(in srgb, white 50%, transparent) 50%,
+    transparent 64%
+  );
+  opacity: 0;
+  transform: translate(-40%, -50%);
+  transition: opacity 0.6s ease;
+}
+
+.glass-card:hover {
+  border-color: color-mix(in srgb, var(--wm-tide) 40%, var(--color-border));
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--wm-tide-deep) 10%, transparent);
+}
+
+.glass-card:hover::before,
+.glass-card:hover::after {
+  opacity: 1;
 }
 
 html[data-theme='dark'] .glass-card::before {
   background: radial-gradient(
-    28rem circle at var(--glare-x) var(--glare-y),
-    color-mix(in srgb, var(--wm-foam) 16%, transparent),
+    22rem circle at var(--glare-x) var(--glare-y),
+    color-mix(in srgb, white 42%, transparent),
     transparent 46%
   );
 }
@@ -101,7 +133,11 @@ html[data-theme='dark'] .glass-card::before {
 
 @media (min-width: 1080px) {
   .feature-grid {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1.15fr 1fr 1fr;
+  }
+
+  .glass-card--wide {
+    grid-column: span 2;
   }
 
   .audience-grid {
@@ -111,7 +147,7 @@ html[data-theme='dark'] .glass-card::before {
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .glass-card {
-    transition: transform 160ms ease, border-color 160ms ease;
+    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.55s ease, box-shadow 0.55s ease;
   }
 }
 

@@ -14,6 +14,12 @@ export type WaterQualityInput = {
  * Caps the canvas backing-store ratio. Small, low-core, and data-saver
  * devices get a cheaper buffer and a simpler shader (detail < 0.5).
  */
+export function chooseGridSize(detail: number): { cols: number; rows: number } {
+  if (detail < 0.45) return { cols: 64, rows: 44 }
+  if (detail < 0.75) return { cols: 110, rows: 72 }
+  return { cols: 168, rows: 112 }
+}
+
 export function chooseWaterQuality(input: WaterQualityInput): WaterQuality {
   let cap = 1.75
   let detail = 1

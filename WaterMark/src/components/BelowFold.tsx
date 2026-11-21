@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
 import { Bibliography } from './Bibliography.tsx'
+import { ClosingCta } from './ClosingCta.tsx'
 import { EvidenceKinds } from './EvidenceKinds.tsx'
 import { FeatureSection } from './FeatureSection.tsx'
+import { HowItWorks } from './HowItWorks.tsx'
 import { ParallaxCoast } from './ParallaxCoast.tsx'
-import { WaveRule } from './WaveRule.tsx'
 
 export function BelowFold() {
   const { hash } = useLocation()
@@ -16,14 +17,12 @@ export function BelowFold() {
 
   return (
     <>
-      <WaveRule />
       <ParallaxCoast />
-      <WaveRule />
+      <HowItWorks />
       <EvidenceKinds />
-      <WaveRule />
       <FeatureSection />
-      <WaveRule />
       <Bibliography />
+      <ClosingCta />
     </>
   )
 }

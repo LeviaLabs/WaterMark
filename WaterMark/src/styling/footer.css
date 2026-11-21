@@ -1,64 +1,101 @@
 .footer {
-  margin-top: var(--spacing-8);
+  margin-top: var(--spacing-12);
   background: var(--wm-tide-deep);
   color: var(--wm-foam);
-  padding: var(--spacing-10) var(--spacing-4) calc(var(--spacing-8) + env(safe-area-inset-bottom));
+  padding: var(--spacing-12) var(--spacing-6) calc(var(--spacing-10) + env(safe-area-inset-bottom));
 }
 
 .footer__inner {
-  width: min(72rem, 100%);
+  width: min(68rem, 100%);
   margin: 0 auto;
   display: grid;
-  gap: var(--spacing-8);
+  gap: var(--spacing-10);
+}
+
+.footer__mark {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--wm-foam);
+}
+
+.footer__lead {
+  max-width: 36rem;
+  margin: var(--spacing-3) 0 0;
+  color: color-mix(in srgb, var(--wm-foam) 78%, transparent);
+  line-height: 1.6;
+}
+
+.footer .astryx-heading {
+  color: var(--wm-foam) !important;
 }
 
 .footer a {
   color: var(--wm-foam);
+  text-decoration: none;
+  transition: opacity 0.4s ease;
+}
+
+.footer a:hover,
+.footer a:focus-visible {
+  opacity: 0.72;
 }
 
 .footer__team {
   display: grid;
-  gap: var(--spacing-5);
+  gap: var(--spacing-8);
+  padding-top: var(--spacing-6);
+  border-top: 1px solid color-mix(in srgb, var(--wm-foam) 18%, transparent);
 }
 
 .footer__person {
   display: grid;
-  gap: var(--spacing-1);
+  gap: var(--spacing-2);
   margin: 0;
 }
 
-.footer__role,
-.footer__meta,
-.footer__sponsors {
+.footer__role {
   margin: 0;
-  color: color-mix(in srgb, var(--wm-foam) 78%, transparent);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--wm-sand);
 }
 
 .footer__sponsors {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-2) var(--spacing-4);
+  margin: 0;
   padding: 0;
   list-style: none;
+  color: color-mix(in srgb, var(--wm-foam) 72%, transparent);
+  letter-spacing: 0.02em;
 }
 
-.footer__sponsors li {
-  font-weight: 650;
-  color: var(--wm-foam);
+.footer__thanks,
+.footer__note {
+  margin: 0;
+  color: color-mix(in srgb, var(--wm-foam) 68%, transparent);
+  line-height: 1.6;
 }
 
 .footer__end {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-4);
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
-  padding-top: var(--spacing-4);
-  border-top: 1px solid color-mix(in srgb, var(--wm-foam) 28%, transparent);
+  padding-top: var(--spacing-6);
+  border-top: 1px solid color-mix(in srgb, var(--wm-foam) 16%, transparent);
 }
 
 @media (min-width: 800px) {
   .footer__team {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-8);
   }
 }

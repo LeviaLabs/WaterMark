@@ -15,14 +15,21 @@ export function Hero() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { mode } = useTheme()
   const reduced = usePrefersReducedMotion()
+  const modeRef = useRef(mode)
+  const reducedRef = useRef(reduced)
+
+  useEffect(() => {
+    modeRef.current = mode
+    reducedRef.current = reduced
+  })
 
   useEffect(() => {
     const canvas = canvasRef.current
     const section = sectionRef.current
     if (!canvas || !section) return
     const scene = mountWaterScene(canvas, {
-      light: mode === 'light' ? 1 : 0,
-      reducedMotion: reduced,
+      getLight: () => (modeRef.current === 'light' ? 1 : 0),
+      getReducedMotion: () => reducedRef.current,
       eventTarget: section,
     })
     if (!scene) {
@@ -36,23 +43,27 @@ export function Hero() {
       scene.destroy()
       section.classList.remove('is-fallback')
     }
-  }, [mode, reduced])
+  }, [])
 
   return (
     <section className="hero" aria-labelledby="hero-title" ref={sectionRef}>
       <div className="hero__wash" aria-hidden="true" />
       <canvas ref={canvasRef} className="hero__canvas" aria-hidden="true" />
+      <div className="hero__scrim" aria-hidden="true" />
       <div className="hero__copy">
         <p className="eyebrow">EvoHacks II · Projects for Social Good</p>
         <Heading
           id="hero-title"
           level={1}
           className="hero__title"
-          textWrap="balance"
-          style={{ fontSize: 'clamp(2.05rem, 6.4vw, 4.35rem)', lineHeight: 1.02, letterSpacing: '-0.045em' }}
+          style={{ fontSize: 'clamp(2.6rem, 6.2vw, 5.1rem)', lineHeight: 0.96, letterSpacing: '-0.03em', color: '#f7fffc', fontWeight: 500 }}
         >
-          Read the flood evidence for the block you care about.
+          <span className="hero__line"><span>Read the flood</span></span>
+          <span className="hero__line"><span>evidence for</span></span>
+          <span className="hero__line"><span>the block you</span></span>
+          <span className="hero__line"><span>care about.</span></span>
         </Heading>
+        <div className="hero__rest">
         <p className="hero__sub">
           WaterMark is a 2D map for official warnings, rainfall forecasts, mapped exposure, and historical
           records. It is being built for residents, schools, CERT volunteers, and community responders, with
@@ -67,10 +78,11 @@ export function Hero() {
         <Text className="hero__note" as="p" type="supporting" color="secondary">
           Motivation for the project, not a live statistic. Unknown is never shown as low risk.
         </Text>
-        <HStack gap={2} wrap="wrap" className="hero__actions">
+        <HStack gap={2} wrap="wrap" className="hero__actions lift">
           <Button label="Open the map" variant="primary" size="lg" href="/app" />
           <Button label="See what it shows" variant="secondary" size="lg" href="#features" />
         </HStack>
+        </div>
       </div>
     </section>
   )

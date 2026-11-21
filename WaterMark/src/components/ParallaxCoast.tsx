@@ -1,66 +1,78 @@
 import { useEffect, useRef } from 'react'
 import { Heading } from '@astryxdesign/core/Heading'
-import { Text } from '@astryxdesign/core/Text'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
 import '../styling/story.css'
 
-const READOUT = [
-  { label: 'Official alerts', value: 'Not loaded' },
-  { label: 'Rainfall forecast', value: 'Not loaded' },
-  { label: 'Mapped exposure', value: 'Not loaded' },
-  { label: 'Historical records', value: 'Not loaded' },
+const STEPS = [
+  {
+    kicker: '01 · Select',
+    title: 'Pick a circle on the map.',
+    body: 'The drawing shows a neighborhood, not a measurement. On the real map, a circle is just the area you asked about.',
+  },
+  {
+    kicker: '02 · Moderate rain, illustrated',
+    title: 'The tide in this picture climbs the boardwalk.',
+    body: 'A moderate-rain scenario would name its source, its inches, and the hours it covers. This rise is only the illustration moving.',
+  },
+  {
+    kicker: '03 · Extreme rain, illustrated',
+    title: 'The street goes under in the drawing.',
+    body: 'An extreme scenario is still a model of exposure, not a statement that this block is flooding now.',
+  },
+  {
+    kicker: '04 · Act on evidence',
+    title: 'Then read what is actually known.',
+    body: 'Warnings, forecasts, maps, and history stay separate. WaterMark does not issue an order. Follow official guidance.',
+  },
 ]
 
 export function ParallaxCoast() {
   const sectionRef = useRef<HTMLElement>(null)
-  const stageRef = useRef<HTMLDivElement>(null)
-  const farRef = useRef<SVGGElement>(null)
-  const midRef = useRef<SVGGElement>(null)
+  const skyRef = useRef<HTMLDivElement>(null)
+  const cloudRef = useRef<HTMLDivElement>(null)
+  const farRef = useRef<HTMLDivElement>(null)
+  const midRef = useRef<HTMLDivElement>(null)
+  const nearRef = useRef<HTMLDivElement>(null)
   const waterRef = useRef<HTMLDivElement>(null)
-  const ringRef = useRef<HTMLDivElement>(null)
+  const kickerRef = useRef<HTMLParagraphElement>(null)
+  const titleRef = useRef<HTMLParagraphElement>(null)
+  const bodyRef = useRef<HTMLParagraphElement>(null)
+  const meterRef = useRef<HTMLSpanElement>(null)
+  const dotsRef = useRef<HTMLDivElement>(null)
   const reduced = usePrefersReducedMotion()
 
   useEffect(() => {
     const section = sectionRef.current
-    const stage = stageRef.current
-    if (!section || !stage) return
+    if (!section) return
 
     let frame = 0
-    let visible = true
-    const pointer = { x: 0.68, y: 0.46 }
-    const current = { x: 0.68, y: 0.46 }
-    let scrollP = 0.35
-
-    const measureScroll = () => {
-      const rect = section.getBoundingClientRect()
-      const total = rect.height + window.innerHeight
-      const passed = window.innerHeight - rect.top
-      scrollP = Math.min(1, Math.max(0, passed / total))
-    }
+    let visible = false
+    const pointer = { x: 0.5, y: 0.5 }
+    let step = -1
 
     const paint = () => {
-      if (reduced) {
-        current.x = 0.62
-        current.y = 0.48
-      } else {
-        current.x += (pointer.x - current.x) * 0.18
-        current.y += (pointer.y - current.y) * 0.18
-      }
-      const drift = reduced ? 0 : (current.x - 0.5) * 6
-      const rise = reduced ? 36 : 18 + scrollP * 26
-      farRef.current?.style.setProperty('transform', `translate3d(${(drift * 0.4).toFixed(2)}%, 0, 0)`)
-      midRef.current?.style.setProperty('transform', `translate3d(${(drift * 0.9).toFixed(2)}%, 0, 0)`)
-      if (waterRef.current) waterRef.current.style.transform = `translate3d(0, ${(42 - rise).toFixed(2)}%, 0)`
-      if (ringRef.current) {
-        ringRef.current.style.left = `${(current.x * 100).toFixed(2)}%`
-        ringRef.current.style.top = `${(current.y * 100).toFixed(2)}%`
-        ringRef.current.style.transform = 'translate(-50%, -50%)'
-      }
-      const settled = Math.abs(pointer.x - current.x) + Math.abs(pointer.y - current.y) < 0.004
-      if (!reduced && visible && !document.hidden && !settled) {
-        frame = requestAnimationFrame(paint)
-      } else {
-        frame = 0
+      const rect = section.getBoundingClientRect()
+      const span = Math.max(1, rect.height - window.innerHeight)
+      const progress = reduced ? 0.42 : Math.min(1, Math.max(0, -rect.top / span))
+      const px = reduced ? 0 : (pointer.x - 0.5) * 70
+      const py = reduced ? 0 : (pointer.y - 0.5) * 24
+      if (skyRef.current) skyRef.current.style.transform = `translate3d(${(px * 0.08).toFixed(1)}px, ${(progress * -30 + py * 0.1).toFixed(1)}px, 0)`
+      if (cloudRef.current) cloudRef.current.style.transform = `translate3d(${(px * 0.22).toFixed(1)}px, ${(progress * -70).toFixed(1)}px, 0)`
+      if (farRef.current) farRef.current.style.transform = `translate3d(${(px * 0.45).toFixed(1)}px, ${(40 + progress * -220).toFixed(1)}px, 0)`
+      if (midRef.current) midRef.current.style.transform = `translate3d(${(px * 0.9).toFixed(1)}px, ${(90 + progress * -420).toFixed(1)}px, 0)`
+      if (nearRef.current) nearRef.current.style.transform = `translate3d(${(px * 1.45).toFixed(1)}px, ${(150 + progress * -640).toFixed(1)}px, 0)`
+      if (waterRef.current) waterRef.current.style.height = `${(16 + progress * 62).toFixed(1)}%`
+      if (meterRef.current) meterRef.current.style.transform = `scaleX(${progress.toFixed(3)})`
+      const next = progress < 0.25 ? 0 : progress < 0.5 ? 1 : progress < 0.75 ? 2 : 3
+      if (next !== step) {
+        step = next
+        const item = STEPS[next]
+        if (kickerRef.current) kickerRef.current.textContent = item.kicker
+        if (titleRef.current) titleRef.current.textContent = item.title
+        if (bodyRef.current) bodyRef.current.textContent = item.body
+        dotsRef.current?.querySelectorAll('span').forEach((dot, index) => {
+          dot.classList.toggle('is-on', index <= next)
+        })
       }
     }
 
@@ -73,95 +85,92 @@ export function ParallaxCoast() {
       })
     }
 
+    const onScroll = () => requestPaint()
     const onPointer = (event: PointerEvent) => {
-      if (reduced) return
-      const rect = stage.getBoundingClientRect()
-      if (rect.width === 0 || rect.height === 0) return
-      pointer.x = Math.min(0.84, Math.max(0.16, (event.clientX - rect.left) / rect.width))
-      pointer.y = Math.min(0.72, Math.max(0.18, (event.clientY - rect.top) / rect.height))
+      pointer.x = event.clientX / Math.max(window.innerWidth, 1)
+      pointer.y = event.clientY / Math.max(window.innerHeight, 1)
       requestPaint()
     }
-
-    const onScroll = () => {
-      measureScroll()
-      requestPaint()
-    }
-
     const onVisibility = () => {
       if (!document.hidden) requestPaint()
     }
 
     const observer = new IntersectionObserver((entries) => {
       visible = entries.some((entry) => entry.isIntersecting)
+      section.classList.toggle('is-paused', !visible || document.hidden)
       if (visible) requestPaint()
     })
 
-    measureScroll()
-    requestPaint()
     observer.observe(section)
-    stage.addEventListener('pointermove', onPointer, { passive: true })
-    stage.addEventListener('pointerdown', onPointer, { passive: true })
+    paint()
     window.addEventListener('scroll', onScroll, { passive: true })
+    section.addEventListener('pointermove', onPointer, { passive: true })
     document.addEventListener('visibilitychange', onVisibility)
-
     return () => {
       if (frame !== 0) cancelAnimationFrame(frame)
       observer.disconnect()
-      stage.removeEventListener('pointermove', onPointer)
-      stage.removeEventListener('pointerdown', onPointer)
       window.removeEventListener('scroll', onScroll)
+      section.removeEventListener('pointermove', onPointer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [reduced])
 
   return (
-    <section id="idea" aria-labelledby="idea-title" ref={sectionRef} className="band">
-      <div className="idea">
-        <div className="idea__copy">
-          <p className="eyebrow">How a place gets read</p>
-          <Heading id="idea-title" level={2} textWrap="balance">
-            Pick an area. Keep every source in its own column.
-          </Heading>
-          <Text as="p" color="secondary">
-            The map is two-dimensional on purpose. You choose a circle, and WaterMark is being built to
-            return the evidence that circle can actually support: alerts, a forecast with a valid time,
-            mapped exposure, and history. Each one stays labeled. A missing value stays unknown.
-          </Text>
-          <dl className="readout">
-            {READOUT.map((item) => (
-              <div key={item.label}>
-                <dt>{item.label}</dt>
-                <dd>{item.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <Text as="p" type="supporting" color="secondary">
-            Those four lines are empty on purpose. This picture does not query a provider.
-          </Text>
+    <section id="idea" className="pin" ref={sectionRef} aria-labelledby="idea-title">
+      <div className="pin__sticky">
+        <div className="pin__sky" ref={skyRef} aria-hidden="true" />
+        <div className="pin__clouds" ref={cloudRef} aria-hidden="true" />
+        <div className="pin__layer pin__far" ref={farRef} aria-hidden="true">
+          <svg viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax meet">
+            <path d="M0 250 H80 V190 H130 V150 H170 V190 H230 V120 H270 V80 H310 V120 H360 V200 H440 V140 H500 V90 H540 V40 H590 V90 H640 V170 H740 V110 H800 V70 H850 V130 H930 V180 H1020 V100 H1080 V60 H1140 V140 H1240 V190 H1320 V150 H1440 V420 H0 Z" />
+          </svg>
         </div>
-        <div className="idea__stage" ref={stageRef}>
-          <div className="coast__sky" aria-hidden="true" />
-          <svg className="coast__layer coast__far" viewBox="0 0 800 520" aria-hidden="true">
-            <g ref={farRef}>
-              <path d="M0 340 H70 V300 H120 V250 H150 V210 H190 V250 H230 V310 H300 V230 H340 V170 H370 V130 H400 V170 H430 V240 H500 V200 H540 V260 H600 V220 H650 V290 H720 V250 H770 V320 H800 V520 H0 Z" />
-            </g>
+        <div className="pin__layer pin__mid" ref={midRef} aria-hidden="true">
+          <svg viewBox="0 0 1440 520" preserveAspectRatio="xMidYMax meet">
+            <path className="pin__boardwalk" d="M0 300 H1440 V340 H0 Z" />
+            <path d="M40 300 V210 H110 V250 H170 V180 H230 V300 H300 V150 H360 V110 H410 V150 H470 V230 H540 V170 H620 V90 H680 V170 H760 V300 H840 V200 H920 V140 H980 V200 H1060 V250 H1140 V180 H1220 V240 H1300 V160 H1380 V300 Z" />
+            <path d="M860 300 V360 H1120 V300 Z" />
+            <path d="M930 360 V470 H980 V360 Z" />
+            <circle cx="210" cy="168" r="28" />
           </svg>
-          <svg className="coast__layer coast__mid" viewBox="0 0 800 520" aria-hidden="true">
-            <g ref={midRef}>
-              <path d="M0 390 H40 V330 H90 V360 H140 V300 H180 V250 H210 V300 H250 V345 H310 V280 H350 V230 H390 V280 H430 V350 H520 V300 H560 V250 H590 V220 H620 V250 H660 V330 H730 V290 H800 V520 H0 Z" />
-              <path d="M470 360 H800 V390 H620 V410 H470 Z" />
-              <path d="M500 390 V470 H530 V390 Z" />
-            </g>
+        </div>
+        <div className="pin__layer pin__near" ref={nearRef} aria-hidden="true">
+          <svg viewBox="0 0 1440 360" preserveAspectRatio="xMidYMax meet">
+            <path d="M0 150 H1440 V190 H0 Z" />
+            <path d="M80 150 V40 H96 V150 Z M200 150 V20 H216 V150 Z M340 150 V55 H356 V150 Z M500 150 V10 H516 V150 Z M680 150 V48 H696 V150 Z M860 150 V25 H876 V150 Z M1040 150 V60 H1056 V150 Z M1220 150 V15 H1236 V150 Z M1360 150 V70 H1376 V150 Z" />
+            <path d="M1180 190 V300 H1280 V190 Z" />
+            <path d="M1220 190 V120 H1240 V190 Z" />
           </svg>
-          <div className="coast__water" ref={waterRef} aria-hidden="true">
-            <svg className="coast__wave" viewBox="0 0 800 40" preserveAspectRatio="none">
-              <path d="M0 22 Q 50 4 100 22 T 200 22 T 300 22 T 400 22 T 500 22 T 600 22 T 700 22 T 800 22 V40 H0 Z" fill="currentColor" />
-            </svg>
+        </div>
+        <div className="pin__water" ref={waterRef} aria-hidden="true">
+          <svg className="pin__wave" viewBox="0 0 1440 80" preserveAspectRatio="none">
+            <path d="M0 40 Q 90 8 180 40 T 360 40 T 540 40 T 720 40 T 900 40 T 1080 40 T 1260 40 T 1440 40 V80 H0 Z" />
+          </svg>
+        </div>
+        <div className="pin__copy">
+          <p className="eyebrow">Scroll the tide</p>
+          <Heading id="idea-title" level={2} textWrap="balance">
+            Five layers. One rising shoreline.
+          </Heading>
+          <p className="pin__kicker" ref={kickerRef}>
+            {STEPS[0].kicker}
+          </p>
+          <p className="pin__step-title" ref={titleRef}>
+            {STEPS[0].title}
+          </p>
+          <p className="pin__step-body" ref={bodyRef}>
+            {STEPS[0].body}
+          </p>
+          <div className="pin__meter" aria-hidden="true">
+            <span ref={meterRef} />
           </div>
-          <div className="coast__ring" ref={ringRef} aria-hidden="true">
-            Area
+          <div className="pin__dots" ref={dotsRef} aria-hidden="true">
+            <span className="is-on" />
+            <span />
+            <span />
+            <span />
           </div>
-          <p className="coast__caption">Illustration, not a live map</p>
+          <p className="pin__fine">Illustration of the idea. Not a rainfall total, not a warning, and not a depth.</p>
         </div>
       </div>
     </section>

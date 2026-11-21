@@ -1,6 +1,8 @@
+import { useRef } from 'react'
 import { Heading } from '@astryxdesign/core/Heading'
 import { StatusDot } from '@astryxdesign/core/StatusDot'
 import { Text } from '@astryxdesign/core/Text'
+import { useReveal } from '../hooks/useReveal.ts'
 import { AUDIENCES, FEATURES, type FeatureStatus } from '../scripting/features.ts'
 import { GlassCard } from './GlassCard.tsx'
 import '../styling/features.css'
@@ -12,8 +14,10 @@ function statusVariant(status: FeatureStatus): 'accent' | 'warning' | 'neutral' 
 }
 
 export function FeatureSection() {
+  const ref = useRef<HTMLElement>(null)
+  useReveal(ref)
   return (
-    <section id="features" className="band" aria-labelledby="features-title">
+    <section id="features" className="band reveal" ref={ref} aria-labelledby="features-title">
       <div className="feature-head">
         <p className="eyebrow">What the team is building</p>
         <Heading id="features-title" level={2} textWrap="balance">
@@ -25,7 +29,11 @@ export function FeatureSection() {
       </div>
       <div className="feature-grid">
         {FEATURES.map((feature) => (
-          <GlassCard key={feature.id} marked={feature.id === 'move-your-car'}>
+          <GlassCard
+            key={feature.id}
+            marked={feature.id === 'move-your-car'}
+            wide={feature.id === 'move-your-car' || feature.id === 'circle'}
+          >
             <div className="feature-status">
               <StatusDot variant={statusVariant(feature.status)} label={feature.statusLabel} />
               <Text type="label" weight="bold">

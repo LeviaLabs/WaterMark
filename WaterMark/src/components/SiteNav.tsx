@@ -4,7 +4,7 @@ import { Button } from '@astryxdesign/core/Button'
 import { Icon } from '@astryxdesign/core/Icon'
 import { Link } from '@astryxdesign/core/Link'
 import { useTheme } from '../hooks/useTheme.ts'
-import { MoonIcon, SunIcon } from './icons.tsx'
+import { ThemeGlyph } from './icons.tsx'
 import '../styling/nav.css'
 
 const LINKS = [
@@ -24,8 +24,28 @@ export function SiteNav() {
     setOpen(false)
   }
   const panelId = useId()
+  const headerRef = useRef<HTMLElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const header = headerRef.current
+    if (!header) return
+    let frame = 0
+    const onScroll = () => {
+      if (frame !== 0) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        header.classList.toggle('nav--scrolled', window.scrollY > 12)
+      })
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (frame !== 0) cancelAnimationFrame(frame)
+    }
+  }, [])
 
   useEffect(() => {
     const query = window.matchMedia('(min-width: 880px)')
@@ -74,7 +94,7 @@ export function SiteNav() {
   }, [open])
 
   return (
-    <header className="nav">
+    <header className="nav" ref={headerRef}>
       <div className="nav__bar">
         <Link href="/" className="nav__brand" color="inherit" label="WaterMark, home">
           <img src="/favicon.svg" alt="" width={28} height={28} />
@@ -82,7 +102,7 @@ export function SiteNav() {
         </Link>
         <nav className="nav__links" aria-label="Page sections">
           {LINKS.map((link) => (
-            <Link key={link.href} href={link.href} color="inherit">
+            <Link key={link.href} href={link.href} color="inherit" className="nav__link">
               {link.label}
             </Link>
           ))}
@@ -106,7 +126,7 @@ export function SiteNav() {
             label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
             variant="ghost"
             isIconOnly
-            icon={<Icon icon={mode === 'dark' ? SunIcon : MoonIcon} />}
+            icon={<Icon icon={ThemeGlyph} className="theme-glyph" />}
             onClick={toggleMode}
             aria-pressed={mode === 'dark'}
           />

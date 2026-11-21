@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { FEATURES } from '../src/scripting/features.ts'
 import { DATA_SOURCES, REQUIRED_SOURCE_IDS } from '../src/scripting/sources.ts'
 import { parseStoredTheme, resolveThemeMode, THEME_STORAGE_KEY } from '../src/scripting/themeMode.ts'
-import { chooseWaterQuality } from '../src/scripting/waterQuality.ts'
+import { chooseGridSize, chooseWaterQuality } from '../src/scripting/waterQuality.ts'
 
 describe('theme mode', () => {
   it('uses a stored choice, otherwise the system preference', () => {
@@ -59,6 +59,9 @@ describe('water quality', () => {
         saveData: false,
       }).pixelRatio,
     ).toBe(1)
+
+    expect(chooseGridSize(1).cols).toBeGreaterThan(chooseGridSize(0.4).cols)
+    expect(chooseGridSize(0.4).rows).toBeLessThan(80)
   })
 })
 

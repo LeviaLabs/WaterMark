@@ -15,6 +15,14 @@
   border-radius: var(--radius-container);
   background: var(--color-background-surface);
   padding-inline: var(--spacing-3);
+  transition: border-color 0.45s ease, background-color 0.45s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ledger__item:hover {
+    border-color: color-mix(in srgb, var(--wm-tide) 40%, var(--color-border));
+    background: color-mix(in srgb, var(--wm-foam) 55%, var(--color-background-surface));
+  }
 }
 
 .source-trigger {

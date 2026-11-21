@@ -31,8 +31,8 @@ export function useTilt(ref: RefObject<HTMLElement | null>) {
       if (rect.width === 0 || rect.height === 0) return
       const nx = (event.clientX - rect.left) / rect.width - 0.5
       const ny = (event.clientY - rect.top) / rect.height - 0.5
-      tiltY = Math.max(-1, Math.min(1, nx)) * 6
-      tiltX = Math.max(-1, Math.min(1, -ny)) * 5
+      tiltY = Math.max(-1, Math.min(1, nx)) * 4
+      tiltX = Math.max(-1, Math.min(1, -ny)) * 3
       glareX = (nx + 0.5) * 100
       glareY = (ny + 0.5) * 100
       schedule()

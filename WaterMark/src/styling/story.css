@@ -1,173 +1,251 @@
-.idea {
-  display: grid;
-  gap: var(--spacing-6);
-}
-
-.idea__copy {
-  display: grid;
-  gap: var(--spacing-3);
-  align-content: start;
-}
-
-.idea__stage {
+.pin {
+  height: 320vh;
   position: relative;
-  height: 28rem;
-  border-radius: var(--radius-page);
+}
+
+.pin__sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  background: var(--color-background-surface);
-  touch-action: pan-y;
+  background: #8ec6d8;
 }
 
-.coast__sky,
-.coast__layer,
-.coast__water {
+html[data-theme='dark'] .pin__sticky {
+  background: #07111c;
+}
+
+.pin__sky,
+.pin__clouds,
+.pin__layer,
+.pin__water {
   position: absolute;
-  inset: 0;
-}
-
-.coast__sky {
-  background:
-    radial-gradient(circle at 78% 22%, color-mix(in srgb, var(--wm-sand) 80%, white), transparent 18%),
-    linear-gradient(180deg, color-mix(in srgb, var(--wm-tide) 28%, var(--color-background-body)), var(--color-background-body) 78%);
-}
-
-html[data-theme='dark'] .coast__sky {
-  background:
-    radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--wm-foam) 70%, transparent), transparent 16%),
-    linear-gradient(180deg, #0c2a32, var(--color-background-body) 80%);
-}
-
-.coast__layer {
-  width: 100%;
-  height: 100%;
-}
-
-.coast__layer path {
-  fill: var(--wm-hull);
-}
-
-.coast__far {
-  opacity: 0.45;
-}
-
-.coast__mid {
-  opacity: 0.92;
-}
-
-.coast__water {
-  inset: auto 0 0 0;
-  height: 58%;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--wm-tide) 75%, white), var(--wm-tide-deep));
-  color: var(--wm-foam);
-}
-
-html[data-theme='dark'] .coast__water {
-  background: linear-gradient(180deg, #0e4e58, #062028);
-}
-
-.coast__wave {
-  position: absolute;
-  left: 0;
-  top: -1.4rem;
-  width: 100%;
-  height: 2rem;
-}
-
-.coast__ring {
-  position: absolute;
-  width: 7.5rem;
-  height: 7.5rem;
-  left: 62%;
-  top: 46%;
-  border-radius: var(--radius-full);
-  border: 2px dashed var(--wm-foam);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wm-tide-deep) 40%, transparent);
-  display: grid;
-  place-items: center;
-  color: var(--wm-foam);
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 700;
+  left: -8%;
+  width: 116%;
   pointer-events: none;
 }
 
-.coast__caption {
+.pin__sky {
+  inset: -10% -8% auto;
+  height: 70%;
+  background:
+    radial-gradient(circle at 78% 30%, color-mix(in srgb, #ffe7a3 80%, white), transparent 18%),
+    linear-gradient(180deg, #7eb8d4, #d7f3f1);
+}
+
+html[data-theme='dark'] .pin__sky {
+  background:
+    radial-gradient(circle at 76% 22%, color-mix(in srgb, #d5e4ff 70%, transparent), transparent 16%),
+    linear-gradient(180deg, #050910, #16324a 80%);
+}
+
+.pin__clouds {
+  top: 8%;
+  height: 28%;
+  background:
+    radial-gradient(closest-side at 18% 60%, color-mix(in srgb, white 75%, transparent), transparent),
+    radial-gradient(closest-side at 48% 40%, color-mix(in srgb, white 65%, transparent), transparent),
+    radial-gradient(closest-side at 78% 70%, color-mix(in srgb, white 55%, transparent), transparent);
+  opacity: 0.85;
+}
+
+html[data-theme='dark'] .pin__clouds {
+  opacity: 0.28;
+}
+
+.pin__far {
+  bottom: 18%;
+  height: 46%;
+  color: color-mix(in srgb, #5d8090 80%, white);
+}
+
+.pin__far path {
+  fill: currentColor;
+}
+
+html[data-theme='dark'] .pin__far {
+  color: #1c3e52;
+}
+
+.pin__mid {
+  bottom: 8%;
+  height: 58%;
+  color: #234854;
+}
+
+.pin__mid path,
+.pin__mid circle {
+  fill: currentColor;
+}
+
+.pin__boardwalk {
+  fill: #c4a574 !important;
+}
+
+html[data-theme='dark'] .pin__mid {
+  color: #d5e4ea;
+}
+
+html[data-theme='dark'] .pin__boardwalk {
+  fill: #8d734c !important;
+}
+
+.pin__near {
+  bottom: 0;
+  height: 42%;
+  color: #102830;
+}
+
+.pin__near path {
+  fill: currentColor;
+}
+
+html[data-theme='dark'] .pin__near {
+  color: #e7f4f2;
+}
+
+.pin__water {
+  left: 0;
+  width: 100%;
+  bottom: 0;
+  height: 16%;
+  background: linear-gradient(180deg, #128ea3, #063a4c);
+  color: #d9f7f4;
+}
+
+html[data-theme='dark'] .pin__water {
+  background: linear-gradient(180deg, #0c4d63, #041820);
+  color: #9fd8e4;
+}
+
+.pin__wave {
   position: absolute;
-  left: var(--spacing-3);
-  bottom: var(--spacing-3);
-  margin: 0;
-  padding: var(--spacing-1) var(--spacing-2);
-  border-radius: var(--radius-element);
-  background: color-mix(in srgb, var(--wm-tide-deep) 72%, transparent);
-  color: var(--wm-foam);
-  font-size: 0.8rem;
+  left: 0;
+  top: -2.4rem;
+  width: 200%;
+  height: 3rem;
+  animation: pin-drift 7s linear infinite;
 }
 
-.readout {
+.pin__wave path {
+  fill: currentColor;
+}
+
+.pin.is-paused .pin__wave {
+  animation-play-state: paused;
+}
+
+.pin__copy {
+  position: absolute;
+  z-index: 2;
+  left: var(--spacing-4);
+  top: calc(var(--wm-nav-offset) + var(--spacing-4));
+  width: min(26rem, calc(100% - var(--spacing-8)));
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-3) var(--spacing-4);
+  gap: var(--spacing-3);
+  padding: var(--spacing-5);
+  border-radius: var(--radius-page);
+  border: 1px solid color-mix(in srgb, white 38%, transparent);
+  background: color-mix(in srgb, #f7fffe 92%, transparent);
+  color: var(--wm-ink);
+  box-shadow: 0 20px 50px color-mix(in srgb, #042028 18%, transparent);
+}
+
+html[data-theme='dark'] .pin__copy {
+  background: color-mix(in srgb, #07141c 88%, transparent);
+  color: #e9f7f5;
+  border-color: color-mix(in srgb, #d7f4f0 22%, transparent);
+}
+
+.pin__kicker,
+.pin__step-title,
+.pin__step-body,
+.pin__fine {
   margin: 0;
 }
 
-.readout div {
-  display: grid;
-  gap: var(--spacing-1);
-}
-
-.readout dt {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
-}
-
-.readout dd {
-  margin: 0;
-  font-weight: 700;
-}
-
-.kinds {
-  display: grid;
-  gap: var(--spacing-4);
-  margin-top: var(--spacing-8);
-}
-
-.kind {
-  display: grid;
-  gap: var(--spacing-2);
-  padding-block: var(--spacing-2);
-  border-top: 1px solid var(--color-border);
-}
-
-.kind__kicker {
-  margin: 0;
+.pin__kicker {
   color: var(--wm-tide);
-  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  font-size: 0.78rem;
 }
 
-@media (min-width: 800px) {
-  .kinds {
-    grid-template-columns: 1fr 1fr;
+.pin__step-title {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.pin__step-body,
+.pin__fine {
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  line-height: 1.5;
+}
+
+.pin__fine {
+  font-size: 0.85rem;
+}
+
+.pin__meter {
+  height: 0.35rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  overflow: hidden;
+}
+
+.pin__meter span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: var(--wm-tide);
+}
+
+.pin__dots {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.pin__dots span {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, currentColor 25%, transparent);
+}
+
+.pin__dots span.is-on {
+  background: var(--wm-tide);
+}
+
+@media (min-width: 900px) {
+  .pin__copy {
+    left: var(--spacing-10);
+    top: 50%;
+    transform: translateY(-50%);
   }
 }
 
-@media (min-width: 980px) {
-  .idea {
-    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
-    align-items: center;
-    gap: var(--spacing-8);
+@media (prefers-reduced-motion: reduce) {
+  .pin {
+    height: auto;
   }
 
-  .idea__stage {
-    height: 34rem;
+  .pin__sticky {
+    position: relative;
+    height: 100svh;
   }
 
-  .kinds {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .pin__wave {
+    animation: none;
   }
+}
+
+@keyframes pin-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }

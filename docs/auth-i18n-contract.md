@@ -3,7 +3,9 @@
 - Task: WM-CLAUDE-001
 - Human owner: Decong
 - Branch: `feat/decong-auth-i18n`
-- Status: proposed for review. Nothing here is mounted in the app yet.
+- Status: proposed for review. **Not integrated into the running application.** No provider,
+  picker, auth component or voice contract is mounted or imported by `App.tsx`/`main.tsx` yet.
+  MojoAuth is disabled; the app runs guest-only.
 - Reviewers: Ryan Lin (app page), Ryan Bergman (landing page, chatbot, voice), Codex (Supabase)
 
 ## 1. Authentication decision
@@ -58,22 +60,25 @@ line in `WaterMark/package.json` (adds `npm test`).
 
 ## 3. Integration instructions
 
-### Ryan Bergman: app entry (`main.tsx` or `App.tsx`)
+### Ryan Bergman: app entry (`main.tsx`)
 
-Wrap the app once. `AuthProvider` with no `adapter` prop is guest-only and renders children
-immediately, so it cannot block the page.
+Wrap the app once, inside the existing Astryx `<Theme>`. `AuthProvider` with no `adapter` prop
+is guest-only and renders children immediately, so it cannot block the page.
 
 ```tsx
 import { I18nProvider } from './i18n/I18nProvider.tsx'
 import { AuthProvider } from './auth/AuthProvider.tsx'
+import './i18n/i18n.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <I18nProvider>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </I18nProvider>
+    <Theme theme={themes[defaultThemeSlug]}>
+      <I18nProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </I18nProvider>
+    </Theme>
   </StrictMode>,
 )
 ```
@@ -153,6 +158,14 @@ entry to `support: 'tested'`.
   `aria-busy` while loading. Error and expired messages say the map still works.
 - Checked in a browser at 375 px width: no horizontal scroll.
 
+**Known conflict with the Astryx rules on `main`.** `WaterMark/AGENTS.md` now asks for Astryx
+components and tokens (no raw `<div>`, hex or px). `LanguageSelect` and `AuthStatus` use a plain
+`<div>` wrapper and `i18n.css` uses px and two hex colors. The hooks, pure helpers and voice
+contract are unaffected. Before or while mounting, the visual parts should be restyled with
+Astryx (for example an Astryx select for the picker, tokens in the CSS), keeping the label, `lang`
+attributes, focus outline and 44 px target. I have not done this here so the review stays about
+behavior; I can do it as a follow-up.
+
 Not covered here (owned by Ryan Lin/Ryan B): keyboard support for map tabs and the draggable
 panel, dialogs, and page-level loading states. I can review them when those pages exist.
 
@@ -187,3 +200,5 @@ DOM test runner in the repo.
 3. Who will review each language before the demo?
 4. Codex: accept `sourceLanguage` on provider text fields?
 5. Ryan B: accept `SpeechSegment` / `SpeechSink`, and which ElevenLabs model will you use?
+6. Astryx restyle of `LanguageSelect`, `AuthStatus`, `OfficialText` (section 6): before merge, or
+   as a follow-up PR?

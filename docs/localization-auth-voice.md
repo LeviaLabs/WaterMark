@@ -5,8 +5,9 @@
 - Reviewers: Ryan Bergman (frontend shell, voice), Ryan Lin (app page), Codex (Supabase)
 
 **Status: not integrated into the running app.** Nothing in `App.tsx` or `main.tsx` imports
-this code yet. **MojoAuth is not integrated** (no SDK, no HTTP request). **ElevenLabs is not
-called** (no SDK, no HTTP request). The app stays guest-only.
+this code yet. **MojoAuth email-code sign-in** is added on the stacked branch
+`feat/decong-mojoauth-login`; see [`mojoauth-login.md`](./mojoauth-login.md). **ElevenLabs is not
+called** (no SDK, no HTTP request). The app stays guest-only until the providers are mounted.
 
 ## 1. Directory structure
 
@@ -119,10 +120,13 @@ Ryan Bergman owns the ElevenLabs integration. His steps:
   - Browser `Intl` APIs.
   - Node's built-in test runner (`node --test`).
 - **Shared file changed:** one `test` script line in `WaterMark/package.json`.
-- **External HTTP calls: none.**
-- **Browser storage:** one `localStorage` key, `wm-locale`, holding only the language code.
-- **Credentials:** none used. Proposed names for later: `VITE_MOJOAUTH_PUBLIC_KEY` (only if
-  MojoAuth confirms the key is public) and `MOJOAUTH_API_SECRET` (Edge Function secret only).
+- **External HTTP calls:** none in the localization code. The MojoAuth sign-in calls are listed
+  in [`mojoauth-login.md`](./mojoauth-login.md).
+- **Browser storage:** `localStorage` key `wm-locale` (language code only); `sessionStorage` key
+  `wm-auth` (verified MojoAuth token, only after sign-in).
+- **Credentials (names only):** `VITE_MOJOAUTH_API_KEY` (public MojoAuth API key),
+  `VITE_WATERMARK_AUTH_VERIFY_URL`, and Edge Function secrets `MOJOAUTH_API_KEY`,
+  `WATERMARK_ALLOWED_ORIGINS`, optional `MOJOAUTH_ISSUER`. No MojoAuth API secret is used.
 
 ## 6. Integration steps
 

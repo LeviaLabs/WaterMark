@@ -1,5 +1,5 @@
 // English source strings. Every other language must define exactly these keys
-// (enforced by the type below and by src/tests/localization.test.ts).
+// (enforced by the type below and by tests/localization.test.ts).
 //
 // Rules for translators:
 // - Keep {placeholders} exactly as written.
@@ -46,6 +46,26 @@ export const en = {
   'auth.error': 'Sign-in is not working right now. The map and flood data still work without an account.',
   'auth.optional': 'An account is optional. Everything on the map works without one.',
   'auth.requiredForFeature': 'Sign in to save places and notification choices.',
+
+  'login.title': 'Sign in to WaterMark',
+  'login.intro': 'We email you a one-time code. There is no password.',
+  'login.email': 'Email address',
+  'login.sendCode': 'Email me a code',
+  'login.codeSent': 'We sent a code to {email}. It can take a minute to arrive.',
+  'login.code': 'One-time code',
+  'login.verify': 'Sign in',
+  'login.resend': 'Send a new code',
+  'login.changeEmail': 'Use a different email',
+  'login.continueGuest': 'Continue without an account',
+  'login.signedIn': 'You are signed in as {name}.',
+  'login.backToMap': 'Go to the map',
+  'login.notConfigured': 'Sign-in is not set up on this site yet. Everything on the map works without an account.',
+  'login.privacy': 'We use your email only to sign you in. The code is sent by MojoAuth.',
+  'login.error.invalidEmail': 'Enter a valid email address.',
+  'login.error.invalidCode': 'That code did not work. Check it and try again, or send a new code.',
+  'login.error.rateLimited': 'Too many tries. Wait a minute, then try again.',
+  'login.error.network': 'Could not reach the sign-in service. Check your connection and try again.',
+  'login.error.verifyFailed': 'We could not confirm your sign-in. Try again in a moment.',
 
   'voice.unavailable': 'Spoken guidance is not available in {language} yet. All information is shown on screen.',
   'voice.notice': 'Spoken guidance is an extra. Always check the warnings and sources on screen.',

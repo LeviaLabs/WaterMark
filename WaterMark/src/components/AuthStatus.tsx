@@ -1,5 +1,6 @@
 import { Button } from '@astryxdesign/core/Button'
 import { HStack } from '@astryxdesign/core/HStack'
+import { Link } from '@astryxdesign/core/Link'
 import { Text } from '@astryxdesign/core/Text'
 import { useLocalization } from '../hooks/useLocalization.ts'
 import { useAuth } from '../hooks/useAuth.ts'
@@ -7,9 +8,10 @@ import { useAuth } from '../hooks/useAuth.ts'
 /**
  * Small sign-in status for a header. Announces changes politely to screen readers.
  * With no provider configured it only says the visitor is browsing as a guest.
+ * `loginHref` points at the login page (default `/login`).
  */
-export function AuthStatus() {
-  const { state, canSignIn, signIn, signOut } = useAuth()
+export function AuthStatus({ loginHref = '/login' }: { loginHref?: string }) {
+  const { state, canSignIn, signOut } = useAuth()
   const { t } = useLocalization()
 
   const message =
@@ -27,13 +29,8 @@ export function AuthStatus() {
       {state.status === 'signed-in' && (
         <Button label={t('auth.signOut')} variant="secondary" onClick={() => void signOut()} />
       )}
-      {canSignIn && state.status !== 'signed-in' && (
-        <Button
-          label={t('auth.signIn')}
-          variant="primary"
-          isLoading={state.status === 'loading'}
-          onClick={() => void signIn()}
-        />
+      {canSignIn && state.status !== 'signed-in' && state.status !== 'loading' && (
+        <Link href={loginHref}>{t('auth.signIn')}</Link>
       )}
     </HStack>
   )

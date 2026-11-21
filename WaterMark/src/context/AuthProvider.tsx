@@ -37,14 +37,17 @@ export function AuthProvider({ children, adapter = guestAdapter }: { children: R
     return () => window.clearTimeout(id)
   }, [state.status, state.expiresAt])
 
-  const signIn = useCallback(async () => {
-    if (!adapter.canSignIn) return
+  const signIn = useCallback(async (providerToken: string) => {
+    if (!adapter.canSignIn) return { ...GUEST, status: 'error', error: 'sign-in-disabled' } satisfies AuthState
     setState((s) => ({ ...s, status: 'loading', error: null }))
+    let next: AuthState
     try {
-      setState(evaluateSession(sanitizeState(await adapter.signIn())))
+      next = evaluateSession(sanitizeState(await adapter.signIn(providerToken)))
     } catch {
-      setState({ ...GUEST, status: 'error', error: 'sign-in-failed' })
+      next = { ...GUEST, status: 'error', error: 'sign-in-failed' }
     }
+    setState(next)
+    return next
   }, [adapter])
 
   const signOut = useCallback(async () => {

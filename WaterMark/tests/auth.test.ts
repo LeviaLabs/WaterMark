@@ -88,6 +88,6 @@ describe('guest adapter', () => {
   it('restores as guest and cannot sign in', async () => {
     assert.equal(guestAdapter.canSignIn, false)
     assert.deepEqual(await guestAdapter.restore(), GUEST)
-    assert.equal((await guestAdapter.signIn()).error, 'sign-in-disabled')
+    assert.equal((await guestAdapter.signIn('a.b.c')).error, 'sign-in-disabled')
   })
 })

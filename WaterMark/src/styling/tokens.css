@@ -6,17 +6,29 @@
 
 :root {
   --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
-  --font-body: 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
 
-  --page-max: 1180px;
-  --gutter: clamp(16px, 4vw, 40px);
-  --section-space: clamp(88px, 12vw, 160px);
+  /*
+   * Sizes mix rem with vw so browser zoom always changes them (a pure-vw size
+   * would shrink back as the zoomed viewport narrows). Very wide screens and
+   * zoomed-out windows get a wider page instead of a thin column.
+   */
+  --page-max: 74rem;
+  --gutter: clamp(1rem, 0.5rem + 2.5vw, 2.5rem);
+  --section-space: clamp(5.5rem, 3rem + 7vw, 10rem);
   --radius-sm: 10px;
   --radius-md: 16px;
   --radius-lg: 24px;
   --radius-xl: 32px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Sun and moon (the same in both themes; CSS sets which one is up). */
+  --sun-core: #fff4c2;
+  --sun-edge: #ffc65c;
+  --moon-core: #f4f7ff;
+  --moon-edge: #b9c7e0;
 
   /* Night */
   --bg: #03101c;
@@ -49,6 +61,31 @@
   --orb-a: rgba(31, 191, 214, 0.28);
   --orb-b: rgba(83, 109, 254, 0.22);
   --orb-c: rgba(79, 220, 166, 0.16);
+
+  /* City at night: lit windows, a moon, deep water. */
+  --sky-top: #020713;
+  --sky-mid: #0a1f38;
+  --sky-bottom: #1c4467;
+  --star: rgba(226, 240, 255, 0.9);
+  --cloud: rgba(30, 58, 89, 0.55);
+  --bldg-far: #12304c;
+  --bldg-mid: #0b2036;
+  --bldg-near: #061422;
+  --win-wall: #10263b;
+  --win-lit: #ffcf73;
+  --win-lit-cool: #b3e0ff;
+  --lit-opacity: 1;
+  --beacon: #ff5d5d;
+  --water-back: #114468;
+  --water-mid: #0c3858;
+  --water-front: #0a2f4b;
+  --water-deep: #03111e;
+  --water-crest: rgba(160, 226, 255, 0.35);
+  --water-shine: rgba(255, 207, 115, 0.2);
+  --rain-streak: rgba(180, 220, 255, 0.35);
+  --boat-hull: #e8eef4;
+  --boat-sail: #c7d6e4;
+  --story-scrim: linear-gradient(90deg, rgba(2, 8, 18, 0.88) 0%, rgba(2, 8, 18, 0.55) 42%, rgba(2, 8, 18, 0.05) 75%);
 
   color-scheme: dark;
 }
@@ -86,5 +123,42 @@
   --orb-b: rgba(83, 109, 254, 0.14);
   --orb-c: rgba(16, 185, 129, 0.12);
 
+  /* City by day: glass windows reflect the sky, bright water. */
+  --sky-top: #4f9fe0;
+  --sky-mid: #9fd0f3;
+  --sky-bottom: #e8f5fc;
+  --star: transparent;
+  --cloud: rgba(255, 255, 255, 0.88);
+  --bldg-far: #b9d2e3;
+  --bldg-mid: #8db0c8;
+  --bldg-near: #5a86a3;
+  --win-wall: rgba(232, 246, 255, 0.72);
+  --win-lit: #fff3cf;
+  --win-lit-cool: #ffffff;
+  --lit-opacity: 0;
+  --beacon: transparent;
+  --water-back: #6cc0dc;
+  --water-mid: #35a3c8;
+  --water-front: #1788b1;
+  --water-deep: #0a4c72;
+  --water-crest: rgba(255, 255, 255, 0.55);
+  --water-shine: rgba(255, 255, 255, 0.3);
+  --rain-streak: rgba(40, 90, 130, 0.35);
+  --boat-hull: #ffffff;
+  --boat-sail: #fefefe;
+  --story-scrim: linear-gradient(90deg, rgba(238, 246, 250, 0.94) 0%, rgba(238, 246, 250, 0.7) 42%, rgba(238, 246, 250, 0.05) 75%);
+
   color-scheme: light;
+}
+
+@media (min-width: 1800px) {
+  :root {
+    --page-max: 88rem;
+  }
+}
+
+@media (min-width: 2600px) {
+  :root {
+    --page-max: 104rem;
+  }
 }

@@ -1,7 +1,9 @@
 import { Link } from 'react-router'
 import { EVENT, REPOSITORY_URL, SPONSORS, TEAM } from '../../scripting/content/team'
+import { STATUS_LABELS } from '../../scripting/content/featureStory'
 import { Icon } from '../common/Icon'
 import { Logo } from '../common/Logo'
+import { RollText } from '../common/RollText'
 
 export function Footer() {
   return (
@@ -16,7 +18,7 @@ export function Footer() {
             the National Weather Service and your local emergency managers. A lack of data is not a lack of risk.
           </p>
           <a className="footer-github" href={REPOSITORY_URL} target="_blank" rel="noreferrer">
-            <Icon name="github" size={18} /> LeviaLabs/WaterMark
+            <Icon name="github" size={18} /> <RollText text="LeviaLabs/WaterMark" />
           </a>
         </section>
 
@@ -26,7 +28,15 @@ export function Footer() {
             {TEAM.map((member) => (
               <li key={member.name}>
                 <span className="footer-member">{member.name}</span>
-                <span className="footer-role">{member.work.join(' · ')}</span>
+                <span className="footer-role">{member.role}</span>
+                <ul className="footer-work">
+                  {member.work.map((item) => (
+                    <li key={item.text}>
+                      {item.text}
+                      {item.status !== 'built' && <span className="footer-status"> ({STATUS_LABELS[item.status].toLowerCase()})</span>}
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
@@ -48,7 +58,7 @@ export function Footer() {
             ))}
           </ul>
           <p className="footer-data-credit">
-            Data credit: NWS, NOAA, FEMA, USGS, NYC Open Data, FloodNet NYC, Open-Meteo and Copernicus GloFAS. AI coding assistants helped write parts of this project.
+            Data credit: NWS, NOAA, FEMA, USGS, NYC Open Data, FloodNet NYC, Open-Meteo and Copernicus GloFAS. AI coding assistants (Claude, Cursor, Codex and Grok) helped write parts of this project.
           </p>
         </section>
       </div>
@@ -57,9 +67,15 @@ export function Footer() {
           © 2026 LeviaLabs · Made for {EVENT.name}
         </span>
         <nav className="footer-bottom-links" aria-label="Footer">
-          <Link to="/map">Map</Link>
-          <Link to="/login">Log in</Link>
-          <a href="#top">Back to top</a>
+          <Link to="/map">
+            <RollText text="Map" />
+          </Link>
+          <Link to="/login">
+            <RollText text="Log in" />
+          </Link>
+          <a href="#top">
+            <RollText text="Back to top" />
+          </a>
         </nav>
       </div>
     </footer>

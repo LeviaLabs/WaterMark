@@ -127,15 +127,22 @@
   gap: 12px;
   padding: 11px 16px;
   border-bottom: 1px solid var(--line);
-  transition: background-color 0.2s;
 }
 
 .provenance-row:last-child {
   border-bottom: 0;
 }
 
-.provenance-row:hover {
-  background: var(--accent-soft);
+.provenance-row > * {
+  transition: transform 0.45s var(--ease-spring);
+}
+
+.provenance-row:hover dt {
+  transform: translateX(6px);
+}
+
+.provenance-row:hover dd {
+  transform: translateX(-4px);
 }
 
 .provenance-row dt {
@@ -184,16 +191,40 @@
   align-items: center;
   gap: 16px;
   padding: 14px 8px;
+  position: relative;
   border-bottom: 1px solid var(--line);
   text-decoration: none;
-  transition:
-    background-color 0.2s,
-    padding 0.3s var(--ease-out);
 }
 
-.source-row:hover {
-  padding-left: 16px;
-  background: var(--accent-soft);
+/* A waterline slides under the row on hover; the name rolls (RollText). */
+.source-row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--kind-forecast));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s var(--ease-out);
+}
+
+.source-row:hover::after,
+.source-row:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.source-row > * {
+  transition: transform 0.5s var(--ease-spring);
+}
+
+.source-row:hover .source-provider {
+  transform: translateX(6px);
+}
+
+.source-row:hover .source-coverage {
+  transform: translateX(10px);
 }
 
 .source-name {
@@ -205,11 +236,14 @@
 
 .source-name svg {
   opacity: 0.4;
-  transition: opacity 0.2s;
+  transition:
+    opacity 0.2s,
+    transform 0.45s var(--ease-spring);
 }
 
 .source-row:hover .source-name svg {
   opacity: 1;
+  transform: translate(3px, -3px);
 }
 
 .source-provider,

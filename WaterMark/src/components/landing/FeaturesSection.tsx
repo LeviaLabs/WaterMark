@@ -1,47 +1,42 @@
-import { AUDIENCES, FEATURES, PRIORITY_LABELS } from '../../scripting/content/features'
+import type { CSSProperties } from 'react'
+import { AUDIENCES } from '../../scripting/content/features'
+import { Icon } from '../common/Icon'
 import { Reveal } from '../common/Reveal'
+import { SplitText } from '../common/SplitText'
 import { TiltCard } from '../common/TiltCard'
 
+const TITLE = ['Made for the people', '\n', { text: 'who respond first.', accent: true }] as const
+
+/** Who WaterMark is for. The features themselves are shown in the flood story above. */
 export function FeaturesSection() {
   return (
-    <section id="features" className="features section" aria-labelledby="features-title">
+    <section id="audiences" className="features section" aria-labelledby="audiences-title">
       <Reveal className="section-head">
-        <p className="section-eyebrow">The app</p>
-        <h2 id="features-title" className="section-title">What we're building</h2>
+        <p className="section-eyebrow">Who it’s for</p>
+        <h2 id="audiences-title" className="section-title">
+          <SplitText parts={TITLE} />
+        </h2>
         <p className="section-lede">
-          Core features come first; everything else waits until the core is reliable. Labels show where each piece sits
-          in our plan.
+          The same evidence, read by four kinds of neighbors. Tailored views for each come after the core map is
+          reliable.
         </p>
       </Reveal>
 
-      <ul className="feature-grid">
-        {FEATURES.map((feature, index) => (
-          <li key={feature.title}>
-            <Reveal delay={(index % 3) * 80}>
-              <TiltCard className="feature">
-                <span className={`priority priority--${feature.priority.toLowerCase()}`}>
-                  {PRIORITY_LABELS[feature.priority]}
+      <ul className="audience-list">
+        {AUDIENCES.map((audience, index) => (
+          <li key={audience.title}>
+            <Reveal delay={index * 90}>
+              <TiltCard className="audience" maxDegrees={8}>
+                <span className="audience-icon" style={{ '--i': index } as CSSProperties} aria-hidden="true">
+                  <Icon name={audience.icon} size={22} />
                 </span>
-                <h3>{feature.title}</h3>
-                <p>{feature.body}</p>
-                <p className="feature-owner">{feature.owner}</p>
+                <h3>{audience.title}</h3>
+                <p>{audience.body}</p>
               </TiltCard>
             </Reveal>
           </li>
         ))}
       </ul>
-
-      <Reveal className="audiences">
-        <h3 className="audiences-title">Made for the people who respond first</h3>
-        <ul className="audience-list">
-          {AUDIENCES.map((audience) => (
-            <li key={audience.title} className="audience glass-card">
-              <strong>{audience.title}</strong>
-              <span>{audience.body}</span>
-            </li>
-          ))}
-        </ul>
-      </Reveal>
     </section>
   )
 }

@@ -3,8 +3,8 @@ import { useLocation } from 'react-router'
 import { Hero } from '../hero/Hero'
 import { CtaSection } from '../landing/CtaSection'
 import { DataSection } from '../landing/DataSection'
-import { EvidenceStack } from '../landing/EvidenceStack'
 import { FeaturesSection } from '../landing/FeaturesSection'
+import { FloodStory } from '../landing/FloodStory'
 import { MissionSection } from '../landing/MissionSection'
 import { TeamSection } from '../landing/TeamSection'
 
@@ -21,7 +21,7 @@ export function LandingPage() {
     <>
       <Hero />
       <MissionSection />
-      <EvidenceStack />
+      <FloodStory />
       <DataSection />
       <FeaturesSection />
       <TeamSection />

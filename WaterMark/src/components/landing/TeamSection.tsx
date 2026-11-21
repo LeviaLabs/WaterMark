@@ -1,15 +1,24 @@
 import { Avatar } from '@astryxdesign/core/Avatar'
+import { STATUS_LABELS } from '../../scripting/content/featureStory'
 import { TEAM } from '../../scripting/content/team'
 import { Reveal } from '../common/Reveal'
+import { SplitText } from '../common/SplitText'
 import { TiltCard } from '../common/TiltCard'
+
+const TITLE = ['Three builders,', '\n', { text: 'one coastline.', accent: true }] as const
 
 export function TeamSection() {
   return (
     <section id="team" className="team section" aria-labelledby="team-title">
       <Reveal className="section-head">
         <p className="section-eyebrow">The crew</p>
-        <h2 id="team-title" className="section-title">Three builders, one coastline</h2>
-        <p className="section-lede">Designed and built during EvoHacks II. Here is who did what.</p>
+        <h2 id="team-title" className="section-title">
+          <SplitText parts={TITLE} />
+        </h2>
+        <p className="section-lede">
+          Built during EvoHacks II. Roles follow the color-coded assignments in our planning doc, and each item says
+          whether it is built, in review on a branch, or still planned.
+        </p>
       </Reveal>
       <ul className="team-grid">
         {TEAM.map((member, index) => (
@@ -23,7 +32,10 @@ export function TeamSection() {
                 <p className="member-role">{member.role}</p>
                 <ul className="member-work">
                   {member.work.map((item) => (
-                    <li key={item}>{item}</li>
+                    <li key={item.text}>
+                      <span>{item.text}</span>
+                      <span className={`build-status build-status--${item.status}`}>{STATUS_LABELS[item.status]}</span>
+                    </li>
                   ))}
                 </ul>
               </TiltCard>

@@ -14,7 +14,7 @@ npm run build   # typecheck + production build into dist/
 
 ## What is here
 
-- **Landing page** (`/`): interactive WebGL sea in the hero (move to stir it, tap for ripples), a scroll-driven parallax "evidence stack", the data principles and source list, planned features, team credits and a footer thanking EvoHacks II and its sponsors.
+- **Landing page** (`/`): a 2D SVG city (lit windows at night, sun and clouds by day) with curved, moving water; hold "Make it rain" to flood it. An animated title, then a scroll story ("How it works") where the city floods one step at a time while each step shows a working feature panel (place search, NWS alerts, rainfall chart, stormwater scenarios, sensor and tide readings, circle-an-area, assistant, alert digest). Every panel uses clearly labeled example data until it is wired to the data API. Then the data principles and source list, who it is for, team credits with build status, and a footer thanking EvoHacks II and its sponsors. No WebGL, so it works without hardware graphics.
 - **Light and dark mode**: `src/context/ThemeProvider.tsx`, remembered in `localStorage`, defaulting to the system setting.
 - **Routing**: React Router in `src/App.tsx`. `/map` is reserved for the map page (Ryan Lin); `/login` and `/signup` are a shell until MojoAuth sign-in (Decong Huang) is connected.
 - **Astryx design system**: the custom `watermark` theme (`themes/watermark/`, generated into `src/themes/`) styles Astryx controls such as `Button`, `TextInput` and `Avatar`. Page layout and visuals are plain CSS in `src/styling/`.
@@ -25,9 +25,9 @@ npm run build   # typecheck + production build into dist/
 public/            icons and web manifest only
 src/
   App.tsx          providers + routes
-  components/      layout/, hero/, landing/, common/, pages/
+  components/      layout/, hero/, landing/, common/, pages/, city/ (SVG city), features/ (evidence panels)
   styling/         CSS files (tokens.css holds the theme colors)
-  scripting/       pure logic: theme rules, WebGL renderer + GLSL shaders, page content
+  scripting/       pure logic: theme rules, city/ geometry, evidence/ API contract mirror + formatting, text/, content/
   context/         React contexts and providers
   hooks/           custom hooks
   services/        integrations with outside tools (none yet)

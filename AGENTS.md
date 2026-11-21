@@ -114,11 +114,11 @@ The web app is the Vite + React + TypeScript project in **`WaterMark/`**. Every 
 | `index.html` | Page metadata and the tiny pre-paint script that sets `data-theme` (keep it in sync with `src/scripting/theme/themeStorage.ts`). |
 | `src/main.tsx` | Renders `<App />` and nothing else. |
 | `src/App.tsx` | Providers, global stylesheet imports and **every React Router route**. A new page is a new `<Route>` here; secondary pages are `lazy()`-loaded. |
-| `src/components/` | React components, grouped as `layout/`, `hero/`, `landing/`, `common/`, `pages/`. |
+| `src/components/` | React components, grouped as `layout/`, `hero/`, `landing/`, `common/` (incl. `SplitText` title animation and `RollText` hover text), `pages/`, `city/` (the SVG flooding city) and `features/` (reusable evidence panels typed against the backend contract). |
 | `src/styling/` | All CSS. Imported once in `App.tsx`, applied with `className`. Design tokens (colors per theme, spacing, fonts) live in `tokens.css`. |
-| `src/scripting/` | Pure logic with no React and no network: theme rules, WebGL renderer and GLSL shaders (`graphics/`), landing-page content data (`content/`). |
+| `src/scripting/` | Pure logic with no React and no network: theme rules, city geometry and flood level (`city/`), frontend mirror of the API contract plus formatting (`evidence/`), title splitting (`text/`), landing-page content and clearly labeled example data (`content/`). |
 | `src/context/` | React contexts and their providers (e.g. `ThemeContext` + `ThemeProvider`). Keep the context object in a `.ts` file and the provider in a `.tsx` file. |
-| `src/hooks/` | Custom hooks (`useTheme`, `useInView`, `useScrollProgress`, `usePointerTilt`, `useMediaQuery`). |
+| `src/hooks/` | Custom hooks (`useTheme`, `useInView`, `useScrollProgress`, `usePointerTilt`, `usePointerParallax`, `useRainFlood`, `useMediaQuery`). |
 | `src/services/` | Code that integrates outside tools and providers (Supabase, ElevenLabs, LLMs), one folder per integration. |
 | `src/assets/` | Images and SVGs imported by code. |
 | `src/themes/` | **Generated** Astryx theme. Do not edit; change it with `npx astryx experimental theme editor set watermark …` (source in `themes/watermark/`). |
@@ -127,7 +127,7 @@ The web app is the Vite + React + TypeScript project in **`WaterMark/`**. Every 
 ### Styling
 
 - **No Tailwind or other utility-class frameworks.** Write CSS files in `src/styling/` and use class names. Ryan B reviews this code and does not use Tailwind.
-- Use the tokens in `tokens.css`; do not hardcode theme colors elsewhere (the hero shader palettes in `scripting/graphics/wavePalettes.ts` are the one exception).
+- Use the tokens in `tokens.css`; do not hardcode theme colors elsewhere. City colors (sky, buildings, lit windows, water) are tokens too and crossfade between day and night.
 - This team rule overrides Astryx's generic agent advice ("no `<div>`, no imported CSS"). Astryx provides the theme and controls (`Button`, `TextInput`, `Avatar`); page layout and the visual design are our own CSS.
 - Light and dark mode come from `ThemeProvider`: it sets `data-theme` on `<html>` for our CSS and passes the same `mode` to Astryx's `<Theme>`. Style both modes for anything you add.
 - Glass surfaces: `.glass-panel` (real `backdrop-filter` blur, use sparingly) and `.glass-card` (cheap translucent gradient, fine in grids). 3D hover tilt: wrap content in `TiltCard`.
@@ -137,7 +137,7 @@ The web app is the Vite + React + TypeScript project in **`WaterMark/`**. Every 
 - No `console.log` left in code, no `setInterval`, no artificial waits or timeouts, and no listeners that are not needed.
 - Prefer `IntersectionObserver` to scroll listeners. When scroll position is truly needed, attach a **passive** listener only while the element is on screen and throttle work to `requestAnimationFrame` (see `useScrollProgress`).
 - Animate only `transform` and `opacity`. Keep `backdrop-filter` to a handful of elements.
-- Graphics (WebGL, GLSL shaders in `src/scripting/graphics/`) are the only intentionally heavy part. They render at reduced resolution (lower on touch devices), cap near 60 fps, pause when off screen, draw one still frame under `prefers-reduced-motion`, and fall back to a CSS gradient without WebGL. Keep new graphics to the same rules.
+- Graphics are plain SVG and CSS, no WebGL or canvas, so they render without hardware acceleration. The city is generated once from seeded geometry (`scripting/city/`); windows are one SVG `<pattern>` per layer; waves are periodic paths slid with `transform`; the water level is one `--level` CSS variable. Animations pause when the city is off screen (`.city--paused`), and the rain loop only runs `requestAnimationFrame` while the water is moving. Under `prefers-reduced-motion` everything is static. Keep new graphics to the same rules.
 - Respect `prefers-reduced-motion` everywhere, and check every change at a phone width (375 px) as well as desktop.
 - Keep state local. Use context only for app-wide state (theme now; auth and locale when they are integrated).
 

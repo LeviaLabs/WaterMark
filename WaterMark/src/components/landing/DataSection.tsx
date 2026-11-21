@@ -2,8 +2,12 @@ import { DATA_SOURCES, EVIDENCE_RULES } from '../../scripting/content/dataSource
 import { EvidenceTag } from '../common/EvidenceTag'
 import { Icon, type IconName } from '../common/Icon'
 import { Reveal } from '../common/Reveal'
+import { RollText } from '../common/RollText'
+import { SplitText } from '../common/SplitText'
 import { TiltCard } from '../common/TiltCard'
 import { ProvenanceCard } from './ProvenanceCard'
+
+const TITLE = ['Evidence, labeled.', '\n', { text: 'Never guessed.', accent: true }] as const
 
 const PRINCIPLES: readonly { icon: IconName; text: string }[] = [
   { icon: 'shield', text: 'Official warnings always win' },
@@ -18,9 +22,7 @@ export function DataSection() {
       <Reveal className="section-head">
         <p className="section-eyebrow">Accurate data</p>
         <h2 id="data-title" className="section-title">
-          Evidence, labeled.
-          <br />
-          <span className="text-gradient">Never guessed.</span>
+          <SplitText parts={TITLE} />
         </h2>
         <p className="section-lede">
           Most flood tools blend everything into one colorful score. WaterMark keeps each kind of evidence separate and
@@ -66,7 +68,7 @@ export function DataSection() {
             <li key={source.url}>
               <a href={source.url} target="_blank" rel="noreferrer" className="source-row">
                 <span className="source-name">
-                  {source.name}
+                  <RollText text={source.name} />
                   <Icon name="external" size={14} />
                 </span>
                 <span className="source-provider">{source.provider}</span>

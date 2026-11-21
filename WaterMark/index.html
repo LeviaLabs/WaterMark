@@ -2,9 +2,46 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>watermark</title>
+    <title>WaterMark — Flood and extreme-rainfall awareness</title>
+    <meta
+      name="description"
+      content="WaterMark is a 2D flood and extreme-rainfall map for coastal communities. It gathers official warnings, forecasts, mapped exposure, and historical records, and it labels what each source cannot prove."
+    />
+    <meta name="theme-color" content="#f1f1f1" />
+    <style>
+      html { background: #f1f1f1; color: #000; }
+      html[data-theme='dark'] { background: #1b1b1b; color: #fff; }
+    </style>
+    <script>
+      (function () {
+        var key = 'watermark-color-mode';
+        var mode = 'light';
+        try {
+          var stored = localStorage.getItem(key);
+          if (stored === 'light' || stored === 'dark') mode = stored;
+          else if (window.matchMedia('(prefers-color-scheme: dark)').matches) mode = 'dark';
+        } catch (e) {}
+        var root = document.documentElement;
+        root.setAttribute('data-theme', mode);
+        root.style.colorScheme = mode;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', mode === 'dark' ? '#1b1b1b' : '#f1f1f1');
+      })();
+    </script>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:site_name" content="WaterMark" />
+    <meta property="og:title" content="WaterMark — Flood and extreme-rainfall awareness" />
+    <meta
+      property="og:description"
+      content="A 2D map for official warnings, rainfall forecasts, mapped flood exposure, and historical records. Built for coastal communities, and honest about what the data cannot prove."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://github.com/LeviaLabs/WaterMark" />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <div id="root"></div>

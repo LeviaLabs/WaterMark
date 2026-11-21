@@ -1,0 +1,111 @@
+.hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  display: grid;
+  align-items: end;
+  padding: calc(var(--wm-nav-offset) + var(--spacing-6)) var(--spacing-4) var(--spacing-8);
+  overflow: hidden;
+}
+
+.hero__wash,
+.hero__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero__wash {
+  z-index: 0;
+  background:
+    radial-gradient(80% 60% at 80% 30%, color-mix(in srgb, var(--wm-tide) 45%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--wm-tide) 22%, var(--color-background-body)), var(--color-background-body));
+}
+
+.hero__canvas {
+  z-index: 1;
+  display: block;
+}
+
+.hero.is-fallback .hero__canvas {
+  display: none;
+}
+
+.hero__copy {
+  position: relative;
+  z-index: 2;
+  width: min(40rem, 100%);
+  display: grid;
+  gap: var(--spacing-4);
+  padding: var(--spacing-5);
+  border-radius: var(--radius-page);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-background-body) 88%, transparent);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--color-shadow) 80%, transparent);
+}
+
+.hero__title {
+  margin: 0;
+  max-width: 16ch;
+  text-wrap: balance;
+}
+
+.hero__sub {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.hero__places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero__places li {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-background-surface) 70%, transparent);
+  font-size: 0.92rem;
+}
+
+.hero__note {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 900px) {
+  .hero {
+    align-items: center;
+    padding-inline: var(--spacing-10);
+  }
+
+  .hero__copy {
+    background: color-mix(in srgb, var(--color-background-body) 74%, transparent);
+    backdrop-filter: blur(18px);
+  }
+}
+
+@media (max-width: 720px), (prefers-reduced-motion: reduce) {
+  .hero__copy {
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--color-background-body) 92%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero.is-fallback .hero__wash {
+    animation: hero-wash 18s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes hero-wash {
+  from { transform: scale(1); }
+  to { transform: scale(1.06) translate3d(-1%, -1%, 0); }
+}

@@ -1,0 +1,126 @@
+.feature-head {
+  display: grid;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-6);
+  max-width: 40rem;
+}
+
+.feature-grid {
+  display: grid;
+  gap: var(--spacing-4);
+  perspective: 1200px;
+}
+
+.glass-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --glare-x: 18%;
+  --glare-y: 0%;
+  position: relative;
+  display: grid;
+  gap: var(--spacing-3);
+  align-content: start;
+  padding: var(--spacing-5);
+  border-radius: var(--radius-container);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-background-surface) 86%, transparent);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--color-shadow) 75%, transparent);
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  overflow: hidden;
+}
+
+.glass-card--mark {
+  border-color: color-mix(in srgb, var(--wm-tide) 55%, var(--color-border));
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    28rem circle at var(--glare-x) var(--glare-y),
+    color-mix(in srgb, white 22%, transparent),
+    transparent 42%
+  );
+}
+
+html[data-theme='dark'] .glass-card::before {
+  background: radial-gradient(
+    28rem circle at var(--glare-x) var(--glare-y),
+    color-mix(in srgb, var(--wm-foam) 16%, transparent),
+    transparent 46%
+  );
+}
+
+.glass-card > * {
+  position: relative;
+}
+
+.feature-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.feature-title {
+  margin: 0;
+}
+
+.feature-copy,
+.feature-limit,
+.feature-owner {
+  margin: 0;
+}
+
+.feature-limit,
+.feature-owner {
+  color: var(--color-text-secondary);
+}
+
+.audience-grid {
+  display: grid;
+  gap: var(--spacing-4);
+  margin-top: var(--spacing-8);
+}
+
+.audience {
+  display: grid;
+  gap: var(--spacing-2);
+  padding-top: var(--spacing-3);
+  border-top: 2px solid var(--wm-tide);
+}
+
+@media (min-width: 720px) {
+  .feature-grid,
+  .audience-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1080px) {
+  .feature-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .audience-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .glass-card {
+    transition: transform 160ms ease, border-color 160ms ease;
+  }
+}
+
+@media (max-width: 720px) {
+  .glass-card {
+    background: var(--color-background-surface);
+  }
+
+  .glass-card::before {
+    display: none;
+  }
+}

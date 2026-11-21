@@ -147,6 +147,30 @@ AI may assist, but may **not** create the entire submission. Humans must impleme
 
 **Submission deadline:** November 22, 2026, 3:00 PM ET. Do not treat unfinished external integrations as complete merely to meet the deadline. Present clear, labeled limitations and a working narrower demo instead.
 
+## Frontend conventions
+
+All application UI lives in `WaterMark/` (Vite, React 19, TypeScript). Ryan Bergman owns the landing page and frontend shell.
+
+### File structure
+
+- `WaterMark/public/` holds every icon the app uses: favicon, apple-touch icon, manifest icons, and `site.webmanifest`. Do not leave the Vite demo icons in place.
+- `WaterMark/src/main.tsx` renders `App` and top-level providers only.
+- `WaterMark/src/App.tsx` composes the UI and owns the React Router setup (`BrowserRouter`, `Routes`). Routes are `/` (landing), `/login`, `/signup`, and `/app`.
+- `src/components/` for UI, `src/styling/` for plain CSS imported and applied with `className`, `src/scripting/` for helpers and content data, `src/context/` for React context, `src/hooks/` for hooks, `src/services/` for external integrations, and `src/assets/` for bundled assets. Keep an empty folder with `.gitkeep`.
+- Theme state is a `ThemeProvider` in `src/context` and `useTheme` in `src/hooks`. Persist the choice in `localStorage`, default to `prefers-color-scheme`, pass the resolved `light` or `dark` mode to Astryx `Theme`, and set the mode in a tiny inline script in `index.html` so the first paint matches.
+- The bibliography is a separately exported component. Its source list lives in `src/scripting/sources.ts` so Ryan Lin can take over the content without rewriting the landing page.
+
+### Hard rules
+
+- No Tailwind. Standard controls use Astryx components and tokens. Custom visuals (the WebGL hero, parallax layers, glass surfaces) use CSS files in `src/styling`. Where an Astryx authoring rule conflicts with these conventions, these conventions win.
+- Performance first, including on mobile. No console logging, no unnecessary waits or timeouts, and no `setInterval`. Remove every listener on cleanup. Prefer passive listeners, `IntersectionObserver`, and `requestAnimationFrame` throttling. Respect `prefers-reduced-motion`. Pause animation loops when the surface is offscreen or the tab is hidden. Lazy-load heavy below-the-fold UI. Keep the bundle lean: no three.js or similar. Graphics may use raw WebGL2 and GLSL, with `devicePixelRatio` capped around 1.5–2, lower quality on small or low-end screens, and a CSS or SVG fallback when WebGL is unavailable.
+- Put dev tests in `WaterMark/tests/` and run them with Vitest (`npm test`). Do not leave debug code behind.
+- Hooks and context are fine. Do not invent live forecasts, probabilities, or official warnings in the UI.
+
+### AI integration
+
+When a chat-completions model is called for logic rather than to reply directly to a user, give it function tools and pass the tool results into our own functions. Keep `fetch` calls simple: one URL, an explicit method and headers, and no hidden retry or scraping framework inside the call.
+
 <!-- ASTRYX:START -->
 Astryx v0.7.17 · 174 components
 CLI: run every command as `npx astryx <cmd>` (shown below as `astryx ...`).

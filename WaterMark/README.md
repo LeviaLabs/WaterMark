@@ -1,78 +1,59 @@
-# React + TypeScript + Vite
+# WaterMark frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Vite, React 19, and TypeScript app for the EvoHacks II flood and extreme-rainfall map. The landing page is the public front door. The map, login, and sign-up routes are placeholders for Ryan Lin and Decong Huang.
 
-Currently, two official plugins are available:
+This is a prototype, not an official warning service. It does not invent forecasts, probabilities, or alerts.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run it
 
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+cd WaterMark
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Other scripts:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Script | What it does |
+| --- | --- |
+| `npm test` | Vitest, in `tests/` |
+| `npm run lint` | ESLint |
+| `npm run build` | Typecheck and production build |
+| `npm run preview` | Serve the production build |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+No environment variables are required for the landing page. Do not commit secrets.
 
+## Routes
+
+Routing lives in `src/App.tsx` (`BrowserRouter` and `Routes`). At this size that file is the right place: four routes, no loaders, and one obvious list. A separate route module, or `createBrowserRouter`, is worth it later if the map adds nested routes or data loaders.
+
+| Path | Page |
+| --- | --- |
+| `/` | Landing page |
+| `/app` | Map placeholder for Ryan Lin |
+| `/login` | Sign-in placeholder for Decong |
+| `/signup` | Sign-up placeholder for Decong |
+
+## Structure
+
+```text
+public/                 icons, favicon, site.webmanifest
+src/main.tsx            mounts App and the theme provider
+src/App.tsx             router
+src/components/         UI, including the exported Bibliography
+src/styling/            plain CSS, applied with className
+src/scripting/          helpers and content data (sources, features, team)
+src/context/            theme context and provider
+src/hooks/              useTheme and other hooks
+src/services/           reserved for external API clients
+src/assets/             bundled static assets
+tests/                  Vitest
 ```
+
+Astryx (`@astryxdesign/core`, theme-neutral) supplies buttons, type, links, lists, and the light/dark theme. Custom visuals — the WebGL water, the coastline illustration, and the glass cards — are CSS and a small WebGL2 shader, not a 3D library. The theme follows the operating system until someone toggles it, then it is stored as `watermark-color-mode`.
+
+`Bibliography` in `src/components/Bibliography.tsx` is Ryan Lin's resources module. The source list is `src/scripting/sources.ts`.
+
+## Honesty
+
+Planned and in-progress work is labeled on the page. Move Your Car is research only and does not recommend a safe route. The hero animation is decorative. Empty evidence lines are empty because this page does not call a data provider.

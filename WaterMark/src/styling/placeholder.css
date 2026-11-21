@@ -1,0 +1,40 @@
+.placeholder {
+  width: min(42rem, calc(100% - var(--spacing-8)));
+  margin: 0 auto;
+  padding: calc(var(--wm-nav-offset) + var(--spacing-8)) 0 var(--spacing-12);
+  display: grid;
+  gap: var(--spacing-4);
+}
+
+.map-frame {
+  height: 16rem;
+  border-radius: var(--radius-page);
+  border: 1px dashed color-mix(in srgb, var(--wm-tide) 70%, var(--color-border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--wm-tide) 16%, transparent), transparent 40%),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2.5rem,
+      color-mix(in srgb, var(--wm-tide) 18%, transparent) 2.5rem,
+      color-mix(in srgb, var(--wm-tide) 18%, transparent) calc(2.5rem + 1px)
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2.5rem,
+      color-mix(in srgb, var(--wm-tide) 18%, transparent) 2.5rem,
+      color-mix(in srgb, var(--wm-tide) 18%, transparent) calc(2.5rem + 1px)
+    );
+  display: grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: var(--spacing-4);
+}
+
+.placeholder__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+}

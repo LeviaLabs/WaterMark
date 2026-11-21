@@ -1,0 +1,36 @@
+.sources-head {
+  display: grid;
+  gap: var(--spacing-3);
+  max-width: 42rem;
+  margin-bottom: var(--spacing-5);
+}
+
+.ledger {
+  display: grid;
+  gap: var(--spacing-2);
+}
+
+.ledger__item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+  padding-inline: var(--spacing-3);
+}
+
+.source-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  width: 100%;
+  text-align: start;
+}
+
+.source-trigger__title {
+  font-weight: 700;
+}
+
+.source-summary {
+  margin: 0 0 var(--spacing-3);
+  color: var(--color-text-secondary);
+}

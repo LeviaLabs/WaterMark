@@ -158,7 +158,7 @@ AWS Amplify Hosting: deploy the frontend from the approved GitHub branch.
 
 ### Proposed implementation technologies
 
-- Frontend: React, TypeScript, Vite, Tailwind CSS.
+- Frontend: React, TypeScript, Vite, the Astryx design system, and plain CSS (no Tailwind). The app lives in `WaterMark/`.
 - 2D mapping: **MapLibre GL JS** (proposed selection; team also considered Leaflet).
 - Spatial interaction: Turf.js for circles/intersections; PostGIS for database-side spatial queries.
 - Charts: Recharts or a similarly lightweight React charting library.
@@ -290,7 +290,7 @@ See [AGENTS.md](./AGENTS.md) for more detailed AI-agent instructions and integra
 
 ## 11. Suggested repository layout
 
-**This is a proposed structure. Adapt to the actual repository instead of creating duplicate projects.**
+**This is a proposed structure. Adapt to the actual repository instead of creating duplicate projects.** The hackathon frontend currently lives in `WaterMark/`, not under `apps/web/`.
 
 ```text
 WaterMark/
@@ -318,6 +318,19 @@ Do not create this tree unless the team approves the structure. A simpler single
 ## 12. Local setup and deployment
 
 **Setup commands must be filled in after the repository scaffold is verified.** Do not assume a package manager, app path, or environment-variable names from this planning document alone.
+
+### Frontend (`WaterMark/`)
+
+```bash
+cd WaterMark
+npm install
+npm run dev
+npm test
+npm run lint
+npm run build
+```
+
+Routes today: `/` landing page, `/app` map placeholder (Ryan Lin), `/login` and `/signup` auth placeholders (Decong). The dev server is Vite. No secrets are required to render the landing page. Theme choice is stored in the browser under `watermark-color-mode`.
 
 1. Clone the repository and inspect the lockfile, package scripts, and workspace layout.
 2. Install dependencies using the repo's chosen, pinned package manager.

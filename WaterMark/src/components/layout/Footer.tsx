@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router'
+import { useAuth } from '../../hooks/useAuth'
 import { useInView } from '../../hooks/useInView'
 import { EVENT, REPOSITORY_URL, SPONSORS, TEAM } from '../../scripting/content/team'
 import { STATUS_LABELS } from '../../scripting/content/featureStory'
@@ -17,6 +18,7 @@ const at = (i: number) => ({ '--i': i }) as CSSProperties
 export function Footer() {
   const ref = useRef<HTMLElement>(null)
   const visible = useInView(ref, { once: true, rootMargin: '0px 0px -12% 0px' })
+  const { canSignIn } = useAuth()
 
   return (
     <footer ref={ref} className={`footer ${visible ? 'is-visible' : ''}`}>
@@ -91,9 +93,11 @@ export function Footer() {
           <Link to="/map">
             <RollText text="Map" />
           </Link>
-          <Link to="/login">
-            <RollText text="Log in" />
-          </Link>
+          {canSignIn && (
+            <Link to="/login">
+              <RollText text="Log in" />
+            </Link>
+          )}
           <a href="#top" className="footer-top">
             <RollText text="Back to top" /> <Icon name="arrowDown" size={14} />
           </a>

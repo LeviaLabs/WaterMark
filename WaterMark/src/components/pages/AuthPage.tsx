@@ -196,6 +196,8 @@ export function AuthPage({ mode }: { mode: Mode }) {
                   ? `We sent ${resent ? 'a new' : 'a'} code to ${email}. It can take a minute to arrive.`
                   : expired
                     ? 'Your session ended. Sign in again to keep your saved places and alert preferences.'
+                  : !config && !agentboxdConfig
+                    ? ERRORS.misconfigured
                   : copy.lede}
         </p>
 
@@ -205,7 +207,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </p>
         )}
 
-        {!signedIn && !checking && step === 'email' && (
+        {!signedIn && !checking && step === 'email' && config && (
           <div className="auth-section" role="group" aria-labelledby="auth-human">
             <h2 id="auth-human" className="auth-section-title">Human sign-in</h2>
             <form className="auth-form" onSubmit={sendCode} noValidate>
@@ -225,7 +227,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </div>
         )}
 
-        {!signedIn && step === 'code' && (
+        {!signedIn && step === 'code' && config && (
           <form className="auth-form" onSubmit={verify} noValidate>
             <TextInput
               label="One-time code"
@@ -242,7 +244,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </form>
         )}
 
-        {!signedIn && !checking && step === 'email' && (
+        {!signedIn && !checking && step === 'email' && agentboxdConfig && (
           <div className="auth-section" role="group" aria-labelledby="auth-agent">
             <h2 id="auth-agent" className="auth-section-title">Agent sign-in</h2>
             <Button label="Sign in with Agentboxd" variant="secondary" size="lg" width="100%" isDisabled={busy} onClick={startAgent} />
@@ -261,9 +263,11 @@ export function AuthPage({ mode }: { mode: Mode }) {
           <div className="auth-section" role="group" aria-labelledby="auth-guest">
             <h2 id="auth-guest" className="auth-section-title">Guest</h2>
             <Button label="Continue without an account" variant="ghost" href="/map" as={RouterLink} width="100%" />
-            <p className="auth-switch">
-              {copy.switchText} <Link to={copy.switchTo}>{copy.switchLink}</Link>
-            </p>
+            {config && (
+              <p className="auth-switch">
+                {copy.switchText} <Link to={copy.switchTo}>{copy.switchLink}</Link>
+              </p>
+            )}
           </div>
         )}
       </div>

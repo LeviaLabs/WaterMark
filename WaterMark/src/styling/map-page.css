@@ -1,0 +1,893 @@
+/*
+ * /map: the full-screen flood map and the cards that float over it.
+ *
+ * Cards use the site's glass tokens (border, lit edge, shadow) on a nearly
+ * solid fill instead of a backdrop blur: blurring over a live WebGL map
+ * re-blurs every frame the map moves, which is the most expensive thing a
+ * page can ask a phone to do.
+ */
+
+.map-page {
+  --map-surface: color-mix(in srgb, var(--bg-raised) 94%, transparent);
+  --map-gap: 16px;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.flood-map {
+  position: absolute;
+  inset: 0;
+}
+
+.map-card {
+  background: var(--map-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-edge);
+}
+
+.map-meta {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- Top bar ---- */
+
+/* One row at every width: the search shrinks first, then the circle button and the logo
+   drop their words (see the breakpoints at the end of this file). */
+.map-topbar {
+  --bar-h: 52px;
+  position: absolute;
+  z-index: 5;
+  top: var(--map-gap);
+  left: var(--map-gap);
+  right: var(--map-gap);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.map-topbar > * {
+  pointer-events: auto;
+}
+
+.map-brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: var(--bar-h);
+  padding: 0 18px 0 14px;
+}
+
+.map-brand .logo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.map-search {
+  position: relative;
+  display: flex;
+  flex: 0 1 420px;
+  min-width: 0;
+  align-items: center;
+  height: var(--bar-h);
+  padding: 0 16px;
+  color: var(--text-muted);
+  transition: border-color 0.2s, box-shadow 0.25s;
+}
+
+.map-search-field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.map-search-spinner {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: map-spin 0.8s linear infinite;
+}
+
+@keyframes map-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.map-search-popover {
+  transform-origin: top center;
+  animation: popover-in 0.22s var(--ease-out);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  z-index: 8;
+  padding: 6px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  box-shadow: var(--glass-shadow);
+}
+
+.map-search-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-search-option {
+  display: grid;
+  gap: 1px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s;
+  animation: popover-row-in 0.25s var(--ease-out) backwards;
+}
+
+.map-search-option:nth-child(2) { animation-delay: 25ms; }
+.map-search-option:nth-child(3) { animation-delay: 50ms; }
+.map-search-option:nth-child(4) { animation-delay: 75ms; }
+.map-search-option:nth-child(5) { animation-delay: 100ms; }
+.map-search-option:nth-child(n + 6) { animation-delay: 125ms; }
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+@keyframes popover-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+.map-search-option.is-active {
+  background: var(--accent-soft);
+}
+
+.map-search-label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.map-search-detail {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.map-search-note {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.map-search-credit {
+  margin: 4px 0 0;
+  padding: 6px 12px 4px;
+  border-top: 1px solid var(--line);
+  color: var(--text-subtle);
+  font-size: 0.72rem;
+}
+
+.map-search-credit a {
+  color: inherit;
+}
+
+.map-search-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: calc(var(--bar-h) - 4px);
+  text-overflow: ellipsis;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.map-search-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.map-search:focus-within {
+  border-color: var(--accent);
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 3px var(--accent-soft);
+}
+
+.map-toolbar {
+  display: flex;
+  flex: none;
+  gap: 10px;
+  align-items: center;
+}
+
+.draw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--bar-h);
+  min-width: var(--bar-h);
+  padding: 0 20px 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--glass-shadow);
+  transition:
+    box-shadow 0.25s,
+    background-color 0.2s,
+    transform 0.2s var(--ease-out);
+}
+
+.draw-btn:hover {
+  background: var(--accent-strong);
+}
+
+.draw-btn:active {
+  transform: scale(0.96);
+}
+
+.draw-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.draw-btn.is-active {
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 3px var(--accent-soft),
+    0 0 0 1px var(--accent);
+}
+
+.map-theme {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--bar-h);
+  height: var(--bar-h);
+  border-radius: 50%;
+}
+
+/* ---- Layers: a button, and a list that pops out of its corner ---- */
+
+.layers {
+  position: absolute;
+  z-index: 4;
+  left: var(--map-gap);
+  bottom: 32px;
+}
+
+.layers-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 16px 0 14px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    transform 0.25s var(--ease-out),
+    border-color 0.25s,
+    box-shadow 0.25s;
+}
+
+.layers-toggle svg {
+  color: var(--accent);
+}
+
+.layers-toggle:hover,
+.layers-toggle.is-open {
+  border-color: var(--accent);
+}
+
+.layers-toggle:active {
+  transform: scale(0.96);
+}
+
+.layers-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.layers-count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chevron: points up (the list opens above) and flips when open. */
+.layers-chev {
+  width: 8px;
+  height: 8px;
+  margin: 3px 2px 0 4px;
+  border: solid currentColor;
+  border-width: 2px 0 0 2px;
+  transform: rotate(45deg);
+  transition: transform 0.3s var(--ease-out), margin 0.3s var(--ease-out);
+}
+
+.layers-toggle.is-open .layers-chev {
+  margin-top: -3px;
+  transform: rotate(225deg);
+}
+
+.layers-panel {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: 310px;
+  padding: 12px 14px 14px;
+  transform-origin: bottom left;
+  animation: layers-in 0.3s var(--ease-out);
+}
+
+.layers-panel.is-closing {
+  pointer-events: none;
+  animation: layers-out 0.2s ease-in forwards;
+}
+
+@keyframes layers-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+}
+
+@keyframes layers-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+}
+
+.layers-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The rows arrive one after another. */
+.layers-list li {
+  animation: layers-row-in 0.3s var(--ease-out) backwards;
+}
+
+.layers-list li:nth-child(2) { animation-delay: 30ms; }
+.layers-list li:nth-child(3) { animation-delay: 60ms; }
+.layers-list li:nth-child(4) { animation-delay: 90ms; }
+.layers-list li:nth-child(5) { animation-delay: 120ms; }
+
+@keyframes layers-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+/* ---- Layer switch: the whole row toggles; the thumb slides ---- */
+
+.layer-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.layer-switch:hover {
+  background: var(--accent-soft);
+}
+
+.layer-switch.is-on {
+  color: var(--text);
+}
+
+.layer-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.layer-switch-track {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background-color 0.25s var(--ease-out);
+}
+
+.layer-switch.is-on .layer-switch-track {
+  background: var(--accent);
+}
+
+.layer-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transition: transform 0.3s var(--ease-out);
+}
+
+.layer-switch.is-on .layer-switch-thumb {
+  transform: translateX(14px);
+}
+
+.layer-switch:active .layer-switch-thumb {
+  transform: scaleX(1.25);
+}
+
+.layer-switch.is-on:active .layer-switch-thumb {
+  transform: translateX(14px) scaleX(1.25);
+}
+
+.layer-switch .layer-swatch {
+  transition: transform 0.3s var(--ease-out), opacity 0.3s;
+}
+
+.layer-switch:not(.is-on) .layer-swatch {
+  opacity: 0.35;
+  transform: scale(0.7);
+}
+
+.layer-switch-label {
+  min-width: 0;
+}
+
+.layer-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.layer-swatch--rain { background: linear-gradient(90deg, #4fbf4f, #f2e23a, #e0362c); }
+.layer-swatch--floods { background: conic-gradient(var(--kind-observed) 0 33%, var(--kind-historical) 0 66%, var(--kind-official) 0); }
+.layer-swatch--sensors { background: var(--kind-official); }
+.layer-swatch--storm { background: var(--kind-scenario); }
+.layer-swatch--fema { background: var(--kind-reference); }
+
+.rain-scale {
+  display: block;
+  margin-top: 14px;
+}
+
+/* NASA's own IMERG color ramp: it has to match the raster tiles, so it is not a theme color. */
+.rain-scale-bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #4fbf4f, #f2e23a, #e0362c);
+}
+
+.rain-scale-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+}
+
+/* ---- Drawing hint ---- */
+
+.map-hint {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  bottom: 28px;
+  margin: 0;
+  padding: 10px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--map-surface);
+  box-shadow: var(--glass-shadow);
+  color: var(--text);
+  font-size: 0.9375rem;
+  transform: translateX(-50%);
+  animation: map-hint-in 0.35s var(--ease-out);
+}
+
+@keyframes map-hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+/* ---- MapLibre controls, popups and attribution ---- */
+
+.map-page .maplibregl-ctrl-bottom-right {
+  margin: 0 var(--map-gap) 24px 0;
+}
+
+.map-page .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin: 0 0 10px;
+}
+
+.map-page .maplibregl-ctrl-group {
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--map-surface);
+  box-shadow: var(--glass-shadow);
+}
+
+.map-page .maplibregl-ctrl-group button {
+  width: 44px;
+  height: 44px;
+  transition: background-color 0.2s;
+}
+
+.map-page .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  transition: transform 0.2s var(--ease-out);
+}
+
+.map-page .maplibregl-ctrl-group button:active .maplibregl-ctrl-icon {
+  transform: scale(0.85);
+}
+
+/* ---- Loading bar: a thin sweep along the top while tiles or area data load ---- */
+
+.map-progress {
+  position: absolute;
+  z-index: 9;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.map-progress.is-busy {
+  opacity: 1;
+}
+
+.map-progress::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: progress-sweep 1.2s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.map-progress.is-busy::before {
+  animation-play-state: running;
+}
+
+@keyframes progress-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.map-page .maplibregl-ctrl-group button + button {
+  border-top-color: var(--line);
+}
+
+.map-page .maplibregl-popup-content {
+  animation: popup-in 0.22s var(--ease-out);
+  padding: 12px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  box-shadow: var(--glass-shadow);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.45;
+}
+
+@keyframes popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+}
+
+.map-page .maplibregl-popup-content strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.map-page .maplibregl-popup-content a {
+  color: var(--accent);
+}
+
+.map-page .maplibregl-popup-close-button {
+  color: var(--text-muted);
+}
+
+.map-page .maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: var(--bg-raised); }
+.map-page .maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: var(--bg-raised); }
+.map-page .maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--bg-raised); }
+.map-page .maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--bg-raised); }
+
+.map-page .maplibregl-ctrl-attrib,
+.map-page .maplibregl-ctrl-scale {
+  background: var(--map-surface);
+  color: var(--text-muted);
+  border-color: var(--text-subtle);
+}
+
+/* Keep the attribution clear of the layers card on the left. */
+@media (min-width: 701px) {
+  .map-page .maplibregl-ctrl-attrib {
+    max-width: calc(100vw - 360px - 3 * var(--map-gap));
+  }
+}
+
+.map-page .maplibregl-ctrl-attrib a {
+  color: var(--text-muted);
+}
+
+:root:not([data-theme='light']) .map-page .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+/* ---- Phones ---- */
+
+@media (max-width: 700px) {
+  .map-page {
+    --map-gap: 10px;
+  }
+
+  .map-topbar {
+    --bar-h: 44px;
+    gap: 8px;
+  }
+
+  .map-search {
+    flex: 1 1 auto;
+    padding: 0 12px;
+  }
+
+  /* Directly under the one-row top bar. */
+  .layers {
+    top: calc(var(--map-gap) + 44px + 10px);
+    bottom: auto;
+  }
+
+  .layers-toggle {
+    height: 44px;
+  }
+
+  /* On phones the list opens downward, under the button. */
+  .layers-panel {
+    top: calc(100% + 8px);
+    bottom: auto;
+    width: min(310px, calc(100vw - 2 * var(--map-gap)));
+    transform-origin: top left;
+  }
+
+  .layers-chev {
+    margin-top: -3px;
+    transform: rotate(225deg);
+  }
+
+  .layers-toggle.is-open .layers-chev {
+    margin-top: 3px;
+    transform: rotate(45deg);
+  }
+
+  @keyframes layers-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.94);
+    }
+  }
+
+  @keyframes layers-out {
+    to {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.94);
+    }
+  }
+}
+
+/* ---- Narrow windows: compact the top bar one step at a time, never wrapping ---- */
+
+@media (max-width: 1000px) {
+  .draw-btn {
+    padding: 0;
+  }
+
+  .draw-btn-label {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .map-brand {
+    width: var(--bar-h);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .map-brand .logo-word {
+    display: none;
+  }
+
+  .map-search-input::placeholder {
+    font-size: 0.875rem;
+  }
+}
+
+/* Short windows: the scale bar goes, so the panel keeps room for its rows. */
+@media (max-height: 560px) {
+  .map-page .maplibregl-ctrl-scale {
+    display: none;
+  }
+}
+
+/* ---- Flood-history legend: above the Layers button (below it on phones) ---- */
+
+.layers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.map-legend {
+  padding: 10px 12px;
+  width: 196px;
+  animation: map-hint-in 0.3s var(--ease-out);
+}
+
+.map-legend-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.map-legend-sub {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.map-legend-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.map-legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.region-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+}
+
+.region-swatch--0 { background: var(--flood-0); }
+.region-swatch--1 { background: var(--flood-1); }
+.region-swatch--2 { background: var(--flood-2); }
+.region-swatch--3 { background: var(--flood-3); }
+.region-swatch--4 { background: var(--flood-4); }
+.region-swatch--5 { background: var(--flood-5); }
+.region-swatch--6 { background: var(--flood-6); }
+
+@media (max-width: 700px) {
+  .layers {
+    flex-direction: column-reverse;
+  }
+
+  /* Phones: a single row of swatches with the end labels, so the map stays visible. */
+  .map-legend {
+    width: auto;
+    padding: 8px 10px;
+  }
+
+  .map-legend-list {
+    display: flex;
+    gap: 2px;
+  }
+
+  .map-legend-list li {
+    font-size: 0;
+  }
+
+  .map-legend-list li:first-child,
+  .map-legend-list li:last-child {
+    font-size: 0.6875rem;
+    gap: 4px;
+  }
+}
+
+/* Phones: hints sit above the collapsed panel card instead of on top of it. */
+@media (max-width: 700px) {
+  .map-hint {
+    bottom: 104px;
+    max-width: calc(100vw - 2 * var(--map-gap));
+    text-align: center;
+  }
+}

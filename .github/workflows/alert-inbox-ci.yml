@@ -1,0 +1,35 @@
+name: Temporary PR33 inbox verification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/alert-inbox-ci.yml'
+permissions:
+  contents: read
+jobs:
+  inbox:
+    if: github.event.pull_request.number == 33 && github.head_ref == 'fix/decong-alert-inbox-auth'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Deterministic inbox security regressions
+        run: node --test supabase/tests/alert-inbox/inbox.test.ts
+      - name: Hosted webhook rejection from an independent network
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const url = 'https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/alert-inbox/webhook';
+          for (const [name, body, headers, expected] of [
+            ['unsigned', '{}', {}, 401],
+            ['invalid signature', '{}', {'X-Mailroom-Timestamp': String(Math.floor(Date.now()/1000)), 'X-Mailroom-Signature': 'a'.repeat(64)}, 401],
+            ['oversized', 'x'.repeat(1_000_001), {}, 413],
+          ]) {
+            const response = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json', ...headers}, body, signal:AbortSignal.timeout(15000)});
+            console.log(JSON.stringify({test:name, status:response.status, expected}));
+            assert.equal(response.status, expected);
+            await response.arrayBuffer();
+          }
+          NODE

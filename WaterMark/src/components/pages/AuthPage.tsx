@@ -6,7 +6,7 @@ import { CityScene } from '../city/CityScene'
 import { RouterLink } from '../common/RouterLink'
 import { useAuth } from '../../hooks/useAuth'
 import { mojoAuthConfig as config } from '../../services/auth/appAuth'
-import { MojoAuthError, sendEmailCode, verifyEmailCode, type MojoAuthErrorCode } from '../../services/auth/mojoAuth'
+import { MojoAuthError, resendEmailCode, sendEmailCode, verifyEmailCode, type MojoAuthErrorCode } from '../../services/auth/mojoAuth'
 
 type Mode = 'login' | 'signup'
 
@@ -81,6 +81,15 @@ export function AuthPage({ mode }: { mode: Mode }) {
     })
   }
 
+  const resendCode = () => {
+    const cfg = config
+    if (!cfg) return setError(ERRORS.misconfigured)
+    void run(async () => {
+      setStateId(await resendEmailCode(cfg, stateId, 'en'))
+      setCode('')
+    })
+  }
+
   const verify = (event: FormEvent) => {
     event.preventDefault()
     const cfg = config
@@ -150,7 +159,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
               width="100%"
             />
             <Button type="submit" label="Sign in" variant="primary" size="lg" width="100%" isDisabled={busy || code.trim().length < 4} />
-            <Button label="Send a new code" variant="ghost" width="100%" isDisabled={busy} onClick={() => sendCode()} />
+            <Button label="Send a new code" variant="ghost" width="100%" isDisabled={busy} onClick={() => resendCode()} />
             <Button label="Use a different email" variant="ghost" width="100%" isDisabled={busy} onClick={() => setStep('email')} />
           </form>
         )}

@@ -14,6 +14,7 @@ import { AreaReport } from './AreaReport'
 import { AlertsList } from './AlertsList'
 import { MapLegend } from './MapLegend'
 import { RegionSummary } from './RegionSummary'
+import { Assistant } from './Assistant'
 import { SourcesList } from '../sources/SourcesList'
 import { useColorScheme } from '../../hooks/useColorScheme'
 import { useGlobalLayers } from '../../hooks/useGlobalLayers'
@@ -25,7 +26,9 @@ import { distanceKm, makeCircle } from '../../scripting/geo'
 import { bboxesOverlap, NYC_BOUNDS, touchesNYC, type BBox } from '../../scripting/region'
 import { DETAIL_ZOOM, pathTo } from '../../scripting/choropleth'
 import { cellAt, cellWidthKm, squareOf } from '../../scripting/cells'
-import { gridAt } from './regionLayers'
+import { gridAt, regionPathAt } from './regionLayers'
+import { contextText } from '../../scripting/assistant'
+import { UNITS } from '../../scripting/format'
 import { fetchPlaceName, type GeocodedPlace } from '../../services/geocoding/photon'
 import type { LayerId, LayerVisibility, LngLat, RegionLevel, RegionPick, Selection } from '../../scripting/types'
 import '@fontsource-variable/bricolage-grotesque/index.css'
@@ -33,6 +36,7 @@ import '@fontsource-variable/instrument-sans/index.css'
 import '@fontsource-variable/jetbrains-mono/index.css'
 import '../../styling/map-page.css'
 import '../../styling/map-premium.css'
+import '../../styling/assistant.css'
 
 const HINT_MS = 4000
 // On phones the layers card and the data sheet share the screen, so opening one folds the other.
@@ -106,6 +110,8 @@ export default function MapPage() {
   const [stormNote, setStormNote] = useState<string | null>(null)
   const [flyTo, setFlyTo] = useState<FlyTarget | null>(null)
   const [isLayersOpen, setIsLayersOpen] = useState(false)
+  // The assistant starts closed: a tab at the bottom of the map opens it.
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false)
 
   // Circle tool: first click sets the center, the second sets the edge.
   const [isDrawing, setIsDrawing] = useState(false)
@@ -206,6 +212,24 @@ export default function MapPage() {
       circle: { type: 'Feature', properties: {}, geometry: squareOf(cell.bounds) } })
   }
 
+  // The assistant opened a place: focus its country (and US state) so the veil never hides it, fly
+  // to the grid square there and select it. On phones the chat covers the panel, so it stays shut.
+  const showFromAssistant = (at: LngLat, label: string) => {
+    setPath(regionPathAt(at, history))
+    const grid = gridAt(at, history)
+    if (!grid) {
+      setFlyTo({ center: at, zoom: 9 })
+      setSelection(select(at, 5, label))
+      return
+    }
+    const cell = cellAt(at, grid)
+    const [w, s0, e, n] = cell.bounds
+    setFlyTo({ bounds: cell.bounds, maxZoom: SQUARE_MAX_ZOOM })
+    setSelection({ center: [(w + e) / 2, (s0 + n) / 2], radiusKm: cellWidthKm(cell.bounds) / 2, label: SPOT_LABEL, cell,
+      circle: { type: 'Feature', properties: {}, geometry: squareOf(cell.bounds) } })
+    if (!isPhone() && panel.mode !== 'open') openPanel()
+  }
+
   useEffect(() => {
     if (!path.length || isDrawing) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) goTo(path.length - 1) }
@@ -291,6 +315,16 @@ export default function MapPage() {
         <CollapsedPanel title={title} alertCount={alertCount} onOpen={openPanel}
           isClosing={cardPresence.isClosing} presence={cardPresence.bind} />
       ) : null}
+      <Assistant isOpen={isAssistantOpen} onOpenChange={setIsAssistantOpen}
+        placeName={region ? crumbName(region) : null}
+        isUS={path[0]?.props.k === 'USA'}
+        getContext={() => contextText({
+          focus: path.map(crumbName),
+          selection: selection ? { label: title, lat: selection.center[1], lon: selection.center[0] } : null,
+          units: UNITS,
+          today: new Date().toISOString().slice(0, 10),
+        })}
+        showOnMap={showFromAssistant} />
       <span className={isMapBusy || isReportLoading ? 'map-progress is-busy' : 'map-progress'} aria-hidden="true" />
       {hint ? <p className="map-hint" role="status">{hint.text}</p> : zoomHint && !isDrawing ? <p className="map-hint" role="status">{zoomHint}</p> : null}
     </main>

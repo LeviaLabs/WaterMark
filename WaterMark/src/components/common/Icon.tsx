@@ -25,6 +25,10 @@ const PATHS = {
   send: 'M4 12 20 4l-6 16-3-7-7-1Z',
   mail: 'M4 6h16v12H4V6Zm0 0 8 7 8-7',
   drop: 'M12 3s6 6.6 6 11a6 6 0 0 1-12 0c0-4.4 6-11 6-11Z',
+  spark: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 8.5l1.2 2.3 2.3 1.2-2.3 1.2L12 15.5l-1.2-2.3L8.5 12l2.3-1.2L12 8.5Z',
+  stop: 'M7 7h10v10H7z',
+  chat: 'M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-5 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm4 5.5h.01M12 10.5h.01M15 10.5h.01',
+  plus: 'M12 5v14M5 12h14',
 } as const
 
 export type IconName = keyof typeof PATHS

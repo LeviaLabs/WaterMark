@@ -21,16 +21,16 @@ describe('zoom to focus', () => {
   })
   it('steps back up as you zoom out, to the world', () => {
     expect(at(9.2, 10.2, 4)).toBe(3) // below the block: back to the county
-    expect(at(7.5, 9.2, 3)).toBe(2) // well below the county: the state
-    expect(at(4.2, 7.5, 2)).toBe(1)
-    expect(at(1.8, 4.2, 1)).toBe(0)
+    expect(at(6.8, 9.2, 3)).toBe(2) // well below the county: the state
+    expect(at(3.4, 6.8, 2)).toBe(1)
+    expect(at(1.8, 3.4, 1)).toBe(0)
   })
   it('does not flip at a boundary: leaving needs a bigger zoom-out than entering needed', () => {
-    // The county is entered at 8.4 (its fit 9 less 0.6)…
-    expect(at(8.5, 8, 2)).toBe(3)
-    // …and a small zoom-out back to 8.1 keeps it; it is left only below 7.8.
-    expect(at(8.1, 8.5, 3)).toBe(3)
-    expect(at(7.7, 8.1, 3)).toBe(2)
+    // The county is entered at 7.7 (its fit 9 less 1.3)…
+    expect(at(7.8, 7.4, 2)).toBe(3)
+    // …and a small zoom-out back to 7.2 keeps it; it is left only below 7.
+    expect(at(7.2, 7.8, 3)).toBe(3)
+    expect(at(6.9, 7.2, 3)).toBe(2)
   })
   it('never moves up while zooming in, nor down while zooming out', () => {
     expect(at(8.2, 8.0, 4)).toBeNull()

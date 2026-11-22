@@ -5,7 +5,8 @@
 // that spot and zooms in; the area data loads for it. Search and the circle tool select a spot directly.
 // Back, the breadcrumb, and Escape each step up one level and clear the spot.
 // Zooming does the same by itself (scripting/zoomFocus.ts): zooming in focuses the country, state or
-// province, county and then the block under the middle of the screen; zooming out steps back up to
+// province, county and then the block under the cursor (or the middle of the screen for the +/- buttons);
+// zooming out steps back up to
 // the world. It never moves the camera, so it never fights the zoom.
 // Open a place directly with /map?lat=40.68&lon=-74.01&z=14&label=Red%20Hook
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -303,8 +304,8 @@ export default function MapPage() {
     choose(square.selection)
   }
 
-  // Zoom-to-focus: after each zoom of the user's, focus the level that zoom shows under the middle of
-  // the screen. The camera stays where the user put it; a newer zoom or any click wins over this one.
+  // Zoom-to-focus: after each zoom of the user's, focus the level that zoom shows at the point zoomed
+  // into (FloodMap's onUserZoom). The camera stays where the user put it; a newer zoom or any click wins over this one.
   const onUserZoom = (center: LngLat, zoom: number, prevZoom: number, fitZoom: (b: BBox) => number) => {
     if (isDrawing) return
     const seq = ++zoomSeq.current
@@ -339,7 +340,7 @@ export default function MapPage() {
     }
     // The block waits for the county or province under it, so it is never picked out of order.
     if (isPartial) return
-    // The block. Any selection the middle of the screen is still inside stays, so zooming around a
+    // The block. Any selection the zoomed point is still inside stays, so zooming around a
     // square, a searched place or a drawn area does not reload its data at every step.
     if (picked && booleanPointInPolygon(center, picked.circle)) return
     if (picked && picked.label !== SPOT_LABEL) return

@@ -216,7 +216,8 @@ interface Props {
   onBusyChange: (isBusy: boolean) => void
   /**
    * The user zoomed (wheel, pinch, keys, the zoom buttons), not a fly to a picked place. Gives the
-   * middle of the screen, the zoom before and after, and the zoom a click on a region would fly to.
+   * point zoomed into (under the cursor or pinch, else the middle of the screen), the zoom before and
+   * after, and the zoom a click on a region would fly to.
    */
   onUserZoom?: (center: LngLat, zoom: number, prevZoom: number, fitZoom: (bounds: [number, number, number, number]) => number) => void
 }
@@ -286,18 +287,38 @@ export function FloodMap(props: Props) {
 
     // User zooms, for zoom-to-focus (scripting/zoomFocus.ts). A fly the app started does not count;
     // a gesture that interrupts it does.
+    // The wheel, a double click and a pinch zoom toward a point and keep it still, so that point (not
+    // the middle of the screen) is the place being zoomed into. Keys and the +/- buttons zoom on the middle.
     let zoomFrom = map.getZoom()
+    /** The pointer over the map, in screen pixels; the wheel keeps the place under it still. */
+    let cursorAt: maplibregl.Point | null = null
+    /** Middle of a pinch, or null; and whether this zoom came from the keys or the +/- buttons. */
+    let pinch: LngLat | null = null
+    let isCentered = false
+    map.on('mousemove', (e) => { cursorAt = e.point })
+    map.on('mouseout', () => { cursorAt = null })
     map.on('zoomstart', (e) => {
-      if ((e as { originalEvent?: unknown }).originalEvent) isFlying.current = false
+      const ev = (e as { originalEvent?: unknown }).originalEvent
+      if (ev) isFlying.current = false
       zoomFrom = map.getZoom()
+      isCentered = ev instanceof KeyboardEvent || (ev instanceof MouseEvent && ev.type === 'click')
+      pinch = null
+      if (typeof TouchEvent !== 'undefined' && ev instanceof TouchEvent && ev.touches.length >= 2) {
+        const r = map.getCanvas().getBoundingClientRect()
+        const [t0, t1] = [ev.touches[0], ev.touches[1]]
+        const p = map.unproject([(t0.clientX + t1.clientX) / 2 - r.left, (t0.clientY + t1.clientY) / 2 - r.top])
+        pinch = [p.lng, p.lat]
+      }
     })
     map.on('moveend', () => { isFlying.current = false })
     map.on('zoomend', () => {
       if (isFlying.current) return
       const c = map.getCenter()
+      const under = !isCentered && cursorAt ? map.unproject(cursorAt) : null
+      const at: LngLat = pinch ?? (under ? [under.lng, under.lat] : [c.lng, c.lat])
       const fitZoom = (bounds: [number, number, number, number]) =>
         Math.min(map.cameraForBounds(bounds, { padding: flyPadding() })?.zoom ?? map.getZoom(), map.getMaxZoom())
-      latest.current.onUserZoom?.([c.lng, c.lat], map.getZoom(), zoomFrom, fitZoom)
+      latest.current.onUserZoom?.(at, map.getZoom(), zoomFrom, fitZoom)
     })
     map.addControl(new maplibregl.ScaleControl({ unit: UNITS }), 'bottom-right')
 

@@ -1,15 +1,17 @@
 // Zooming picks the level of the map: the world, then the country, its state or province, the US
-// county, and at the closest zooms the block (the grid square) under the middle of the screen.
+// county, and at the closest zooms the block (the grid square) at the point zoomed into: under the
+// cursor or pinch, or the middle of the screen for the keys and the +/- buttons.
 //
 // Each level has a "fit" zoom: the zoom the map flies to when that region is clicked. A level is
 // entered a little before its fit (ENTER) and left only well below it (LEAVE). The gap is
 // hysteresis, so a zoom that stops near a boundary does not flip back and forth. Zooming in never
-// moves the focus up a level and zooming out never moves it down, even when the middle of the
-// screen is now over a smaller or larger region.
+// moves the focus up a level and zooming out never moves it down, even when that point is now
+// over a smaller or larger region.
 
 /** Zoom levels before a region's fit zoom at which it is entered, and below which it is left. */
-export const ENTER = 0.6
-export const LEAVE = 1.2
+// A region is entered once it fills roughly half the screen, not only when it almost fills it.
+export const ENTER = 1.3
+export const LEAVE = 2
 /** The block is entered at its zoom and left this far below it. */
 export const BLOCK_LEAVE = 0.6
 
@@ -17,7 +19,7 @@ export interface ZoomDepthInput {
   zoom: number
   /** Zoom when the gesture began. */
   prevZoom: number
-  /** Fit zoom of each region under the middle of the screen, outermost (the country) first. */
+  /** Fit zoom of each region at the point zoomed into, outermost (the country) first. */
   fits: readonly number[]
   /** Zoom at which the block under the middle is selected. */
   blockZoom: number

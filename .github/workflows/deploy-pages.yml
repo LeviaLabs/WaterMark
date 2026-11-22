@@ -36,6 +36,8 @@ jobs:
           VITE_MOJOAUTH_API_KEY: ${{ vars.VITE_MOJOAUTH_API_KEY }}
           VITE_WATERMARK_AUTH_VERIFY_URL: ${{ vars.VITE_WATERMARK_AUTH_VERIFY_URL }}
           VITE_WATERMARK_ALERTS_URL: ${{ vars.VITE_WATERMARK_ALERTS_URL }}
+          # Public function URL. Empty: the chat says it is not set up and calls nothing.
+          VITE_WATERMARK_ASSISTANT_URL: ${{ vars.VITE_WATERMARK_ASSISTANT_URL }}
       # SPA fallback so /map, /login, /signup work on refresh
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3

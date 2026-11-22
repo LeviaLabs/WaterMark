@@ -1,4 +1,4 @@
-import { lazy } from 'react'
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import '@astryxdesign/core/reset.css'
 import '@astryxdesign/core/astryx.css'
@@ -23,13 +23,15 @@ import './styling/sea.css'
 import './styling/transitions.css'
 import './styling/lazy.css'
 import { ThemeProvider } from './context/ThemeProvider'
+import { AuthProvider } from './context/AuthProvider'
+import { authAdapter } from './services/auth/appAuth'
 import { ScrollGlow } from './components/layout/ScrollGlow'
 import { SiteLayout } from './components/layout/SiteLayout'
 import { LandingPage } from './components/pages/LandingPage'
 
 // Secondary routes load on demand so the landing page ships less JavaScript.
 const AuthPage = lazy(() => import('./components/pages/AuthPage').then((m) => ({ default: m.AuthPage })))
-const MapPage = lazy(() => import('./components/pages/MapPage').then((m) => ({ default: m.MapPage })))
+const MapPage = lazy(() => import('./components/map/MapPage'))
 const AlertsPage = lazy(() => import('./components/pages/AlertsPage').then((m) => ({ default: m.AlertsPage })))
 const NotFoundPage = lazy(() => import('./components/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
@@ -40,19 +42,22 @@ const NotFoundPage = lazy(() => import('./components/pages/NotFoundPage').then((
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <Routes>
-          <Route element={<SiteLayout />}>
-            <Route index element={<LandingPage />} />
-            <Route path="map" element={<MapPage />} />
-            <Route path="alerts" element={<AlertsPage />} />
-            <Route path="login" element={<AuthPage mode="login" />} />
-            <Route path="signup" element={<AuthPage mode="signup" />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
-        <ScrollGlow />
-      </BrowserRouter>
+      {/* Sign-in state for the nav and pages. Children never wait for it; see AuthProvider. */}
+      <AuthProvider adapter={authAdapter}>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <Routes>
+            <Route path="map" element={<Suspense fallback={null}><MapPage /></Suspense>} />
+            <Route element={<SiteLayout />}>
+              <Route index element={<LandingPage />} />
+              <Route path="alerts" element={<AlertsPage />} />
+              <Route path="login" element={<AuthPage mode="login" />} />
+              <Route path="signup" element={<AuthPage mode="signup" />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+          <ScrollGlow />
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

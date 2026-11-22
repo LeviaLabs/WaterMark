@@ -1,0 +1,32 @@
+// Upstream endpoints. All are public and keyless; when the team adds Supabase Edge Function
+// adapters, point these at the adapter routes instead and keep the result types in scripting/types.ts.
+
+export const ENDPOINTS = {
+  sensors: 'https://data.cityofnewyork.us/resource/kb2e-tjy3.geojson?$limit=5000',
+  sensorStats: 'https://data.cityofnewyork.us/resource/aq7i-eu5q.json?' + new URLSearchParams({
+    $select: 'sensor_id,count(*) as events,max(max_depth_inches) as max_depth,max(flood_start_time) as last_flood',
+    $group: 'sensor_id',
+    $limit: '5000',
+  }),
+  // Our own static vector tiles of the official NYC layer (built by `npm run tiles:stormwater`).
+  stormIndex: '/data/stormwater/index.json',
+  stormTiles: '/data/stormwater',
+  // 512 px images on the standard 256 px tile grid: one image pixel per device pixel at a 2× map,
+  // so flood-zone edges stay sharp as you zoom instead of stretching a 256 px picture.
+  femaTiles: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png32&transparent=true&layers=show:28&f=image',
+  femaQuery: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query',
+  // NASA IMERG 30-minute rain rate. "default" asks GIBS for its newest available image.
+  imergTiles: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/IMERG_Precipitation_Rate_30min/default/default/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png',
+  gdacs: 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH',
+  forecast: 'https://api.open-meteo.com/v1/forecast',
+  flood: 'https://flood-api.open-meteo.com/v1/flood',
+  // ERA5 reanalysis, daily since 1940 (Open-Meteo historical weather API).
+  rainArchive: 'https://archive-api.open-meteo.com/v1/archive',
+  // Copernicus DEM GLO-90 ground height.
+  elevation: 'https://api.open-meteo.com/v1/elevation',
+  nwsAlerts: 'https://api.weather.gov/alerts/active',
+  // Photon (OpenStreetMap data): forward search lives in services/geocoding/photon.ts.
+  // Census ZIP Code Tabulation Areas (2020 Census), the ZIP areas the claims are counted by.
+  censusZcta: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/PUMA_TAD_TAZ_UGA_ZCTA/MapServer/7/query',
+  nfipClaims: 'https://www.fema.gov/api/open/v3/NfipClaims',
+} as const

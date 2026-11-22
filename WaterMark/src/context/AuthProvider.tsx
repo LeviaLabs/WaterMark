@@ -6,12 +6,10 @@ import {
   GUEST,
   guestAdapter,
   sanitizeState,
+  watchExpiry,
   type AuthAdapter,
   type AuthState,
 } from '../services/auth/session.ts'
-
-/** Longest delay setTimeout accepts (about 24.8 days). */
-const MAX_TIMEOUT_MS = 2 ** 31 - 1
 
 /**
  * Optional sign-in state. Children always render whatever the auth state, so the map and
@@ -28,23 +26,31 @@ export function AuthProvider({ children, adapter = guestAdapter }: { children: R
     return () => { active = false }
   }, [adapter])
 
-  // One timer at the session's expiry time, so the status text changes to "expired" on time.
+  // Flip to "expired" the moment the session ends: a timer, plus a clock check when the tab
+  // becomes visible or regains focus (hidden tabs and sleeping laptops fire timers late).
   // Access checks do not depend on it: canUse() compares against the clock on every call.
   useEffect(() => {
     if (state.status !== 'signed-in' || state.expiresAt === null) return
-    const delay = Math.min(Math.max(state.expiresAt - Date.now(), 0), MAX_TIMEOUT_MS)
-    const id = window.setTimeout(() => setState((s) => evaluateSession(s)), delay)
-    return () => window.clearTimeout(id)
+    return watchExpiry(state.expiresAt, () => setState((s) => evaluateSession(s)), [window, document])
   }, [state.status, state.expiresAt])
 
-  const signIn = useCallback(async () => {
-    if (!adapter.canSignIn) return
+  // An expired session leaves nothing behind: delete the stored token as soon as expiry is seen,
+  // not on the next reload. The nav and pages already show the signed-out state from `state`.
+  useEffect(() => {
+    if (state.status === 'expired') adapter.signOut().catch(() => {})
+  }, [state.status, adapter])
+
+  const signIn = useCallback(async (providerToken: string) => {
+    if (!adapter.canSignIn) return { ...GUEST, status: 'error', error: 'sign-in-disabled' } satisfies AuthState
     setState((s) => ({ ...s, status: 'loading', error: null }))
+    let next: AuthState
     try {
-      setState(evaluateSession(sanitizeState(await adapter.signIn())))
+      next = evaluateSession(sanitizeState(await adapter.signIn(providerToken)))
     } catch {
-      setState({ ...GUEST, status: 'error', error: 'sign-in-failed' })
+      next = { ...GUEST, status: 'error', error: 'sign-in-failed' }
     }
+    setState(next)
+    return next
   }, [adapter])
 
   const signOut = useCallback(async () => {

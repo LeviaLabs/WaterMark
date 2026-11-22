@@ -4,14 +4,16 @@ import { Button } from '@astryxdesign/core/Button'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { CityScene } from '../city/CityScene'
 import { RouterLink } from '../common/RouterLink'
+import { useAuth } from '../../hooks/useAuth'
+import { mojoAuthConfig as config } from '../../services/auth/appAuth'
+import { createEmailCodeAttempt, MojoAuthError, type MojoAuthErrorCode } from '../../services/auth/mojoAuth'
 
 type Mode = 'login' | 'signup'
 
-const COPY: Record<Mode, { title: string; lede: string; submit: string; switchText: string; switchLink: string; switchTo: string }> = {
+const COPY: Record<Mode, { title: string; lede: string; switchText: string; switchLink: string; switchTo: string }> = {
   login: {
     title: 'Welcome back',
     lede: 'Sign in to keep your saved places and alert preferences.',
-    submit: 'Email me a sign-in link',
     switchText: 'New to WaterMark?',
     switchLink: 'Create an account',
     switchTo: '/signup',
@@ -19,26 +21,98 @@ const COPY: Record<Mode, { title: string; lede: string; submit: string; switchTe
   signup: {
     title: 'Create your account',
     lede: 'Save the places you care about and choose how you hear about alerts.',
-    submit: 'Email me a sign-up link',
     switchText: 'Already have an account?',
     switchLink: 'Log in',
     switchTo: '/login',
   },
 }
 
+const ERRORS: Record<MojoAuthErrorCode, string> = {
+  'invalid-email': 'Enter a valid email address.',
+  'invalid-code': 'That code did not work. Check it and try again, or send a new code.',
+  'rate-limited': 'Too many tries. Wait a minute, then try again.',
+  network: 'Could not reach the sign-in service. Check your connection and try again.',
+  'verify-failed': 'We could not confirm your sign-in. Try again in a moment.',
+  misconfigured: 'Sign-in is not set up on this site yet. You can explore every map and data layer without an account.',
+  'code-expired': 'That code has expired. Enter your email again to get a new one.',
+}
+
+type Step = 'email' | 'code'
+
 /**
- * Log in / sign up shell. Passwordless sign-in (MojoAuth) is Decong's
- * integration and is not wired here yet, so submitting says so honestly
- * instead of pretending to send an email. Accounts stay optional.
+ * Log in / sign up. Both modes use the same MojoAuth email code: MojoAuth creates the
+ * account on first sign-in. The token is trusted only after our auth-verify Edge Function
+ * confirms it; the shared <AuthProvider> (App.tsx) holds the session. Accounts stay optional.
  */
 export function AuthPage({ mode }: { mode: Mode }) {
   const copy = COPY[mode]
+  const auth = useAuth()
+  const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
-  const [submitted, setSubmitted] = useState(false)
+  const [code, setCode] = useState('')
+  // Holds MojoAuth's state id between "Email me a code", "Send a new code" and "Sign in".
+  const [attempt] = useState(() => (config ? createEmailCodeAttempt(config, 'en') : null))
+  const [busy, setBusy] = useState(false)
+  const [resent, setResent] = useState(false)
+  const [error, setError] = useState('')
 
-  const onSubmit = (event: FormEvent) => {
+  const signedIn = auth.state.status === 'signed-in'
+  const expired = auth.state.status === 'expired'
+  // The provider is re-checking a stored session (not this page's own sign-in).
+  const checking = auth.state.status === 'loading' && !busy
+  const name = auth.state.account?.displayName ?? ''
+
+  async function run(task: () => Promise<void>) {
+    setBusy(true)
+    setError('')
+    try {
+      await task()
+    } catch (err) {
+      setError(ERRORS[err instanceof MojoAuthError ? err.code : 'network'])
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const sendCode = (event?: FormEvent) => {
+    event?.preventDefault()
+    if (!attempt) return setError(ERRORS.misconfigured)
+    void run(async () => {
+      await attempt.send(email)
+      setCode('')
+      setResent(false)
+      setStep('code')
+    })
+  }
+
+  // "Send a new code" uses MojoAuth's resend call for the same attempt, not a second first send.
+  const resendCode = () => {
+    if (!attempt) return setError(ERRORS.misconfigured)
+    void run(async () => {
+      try {
+        await attempt.resend()
+      } catch (err) {
+        if (err instanceof MojoAuthError && err.code === 'code-expired') setStep('email')
+        throw err
+      }
+      setCode('')
+      setResent(true)
+    })
+  }
+
+  const verify = (event: FormEvent) => {
     event.preventDefault()
-    setSubmitted(true)
+    if (!attempt) return
+    void run(async () => {
+      const state = await auth.signIn(await attempt.verify(code))
+      if (state.status !== 'signed-in') throw new MojoAuthError('verify-failed')
+    })
+  }
+
+  const signOut = () => {
+    void auth.signOut()
+    setEmail('')
+    setStep('email')
   }
 
   return (
@@ -47,17 +121,28 @@ export function AuthPage({ mode }: { mode: Mode }) {
       <span className="auth-shade" aria-hidden="true" />
       <div className="auth-card glass-panel">
         <h1 id="auth-title" className="auth-title">
-          {copy.title}
+          {signedIn ? 'You are signed in' : copy.title}
         </h1>
-        <p className="auth-lede">{copy.lede}</p>
+        <p className="auth-lede" role="status" aria-live="polite">
+          {signedIn
+            ? `Signed in as ${name}.`
+            : checking
+              ? 'Checking your session…'
+              : step === 'code'
+                ? `We sent ${resent ? 'a new' : 'a'} code to ${email}. It can take a minute to arrive.`
+                : expired
+                  ? 'Your session ended. Sign in again to keep your saved places and alert preferences.'
+                  : copy.lede}
+        </p>
 
-        {submitted ? (
-          <p className="auth-notice" role="status">
-            Passwordless sign-in is still being connected, so no email was sent. You can explore every map and data
-            layer without an account in the meantime.
+        {error && !signedIn && (
+          <p className="auth-notice" role="alert">
+            {error}
           </p>
-        ) : (
-          <form className="auth-form" onSubmit={onSubmit}>
+        )}
+
+        {!signedIn && !checking && step === 'email' && (
+          <form className="auth-form" onSubmit={sendCode} noValidate>
             <TextInput
               type="email"
               label="Email"
@@ -69,15 +154,40 @@ export function AuthPage({ mode }: { mode: Mode }) {
               isRequired
               width="100%"
             />
-            <Button type="submit" label={copy.submit} variant="primary" size="lg" width="100%" isDisabled={!email.includes('@')} />
+            <Button type="submit" label="Email me a code" variant="primary" size="lg" width="100%" isDisabled={busy || !email.includes('@')} />
           </form>
         )}
 
-        <Button label="Continue without an account" variant="ghost" href="/map" as={RouterLink} width="100%" />
+        {!signedIn && step === 'code' && (
+          <form className="auth-form" onSubmit={verify} noValidate>
+            <TextInput
+              label="One-time code"
+              value={code}
+              onChange={(value) => setCode(value)}
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              isRequired
+              width="100%"
+            />
+            <Button type="submit" label="Sign in" variant="primary" size="lg" width="100%" isDisabled={busy || code.trim().length < 4} />
+            <Button label="Send a new code" variant="ghost" width="100%" isDisabled={busy} onClick={resendCode} />
+            <Button label="Use a different email" variant="ghost" width="100%" isDisabled={busy} onClick={() => setStep('email')} />
+          </form>
+        )}
 
-        <p className="auth-switch">
-          {copy.switchText} <Link to={copy.switchTo}>{copy.switchLink}</Link>
-        </p>
+        {signedIn ? (
+          <>
+            <Button label="Go to the map" variant="primary" size="lg" href="/map" as={RouterLink} width="100%" />
+            <Button label="Sign out" variant="ghost" width="100%" onClick={signOut} />
+          </>
+        ) : (
+          <>
+            <Button label="Continue without an account" variant="ghost" href="/map" as={RouterLink} width="100%" />
+            <p className="auth-switch">
+              {copy.switchText} <Link to={copy.switchTo}>{copy.switchLink}</Link>
+            </p>
+          </>
+        )}
       </div>
     </section>
   )

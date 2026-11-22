@@ -189,3 +189,74 @@ export async function searchPlaces(query: string, signal?: AbortSignal, options:
   cache.set(url, places)
   return places
 }
+
+export const PHOTON_REVERSE_URL = 'https://photon.komoot.io/reverse'
+
+/**
+ * The ISO country code in a reverse-lookup answer (upper case, e.g. "US", "JP"), or 'none' over
+ * open water or where OpenStreetMap has nothing nearby. Used only to pick which national datasets apply.
+ */
+export function parseCountry(payload: unknown): string {
+  if (!isRecord(payload) || !Array.isArray(payload.features)) {
+    throw new GeocodeError('malformed', 'Reverse lookup returned an unexpected response.')
+  }
+  const first: unknown = payload.features[0]
+  const code = isRecord(first) && isRecord(first.properties) ? text(first.properties.countrycode) : undefined
+  return code && /^[A-Za-z]{2}$/.test(code) ? code.toUpperCase() : 'none'
+}
+
+/**
+ * A short name for a point from the same reverse lookup: "Bellefonte, Pennsylvania", or the
+ * county, state or country when that is all there is. Null over open water.
+ */
+export function parsePlaceName(payload: unknown): string | null {
+  if (!isRecord(payload) || !Array.isArray(payload.features)) return null
+  const first: unknown = payload.features[0]
+  if (!isRecord(first) || !isRecord(first.properties)) return null
+  const p = first.properties
+  const local = text(p.city) ?? text(p.town) ?? text(p.village) ?? text(p.district) ?? text(p.county)
+  const region = text(p.state) ?? text(p.country)
+  const parts = [local, region].filter((x, i, all): x is string => Boolean(x) && all.indexOf(x) === i)
+  return parts.length ? parts.join(', ') : null
+}
+
+type Reverse = { country: string; place: string | null }
+const reverseCache = new Map<string, Promise<Reverse>>()
+
+function fetchReverse([lon, lat]: readonly [number, number]): Promise<Reverse> {
+  const key = `${lon.toFixed(2)},${lat.toFixed(2)}`
+  let job = reverseCache.get(key)
+  if (!job) {
+    const params = new URLSearchParams({ lat: lat.toFixed(4), lon: lon.toFixed(4), limit: '1', lang: 'en' })
+    const started = fetch(`${PHOTON_REVERSE_URL}?${params}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) })
+      .then((res) => {
+        if (!res.ok) throw new GeocodeError(res.status === 429 ? 'rate-limited' : 'unavailable', `Reverse lookup answered ${res.status}.`)
+        return res.json() as Promise<unknown>
+      })
+      .then((j) => ({ country: parseCountry(j), place: parsePlaceName(j) }))
+    job = started
+    reverseCache.set(key, started)
+    started.catch(() => reverseCache.delete(key))
+    if (reverseCache.size > CACHE_LIMIT) reverseCache.delete(reverseCache.keys().next().value as string)
+  }
+  return job
+}
+
+function abortable<T>(job: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return job
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(new DOMException('Aborted', 'AbortError'))
+    signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    job.then(resolve, reject)
+  })
+}
+
+/** The place name at a point (see parsePlaceName), from the cached reverse lookup. */
+export function fetchPlaceName(at: readonly [number, number], signal?: AbortSignal): Promise<string | null> {
+  return abortable(fetchReverse(at).then((r) => r.place), signal)
+}
+
+/** The country at a point (see parseCountry), cached per ~1 km for the visit. */
+export function fetchCountry(at: readonly [number, number], signal?: AbortSignal): Promise<string> {
+  return abortable(fetchReverse(at).then((r) => r.country), signal)
+}

@@ -94,7 +94,7 @@ These are outside the frontend job. None of them have a CI workflow yet.
 - **Python.** `scripts/watermark_data.py` is a standard-library data pull (FloodNet and NFIP). It is not installed or run here.
 - **End-to-end tests.** No browser runner is configured.
 - **Accessibility checks.** No axe or similar step is configured.
-- **Deploy.** Amplify, AWS, and Supabase project settings are untouched. This workflow does not deploy.
+- **Deploy.** This frontend CI workflow does not deploy. The public site is GitHub Pages at watermark.works, published by `.github/workflows/deploy-pages.yml`. Supabase project settings are untouched.
 
 ## Backend CI after WM-CODEX-001
 

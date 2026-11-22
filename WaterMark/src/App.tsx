@@ -39,7 +39,7 @@ const NotFoundPage = lazy(() => import('./components/pages/NotFoundPage').then((
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           <Route element={<SiteLayout />}>
             <Route index element={<LandingPage />} />

@@ -88,17 +88,22 @@
   --boat-sail: #c7d6e4;
   --story-scrim: linear-gradient(90deg, rgba(2, 8, 18, 0.88) 0%, rgba(2, 8, 18, 0.55) 42%, rgba(2, 8, 18, 0.05) 75%);
 
-  /* Hero storm scope. */
-  --storm-dot: rgba(140, 190, 230, 0.16);
-  --storm-ring: rgba(120, 210, 255, 0.3);
-  --storm-sweep: rgba(80, 220, 255, 0.3);
-  --storm-disc: rgba(40, 140, 200, 0.14);
-  --storm-glow: rgba(30, 110, 170, 0.22);
-  --storm-tip: rgba(5, 20, 34, 0.94);
-  --echo-light: #34d27b;
-  --echo-moderate: #f2d43d;
-  --echo-heavy: #f5813a;
-  --echo-extreme: #ee3f8c;
+  /* Hero droplet and aurora. */
+  --aurora-1: rgba(34, 160, 210, 0.34);
+  --aurora-2: rgba(70, 80, 220, 0.26);
+  --aurora-3: rgba(40, 200, 175, 0.16);
+  --drop-glass: rgba(150, 220, 255, 0.06);
+  --drop-glass-hi: rgba(255, 255, 255, 0.16);
+  --drop-glass-edge: rgba(140, 220, 255, 0.34);
+  --drop-water-top: #3cc2e4;
+  --drop-water-deep: #0a3b78;
+  --drop-water-back: rgba(130, 225, 245, 0.5);
+  --drop-caustic: rgba(255, 255, 255, 0.24);
+  --drop-rim-a: rgba(255, 255, 255, 0.9);
+  --drop-rim-b: rgba(160, 230, 255, 0.2);
+  --drop-rim-c: rgba(120, 200, 255, 0.65);
+  --drop-shadow: rgba(40, 170, 225, 0.32);
+  --drop-ripple: rgba(120, 220, 255, 0.45);
 
   /* Underwater evidence section. */
   --sea-top: #0b3a5c;
@@ -179,17 +184,22 @@
   --boat-sail: #fefefe;
   --story-scrim: linear-gradient(90deg, rgba(238, 246, 250, 0.94) 0%, rgba(238, 246, 250, 0.7) 42%, rgba(238, 246, 250, 0.05) 75%);
 
-  /* Hero storm scope. */
-  --storm-dot: rgba(20, 70, 110, 0.16);
-  --storm-ring: rgba(10, 100, 140, 0.32);
-  --storm-sweep: rgba(11, 127, 153, 0.26);
-  --storm-disc: rgba(11, 127, 153, 0.08);
-  --storm-glow: rgba(120, 200, 230, 0.35);
-  --storm-tip: rgba(255, 255, 255, 0.96);
-  --echo-light: #1fa95f;
-  --echo-moderate: #d9b300;
-  --echo-heavy: #e06414;
-  --echo-extreme: #d0206e;
+  /* Hero droplet and aurora. */
+  --aurora-1: rgba(80, 200, 232, 0.36);
+  --aurora-2: rgba(120, 140, 255, 0.22);
+  --aurora-3: rgba(90, 220, 190, 0.24);
+  --drop-glass: rgba(255, 255, 255, 0.35);
+  --drop-glass-hi: rgba(255, 255, 255, 0.75);
+  --drop-glass-edge: rgba(11, 127, 153, 0.32);
+  --drop-water-top: #2bb3d6;
+  --drop-water-deep: #0b5a98;
+  --drop-water-back: rgba(43, 179, 214, 0.42);
+  --drop-caustic: rgba(255, 255, 255, 0.36);
+  --drop-rim-a: #ffffff;
+  --drop-rim-b: rgba(11, 127, 153, 0.22);
+  --drop-rim-c: rgba(11, 90, 140, 0.55);
+  --drop-shadow: rgba(11, 127, 153, 0.26);
+  --drop-ripple: rgba(11, 127, 153, 0.4);
 
   /* Underwater evidence section. */
   --sea-top: #bfe6f4;

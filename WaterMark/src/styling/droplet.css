@@ -1,0 +1,430 @@
+/*
+ * Hero droplet (components/hero/Droplet.tsx) and the aurora behind it.
+ *
+ * The hero sets --px (pointer, -1..1, from usePointerParallax) and --progress
+ * (0..1 as it scrolls away). From those: --fill is how full the drop is, the
+ * drop tips with --px and the water inside tips the other way, both eased by
+ * CSS transitions so the water seems to slosh. Glass and water are cut to the
+ * logo's outline with the same mask, so the drop scales with no repainting.
+ */
+
+.hero {
+  --fill: calc(0.4 + var(--progress, 0) * 0.48);
+  --drop-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='6 2.5 20 27.6' preserveAspectRatio='none'%3E%3Cpath d='M16 2.5c5.4 6.6 10 12.3 10 17.6a10 10 0 0 1-20 0C6 14.8 10.6 9.1 16 2.5Z'/%3E%3C/svg%3E");
+}
+
+/* ---- Aurora and grain ---- */
+
+.hero-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-aurora span {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--aurora), transparent);
+  animation: aurora-drift 26s ease-in-out infinite alternate;
+}
+
+.hero-aurora span:nth-child(1) {
+  --aurora: var(--aurora-1);
+  top: -30vmax;
+  right: -18vmax;
+}
+
+.hero-aurora span:nth-child(2) {
+  --aurora: var(--aurora-2);
+  bottom: -40vmax;
+  left: -20vmax;
+  animation-duration: 32s;
+  animation-delay: -8s;
+}
+
+.hero-aurora span:nth-child(3) {
+  --aurora: var(--aurora-3);
+  top: 20%;
+  right: 10%;
+  width: 46vmax;
+  height: 46vmax;
+  animation-duration: 22s;
+  animation-delay: -14s;
+}
+
+@keyframes aurora-drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-6vmax, 4vmax) scale(1.12);
+  }
+}
+
+/* A fine film grain over everything, drawn once. */
+.hero-grain {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--grain-opacity, 0.07);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- The drop ---- */
+
+.droplet {
+  position: absolute;
+  top: 50%;
+  right: max(var(--gutter), calc((100% - var(--page-max)) / 2 + 2rem));
+  z-index: -2;
+  width: clamp(240px, 23vw, 390px);
+  aspect-ratio: 20 / 27.6;
+  container-type: inline-size;
+  pointer-events: none;
+  translate: 0 -54%;
+  /* Scrolling away, the drop sinks a little and grows, handing over to the city below. */
+  transform: translateY(calc(var(--progress, 0) * 14vh)) scale(calc(1 + var(--progress, 0) * 0.08));
+  animation: drop-in 1.6s 0.2s var(--ease-spring) both;
+}
+
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    scale: 0.7;
+    translate: 0 -40%;
+  }
+}
+
+.droplet-body {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 72%;
+  rotate: calc(var(--px, 0) * 7deg);
+  transition: rotate 1.2s var(--ease-spring);
+  animation: drop-float 7s ease-in-out infinite alternate;
+}
+
+@keyframes drop-float {
+  from {
+    transform: translateY(-12px);
+  }
+  to {
+    transform: translateY(12px);
+  }
+}
+
+.droplet-glass,
+.droplet-water {
+  position: absolute;
+  inset: 0;
+  -webkit-mask: var(--drop-mask) 0 0 / 100% 100% no-repeat;
+  mask: var(--drop-mask) 0 0 / 100% 100% no-repeat;
+}
+
+.droplet-glass {
+  background:
+    radial-gradient(90% 60% at 30% 30%, var(--drop-glass-hi), transparent 55%),
+    radial-gradient(closest-side at 50% 64%, transparent 72%, var(--drop-glass-edge) 100%),
+    var(--drop-glass);
+}
+
+.droplet-water {
+  overflow: hidden;
+}
+
+/* The water stays level: it turns against the drop's tilt, a beat late, and overshoots. */
+.droplet-slosh {
+  position: absolute;
+  inset: -30%;
+  rotate: calc(var(--px, 0) * -15deg);
+  transition: rotate 1.8s cubic-bezier(0.25, 1.6, 0.45, 1);
+  animation: slosh-idle 5s ease-in-out infinite alternate;
+}
+
+@keyframes slosh-idle {
+  from {
+    transform: rotate(-2.5deg);
+  }
+  to {
+    transform: rotate(2.5deg);
+  }
+}
+
+.droplet-level {
+  position: absolute;
+  inset: 0;
+  /* Surface at (1 - fill) of the drop's height; the slosh box is 1.6 drops tall, starting 0.3 above. */
+  transform: translateY(calc((1.3 - var(--fill)) / 1.6 * 100%));
+  transition: transform 0.6s var(--ease-out);
+}
+
+.droplet-wave {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 200%;
+  height: 4.5%;
+  margin-bottom: -1px;
+  animation: wave-slide 6s linear infinite;
+}
+
+.droplet-wave--back {
+  height: 6%;
+  fill: var(--drop-water-back);
+  animation-duration: 9s;
+  animation-direction: reverse;
+  translate: -12% -18%;
+}
+
+.droplet-wave--front {
+  fill: var(--drop-water-top);
+}
+
+@keyframes wave-slide {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.droplet-deep {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--drop-water-top) 0%, var(--drop-water-deep) 45%);
+}
+
+/* Soft light swimming through the water. */
+.droplet-caustic {
+  position: absolute;
+  top: 4%;
+  left: 22%;
+  width: 40%;
+  height: 12%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--drop-caustic), transparent);
+  animation: caustic 8s ease-in-out infinite alternate;
+}
+
+.droplet-caustic--2 {
+  top: 12%;
+  left: 40%;
+  width: 26%;
+  height: 8%;
+  animation-duration: 11s;
+  animation-delay: -5s;
+}
+
+@keyframes caustic {
+  to {
+    opacity: 0.4;
+    transform: translate(18%, 30%) scale(1.3, 0.8);
+  }
+}
+
+.droplet-bubble {
+  position: absolute;
+  bottom: 6%;
+  left: calc(var(--x) * 100%);
+  width: var(--size);
+  height: var(--size);
+  border: 1px solid var(--drop-caustic);
+  border-radius: 50%;
+  animation: bubble-up var(--rise) linear infinite;
+  animation-delay: var(--start);
+}
+
+@keyframes bubble-up {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  15% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(6px, -26cqw);
+  }
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-4px, -54cqw);
+  }
+}
+
+/* Rim and highlights sit on top of glass and water. */
+.droplet-shine {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.droplet-rim {
+  fill: none;
+  stroke: url(#droplet-rim);
+  stroke-width: 0.32;
+}
+
+.droplet-rim-a {
+  stop-color: var(--drop-rim-a);
+}
+
+.droplet-rim-b {
+  stop-color: var(--drop-rim-b);
+}
+
+.droplet-rim-c {
+  stop-color: var(--drop-rim-c);
+}
+
+.droplet-gleam {
+  fill: url(#droplet-gleam);
+  opacity: 0.85;
+}
+
+.droplet-spark {
+  fill: #fff;
+  opacity: 0.85;
+  animation: spark 4s ease-in-out infinite alternate;
+}
+
+@keyframes spark {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* ---- The waterline: the drop's surface, drawn across the whole hero ---- */
+
+.droplet-waterline {
+  position: absolute;
+  top: 0;
+  left: -200vw;
+  width: 400vw;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 36%,
+    color-mix(in srgb, var(--accent) 18%, transparent) 44%,
+    var(--accent) 50%,
+    color-mix(in srgb, var(--accent) 18%, transparent) 56%,
+    transparent 64%
+  );
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 60%, transparent);
+  transform: translateY(calc((1 - var(--fill)) * 138cqw));
+  transition: transform 0.6s var(--ease-out);
+  animation: line-in 1.8s 0.9s var(--ease-out) both;
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+    scale: 0.2 1;
+  }
+}
+
+/* A spark of light that travels along the line. */
+.droplet-glint {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 3%;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  animation: glint 7s ease-in-out infinite;
+}
+
+@keyframes glint {
+  0% {
+    opacity: 0;
+    transform: translateX(1250%);
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(2050%);
+  }
+}
+
+/* ---- The pool under the drop ---- */
+
+.droplet-floor {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 150%;
+  aspect-ratio: 4 / 1;
+  translate: -50% -30%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--drop-shadow), transparent);
+}
+
+.droplet-ripple {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--drop-ripple);
+  border-radius: 50%;
+  opacity: 0;
+  animation: ripple-out 6s var(--ease-out) infinite;
+}
+
+.droplet-ripple:nth-child(2) {
+  animation-delay: -2s;
+}
+
+.droplet-ripple:nth-child(3) {
+  animation-delay: -4s;
+}
+
+@keyframes ripple-out {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.15);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* ---- Off screen, everything rests ---- */
+
+.hero--still .hero-aurora span,
+.hero--still .droplet *,
+.hero--still .droplet {
+  animation-play-state: paused;
+}
+
+/* ---- Narrow screens: a smaller drop to the right, behind the copy ---- */
+
+@media (max-width: 720px) {
+  .droplet {
+    top: auto;
+    bottom: 9.5rem;
+    right: -6vw;
+    width: 46vw;
+    translate: none;
+    opacity: 0.85;
+  }
+
+  @keyframes drop-in {
+    from {
+      opacity: 0;
+      scale: 0.7;
+    }
+  }
+}

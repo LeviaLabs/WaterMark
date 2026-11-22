@@ -1,29 +1,40 @@
 import { useRef } from 'react'
+import { useInView } from '../../hooks/useInView'
 import { Button } from '@astryxdesign/core/Button'
 import { usePointerParallax } from '../../hooks/usePointerParallax'
+import { useScrollProgress } from '../../hooks/useScrollProgress'
 import { Icon } from '../common/Icon'
 import { RollText } from '../common/RollText'
 import { RouterLink } from '../common/RouterLink'
 import { SplitText } from '../common/SplitText'
-import { StormScope } from './StormScope'
+import { Droplet } from './Droplet'
 
 const PROVIDERS = ['National Weather Service', 'NOAA Tides & Currents', 'FEMA', 'USGS', 'NYC Open Data', 'FloodNet NYC', 'Open-Meteo', 'Copernicus GloFAS']
 
 const TITLE = ['Know the water', '\n', { text: 'around you.', accent: true }] as const
 
 /**
- * Hero: a storm scope you can play with (StormScope.tsx). The headline rises
- * in and its second line decrypts (hover a word to decrypt it again). Behind
- * it a radar sweep turns over a field of dots, the evidence kinds blip as it
- * passes, and clicking drops rain cells that holding builds into a storm.
+ * Hero: the headline on the left (it rises in and its second line decrypts;
+ * hover a word to decrypt it again) and, on the right, the WaterMark droplet
+ * as a glass drop of water over a slow aurora (Droplet.tsx). The water
+ * sloshes as the pointer moves and fills as you scroll on, into "Watch the
+ * water rise".
  */
 export function Hero() {
   const heroRef = useRef<HTMLElement>(null)
   usePointerParallax(heroRef)
+  useScrollProgress(heroRef, undefined, { exit: true })
+  const visible = useInView(heroRef)
 
   return (
-    <section ref={heroRef} className="hero" aria-labelledby="hero-title">
-      <StormScope />
+    <section ref={heroRef} className={`hero ${visible ? '' : 'hero--still'}`} aria-labelledby="hero-title">
+      <span className="hero-aurora" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <Droplet />
+      <span className="hero-grain" aria-hidden="true" />
       <span className="hero-shade" aria-hidden="true" />
 
       <div className="hero-content">

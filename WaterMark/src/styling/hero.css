@@ -1,6 +1,6 @@
 /*
- * Hero: an interactive storm scope fills the screen (StormScope.tsx, storm.css)
- * and the headline sits on the left, clear of the dial.
+ * Hero: the headline on the left and the glass droplet on the right
+ * (Droplet.tsx, droplet.css) over an aurora.
  */
 
 .hero {
@@ -11,9 +11,7 @@
   padding: clamp(6.5rem, 4rem + 8svh, 10rem) var(--gutter) clamp(9rem, 6rem + 10svh, 12rem);
   overflow: hidden;
   isolation: isolate;
-  background:
-    radial-gradient(90% 70% at 75% 50%, var(--storm-glow), transparent 70%),
-    var(--bg);
+  background: var(--bg);
 }
 
 /* A soft wash behind the words so they stay readable over the chart. */

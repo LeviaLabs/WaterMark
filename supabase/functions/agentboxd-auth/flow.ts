@@ -11,6 +11,7 @@
 // Logs carry an error code only: never a code, token, verifier, nonce, session or claim.
 import { AgentboxdProvider, type Fetcher, fetchProviderJson, ProviderError, safeEqual, verifyIdToken } from './oidc.ts'
 import { type AuthStore, StoreError } from './store.ts'
+import { IngressLimiter, readBounded } from './limits.ts'
 
 const MAX_BODY_BYTES = 4096
 const ATTEMPT_TTL_S = 600
@@ -35,6 +36,7 @@ export interface HandlerConfig {
   now?: () => number
   timeoutMs?: number
   sessionTtlMs?: number
+  bodyTimeoutMs?: number
 }
 
 type Reply = (status: number, payload: unknown) => Response
@@ -87,12 +89,10 @@ function corsHeaders(origin: string | null, allowed: readonly string[]): Record<
   }
 }
 
-async function readBody(request: Request): Promise<Record<string, unknown> | null> {
-  const declared = Number(request.headers.get('content-length') ?? '0')
-  if (declared > MAX_BODY_BYTES) return null
+async function readBody(request: Request, timeoutMs: number): Promise<Record<string, unknown> | null> {
   try {
-    const raw = await request.text()
-    if (raw.length > MAX_BODY_BYTES) return null
+    const raw = await readBounded(request, MAX_BODY_BYTES, timeoutMs)
+    if (raw === null) return null
     const v: unknown = JSON.parse(raw)
     return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
   } catch {
@@ -114,13 +114,13 @@ export function createHandler(config: HandlerConfig): (request: Request) => Prom
   const provider = config.provider ?? new AgentboxdProvider(fetcher, timeoutMs, now)
   const sessionTtlMs = config.sessionTtlMs ?? DEFAULT_SESSION_MS
   const allowed = list(config.allowedOrigins)
+  const ingress = new IngressLimiter()
 
   async function start(body: Record<string, unknown>, origin: string, request: Request, reply: Reply) {
     const codeChallenge = str(body.codeChallenge, B64URL_43)
     if (!codeChallenge) return reply(400, { error: 'invalid-request' })
     const redirectUri = redirectFor(origin, config.redirectUris)
     if (!redirectUri) return reply(503, { error: 'not-configured' })
-    const meta = await provider.discover()
     const state = randomToken()
     const nonce = randomToken()
     const ok = await config.store!.begin(
@@ -129,6 +129,7 @@ export function createHandler(config: HandlerConfig): (request: Request) => Prom
       ATTEMPTS_PER_MINUTE,
     )
     if (!ok) return reply(429, { error: 'rate-limited' })
+    const meta = await provider.discover()
     const url = new URL(meta.authorizationEndpoint)
     url.search = new URLSearchParams({
       response_type: 'code',
@@ -150,7 +151,7 @@ export function createHandler(config: HandlerConfig): (request: Request) => Prom
     if (!state || !code || !verifier) return reply(400, { error: 'invalid-request' })
     const iss = body.iss === undefined || body.iss === null ? null : typeof body.iss === 'string' ? body.iss : ''
 
-    // Single use: the attempt row is deleted here whether or not the rest succeeds.
+    // Single use, even when verification later fails. The row remains for rate accounting.
     const attempt = await config.store!.takeAttempt(state)
     if (!attempt || attempt.redirectUri !== redirectFor(origin, config.redirectUris)) {
       return reply(400, { error: 'invalid-state' })
@@ -237,7 +238,13 @@ export function createHandler(config: HandlerConfig): (request: Request) => Prom
       return reply(404, { error: 'not-found' })
     }
     if (!config.clientId || !config.store) return reply(503, { error: 'not-configured' })
-    const body = await readBody(request)
+    if (!ingress.hit(await clientKey(request), now())) {
+      return new Response(JSON.stringify({ error: 'rate-limited' }), {
+        status: 429,
+        headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Retry-After': '60', Vary: 'Origin' },
+      })
+    }
+    const body = await readBody(request, config.bodyTimeoutMs ?? 5000)
     if (!body) return reply(400, { error: 'invalid-request' })
 
     try {

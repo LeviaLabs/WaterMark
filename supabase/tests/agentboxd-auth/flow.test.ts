@@ -63,7 +63,7 @@ function claimsFor(nonce: string, extra: Record<string, unknown> = {}) {
 }
 
 class MemoryStore implements AuthStore {
-  attempts = new Map<string, AttemptRecord & { clientKey: string; created: number; expires: number }>()
+  attempts = new Map<string, AttemptRecord & { clientKey: string; created: number; expires: number; consumed?: boolean }>()
   jtis = new Set<string>()
   sessions = new Map<string, SessionRecord>()
   down = false
@@ -78,7 +78,8 @@ class MemoryStore implements AuthStore {
   takeAttempt(state: string) {
     if (this.down) return Promise.reject(new StoreError('unavailable'))
     const row = this.attempts.get(state)
-    this.attempts.delete(state)
+    if (row?.consumed) return Promise.resolve(null)
+    if (row) row.consumed = true
     return Promise.resolve(row && row.expires > NOW ? { nonce: row.nonce, codeChallenge: row.codeChallenge, redirectUri: row.redirectUri } : null)
   }
   consumeJti(jti: string) {
@@ -352,6 +353,24 @@ test('per-client rate limit on starting sign-in', async () => {
   // Another client is unaffected.
   const other = await t.call('start', { codeChallenge: await pkceChallenge(randomToken() + randomToken()) }, { 'x-forwarded-for': '198.51.100.9' })
   assert.equal(other.status, 200)
+})
+
+test('consuming failed attempts cannot reset the rolling start limit', async () => {
+  const t = setup()
+  for (let i = 0; i < 10; i++) {
+    const a = await t.begin()
+    assert.equal((await t.finish(a.state, randomToken() + randomToken())).status, 400)
+  }
+  assert.deepEqual(await errorOf(await t.call('start', { codeChallenge: 'A'.repeat(43) })), { status: 429, error: 'rate-limited' })
+})
+
+test('supplemental ingress limit rejects before reading a body or calling a provider', async () => {
+  const t = setup()
+  for (let i = 0; i < 60; i++) assert.equal((await t.call('session', {})).status, 400)
+  const res = await t.call('start', { codeChallenge: 'A'.repeat(43) })
+  assert.equal(res.status, 429)
+  assert.equal(res.headers.get('retry-after'), '60')
+  assert.equal(t.calls.length, 0)
 })
 
 // 9. Outage and timeout.

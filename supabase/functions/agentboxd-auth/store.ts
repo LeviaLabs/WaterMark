@@ -2,6 +2,7 @@
 // supabase/migrations/20261122150000_agentboxd_auth.sql. Every Edge Function instance uses the
 // same rows, so attempt single use and jti replay rejection hold across instances. The RPCs
 // are service_role only; the browser never talks to them.
+import { readBounded } from './limits.ts'
 
 export interface AttemptInput {
   state: string
@@ -24,7 +25,7 @@ export interface SessionRecord {
 export interface AuthStore {
   /** False when the client is over its per-minute limit; nothing is stored then. */
   begin(attempt: AttemptInput, ttlSeconds: number, perMinute: number): Promise<boolean>
-  /** Atomically delete and return a live attempt. Unknown, used or expired: null. */
+  /** Atomically consume and return a live attempt. Unknown, used or expired: null. */
   takeAttempt(state: string): Promise<AttemptRecord | null>
   /** True the first time a jti is seen, false for a replay. */
   consumeJti(jti: string, expiresAtMs: number): Promise<boolean>
@@ -42,6 +43,7 @@ export function createRpcStore(baseUrl: string, key: string, fetcher: Fetcher = 
   const headers: Record<string, string> = { apikey: key, 'Content-Type': 'application/json' }
   if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`
   async function rpc(name: string, body: Record<string, unknown>): Promise<unknown> {
+    const deadline = Date.now() + timeoutMs
     let res: Response
     try {
       res = await fetcher(`${baseUrl}/rest/v1/rpc/${name}`, {
@@ -54,8 +56,12 @@ export function createRpcStore(baseUrl: string, key: string, fetcher: Fetcher = 
     } catch {
       throw new StoreError('unavailable')
     }
-    const text = await res.text().catch(() => '')
-    if (!res.ok) throw new StoreError('rejected') // body may describe the schema; never surfaced
+    if (!res.ok) {
+      void res.body?.cancel().catch(() => {})
+      throw new StoreError('rejected') // body may describe the schema; never surfaced
+    }
+    const text = await readBounded(res, 16384, Math.max(1, deadline - Date.now()))
+    if (text === null) throw new StoreError('invalid')
     if (!text) return null
     try {
       return JSON.parse(text)

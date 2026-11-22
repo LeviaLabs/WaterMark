@@ -4,6 +4,8 @@
 // ES256 only, iss exact, aud = our client_id, exp/iat with 30 s tolerance, exp - iat <= 300 s,
 // nonce, unique jti, and the agent claim. Keys rotate; an unknown kid triggers one JWKS re-fetch.
 
+import { readBounded } from './limits.ts'
+
 export const AGENTBOXD_ISSUER = 'https://id.agentboxd.com'
 export const AGENT_CLAIM = 'https://agentboxd.com/claims/agent'
 const CLOCK_TOLERANCE_S = 30
@@ -38,6 +40,7 @@ export async function fetchProviderJson(
   init: RequestInit,
   timeoutMs: number,
 ): Promise<{ status: number; body: unknown }> {
+  const deadline = Date.now() + timeoutMs
   let res: Response
   try {
     res = await fetcher(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(timeoutMs) })
@@ -45,16 +48,11 @@ export async function fetchProviderJson(
     throw new ProviderError('unavailable')
   }
   if (res.status >= 500) {
-    await res.body?.cancel()
+    void res.body?.cancel().catch(() => {})
     throw new ProviderError('unavailable')
   }
-  let text: string
-  try {
-    text = await res.text()
-  } catch {
-    throw new ProviderError('unavailable')
-  }
-  if (text.length > MAX_PROVIDER_BYTES) throw new ProviderError('invalid')
+  const text = await readBounded(res, MAX_PROVIDER_BYTES, Math.max(1, deadline - Date.now()))
+  if (text === null) throw new ProviderError('invalid')
   try {
     return { status: res.status, body: JSON.parse(text) }
   } catch {
@@ -248,7 +246,7 @@ export async function verifyIdToken(
   const { exp, iat, nbf } = claims
   if (typeof exp !== 'number' || typeof iat !== 'number' || !Number.isFinite(exp) || !Number.isFinite(iat)) return bad
   if (iat > nowS + CLOCK_TOLERANCE_S) return bad
-  if (nbf !== undefined && (typeof nbf !== 'number' || nbf > nowS + CLOCK_TOLERANCE_S)) return bad
+  if (nbf !== undefined && (typeof nbf !== 'number' || !Number.isFinite(nbf) || nbf > nowS + CLOCK_TOLERANCE_S)) return bad
   if (exp - iat > MAX_LIFETIME_S || exp <= iat) return bad
   if (exp <= nowS - CLOCK_TOLERANCE_S) return { ok: false, code: 'expired-token' }
 

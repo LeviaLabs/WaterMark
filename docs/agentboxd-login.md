@@ -1,5 +1,50 @@
 # Sign in with Agentboxd (WM-CLAUDE-005)
 
+## WM-CODEX-007 verification (2026-11-22)
+
+WaterMark is registered in the owner's existing Shakehand workspace as an enabled **public**
+app with **pairwise** subjects, `openid profile`, homepage `https://watermark.works`, and only
+`https://watermark.works/agentboxd-callback.html` as redirect. There is no client secret.
+The GitHub variable `VITE_AGENTBOXD_AUTH_URL` is configured. Supabase activation still needs
+explicit owner approval; registration and a successful local build do not establish hosted login.
+
+Security corrections in this revision:
+
+- Request bodies are streamed with a **4096-byte / 5-second** limit, including absent or false
+  Content-Length; malformed UTF-8 is rejected. Cancellation cannot extend the deadline.
+- Provider responses are streamed with a **65536-byte** limit within the remaining **8-second**
+  fetch deadline; RPC responses have **16384-byte / 4-second** bounds. Errors never echo bodies.
+- Consuming an attempt marks it used atomically, retaining its start for rate accounting until
+  expiry. Serialized database admission enforces the shared 10 starts/client/minute and 10000-row
+  cap under concurrency. Rate accounting also applies when discovery fails.
+- Supplemental ingress limits apply before body/provider work: 60 requests/client/minute and
+  600 requests/minute **per function instance**, with a bounded client map. These are not a global
+  gateway limit. Client-IP enforcement depends on the gateway supplying a trustworthy address;
+  that behavior remains a hosted verification item. CORS is not authorization.
+- Consumed ID-token identifiers remain through `exp + 30 seconds` (at least one minute), covering
+  the verifier's clock tolerance. Session and attempt replay rules remain server enforced.
+
+Verified locally: **67/67** Node authentication tests (50 Agentboxd, 17 MojoAuth), the existing
+**72/72** environmental tests, **170/170** frontend tests, Edge typecheck/lint and frontend
+TypeScript/ESLint/build. An isolated PostgreSQL 17 container verified the migration, RLS/grants,
+expiry, revocation, replay retention, and concurrent admission/single-use callbacks.
+Astryx doctor reports an existing generated-theme mismatch; npm's production dependency audit
+reports [MapLibre XSS advisory GHSA-jrc7-96c5-q579](https://github.com/advisories/GHSA-jrc7-96c5-q579).
+These are separate frontend release findings, not resolved or waived by passing auth tests.
+
+**Deployment guard:** the hosted project also has migration `20261122064904_watermark_fema_source`
+from WM-CODEX-003, which this branch does not contain. Do not repair history or run an unguarded
+push from this checkout. The prepared deployment directory contains the exact six applied
+migrations plus `20261122150000_agentboxd_auth.sql`, and only `agentboxd-auth` and its required
+shared configuration module. A dry run against `gcfcpmqeegywnddusgfl` lists only the Agentboxd
+migration. PR #21's `20261122170000_agentboxd_alert_inbox.sql` is absent. Recheck immediately
+before approved deployment; stop if the pending set changes.
+
+Hosted checks before deployment: homepage 200; callback 404 (missing, expected until PR #20 is
+released); Agentboxd function 404; existing `watermark-v1/health` 200. `/map` answers the existing
+GitHub Pages 404 SPA fallback; that HTTP result alone does not verify browser map behavior.
+Do not claim production sign-in, restoration, logout or human-login regression passed yet.
+
 AI agents sign in to WaterMark with their Agentboxd identity. People keep MojoAuth email codes
 (see [mojoauth-login.md](mojoauth-login.md)). Guests keep every map and data layer.
 
@@ -40,7 +85,7 @@ sequenceDiagram
     B->>B: static page saves query, location.replace('./login')
     B->>B: /login: state must equal this tab's attempt
     B->>F: POST /finish {state, code, codeVerifier, iss}
-    F->>DB: take_attempt(state)  (DELETE ... RETURNING: single use)
+    F->>DB: take_attempt(state)  (atomic consumed marker: single use)
     F->>F: iss == issuer (RFC 9207), S256(verifier) == challenge
     F->>A: POST /token (authorization_code, client_id, code_verifier)
     A-->>F: id_token
@@ -77,18 +122,18 @@ supabase/
 - **`state` and `nonce`** are 256-bit random values from the server, stored server-side.
   - The browser also compares `state` with the attempt this tab started.
   - Any callback started elsewhere, or with no attempt in this tab, is refused before any network call.
-- **Bound to the attempt.** An attempt row is single use (`DELETE … RETURNING`) and expires after 10 minutes. Its redirect URI must match the calling origin.
+- **Bound to the attempt.** An attempt row is consumed atomically once and expires after 10 minutes. Its redirect URI must match the calling origin. Consumed rows remain until expiry for rate-limit accounting.
 - **ID-token checks.** Only an ES256 signature from Agentboxd's JWKS is accepted.
   - `alg: none`, HS256, `crit`, an unknown `kid` and malformed tokens are rejected.
   - `iss` must match exactly and `aud` must equal the client_id.
   - `exp`, `iat` and `nbf` are checked with ±30 s tolerance, and `exp - iat` must be ≤ 300 s.
   - The `nonce` must match, `sub` and `jti` must be present, `https://agentboxd.com/claims/agent === true`, and `actor_type` must be `agent` if present.
-- **Replay.** The `jti` is kept in a Postgres table until `exp`, and that table is shared by every function instance.
+- **Replay.** The `jti` is kept through `exp + 30 seconds` (at least one minute), and that table is shared by every function instance.
 - **No open redirect.** The browser never supplies the redirect URI: the function picks the registered one for the request's `Origin`.
   - The browser follows `authorizeUrl` only if it is `https://id.agentboxd.com/authorize` with this attempt's state and challenge.
   - After sign-in the browser always lands on `/login`.
 - **CORS and origin.** Every call needs an `Origin` listed in `WATERMARK_ALLOWED_ORIGINS`; anything else gets 403.
-  - Request bodies are capped at 4 KB.
+  - Request bodies are capped while streaming at 4096 bytes and five seconds.
   - Provider calls time out after 8 s, with no redirects and a 64 KB response cap.
   - Store calls time out after 4 s.
 - **Rate limits.** `/start` allows 10 attempts per client IP hash per minute, with at most 10,000 pending attempts overall.
@@ -143,9 +188,11 @@ Supabase secrets:
 ## Deploy (needs approval; not done)
 
 ```sh
-npx supabase@3.2.0 db push --remote=gcfcpmqeegywnddusgfl   # applies 20261122150000_agentboxd_auth.sql only if it is the one pending migration
+npx supabase@3.2.0 db push --remote=gcfcpmqeegywnddusgfl --workdir <reviewed-deployment-directory> --dry-run --skip-vault
+# Only after explicit approval and a dry run naming exactly 20261122150000_agentboxd_auth.sql:
+npx supabase@3.2.0 db push --remote=gcfcpmqeegywnddusgfl --workdir <reviewed-deployment-directory> --skip-vault --yes
 npx supabase@3.2.0 secrets set --remote=gcfcpmqeegywnddusgfl --env-file <file with AGENTBOXD_CLIENT_ID and AGENTBOXD_REDIRECT_URIS> --yes
-npx supabase@3.2.0 functions deploy agentboxd-auth --remote=gcfcpmqeegywnddusgfl --no-verify-jwt --use-api --yes
+npx supabase@3.2.0 functions deploy agentboxd-auth --remote=gcfcpmqeegywnddusgfl --workdir <reviewed-deployment-directory> --no-verify-jwt --use-api --yes
 AGENTBOXD_AUTH_URL=https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/agentboxd-auth AGENTBOXD_AUTH_ORIGIN=https://watermark.works \
   npx --yes deno@2.9.6 run --allow-env=AGENTBOXD_AUTH_URL,AGENTBOXD_AUTH_ORIGIN --allow-net=gcfcpmqeegywnddusgfl.supabase.co supabase/tests/agentboxd-auth/hosted.ts
 ```

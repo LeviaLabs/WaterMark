@@ -2,7 +2,7 @@
 -- New objects only; no existing table, function or migration is changed.
 -- Every Edge Function instance sees the same rows, so single use holds across instances.
 --   agentboxd_auth_attempts   one row per browser sign-in attempt (state, nonce, PKCE challenge);
---                             deleted when the callback consumes it, so a state works once.
+--                             marked consumed by a callback, retaining rate-limit accounting.
 --   agentboxd_consumed_tokens jti of every accepted ID token until it expires (replay cache).
 --   agentboxd_sessions        WaterMark's own agent session; only a SHA-256 hash of the token.
 -- Only service_role (the Edge Function) can touch them; anon and authenticated cannot.
@@ -14,6 +14,7 @@ create table watermark_private.agentboxd_auth_attempts (
   redirect_uri text not null check (length(redirect_uri) between 1 and 512),
   client_key text not null check (client_key ~ '^[0-9a-f]{64}$'),
   created_at timestamptz not null default now(),
+  consumed_at timestamptz,
   expires_at timestamptz not null
 );
 create index agentboxd_auth_attempts_client_idx
@@ -58,6 +59,8 @@ begin
   if p_ttl_seconds not between 60 and 900 or p_per_minute not between 1 and 60 then
     raise exception 'invalid limits';
   end if;
+  -- Serialize check-and-insert across instances, including the global pending-row cap.
+  perform pg_catalog.pg_advisory_xact_lock(713706007::bigint);
   -- Housekeeping: expired rows are never valid, so removing them changes no outcome.
   delete from watermark_private.agentboxd_auth_attempts where expires_at <= now();
   delete from watermark_private.agentboxd_consumed_tokens where expires_at <= now();
@@ -74,14 +77,14 @@ begin
   return true;
 end $$;
 
--- Atomically consume an attempt: the DELETE ... RETURNING means two concurrent callbacks with
--- the same state cannot both get the row. Unknown, used or expired states return null.
+-- The atomic UPDATE returns a state once. Retain consumed rows until expiry so failed/finished
+-- callbacks cannot reset the rolling-minute start limit. Unknown, used or expired: null.
 create or replace function public.watermark_agentboxd_take_attempt(p_state text)
 returns jsonb language plpgsql security invoker set search_path='' as $$
 declare result jsonb;
 begin
-  delete from watermark_private.agentboxd_auth_attempts a
-  where a.state = p_state
+  update watermark_private.agentboxd_auth_attempts a set consumed_at = now()
+  where a.state = p_state and a.consumed_at is null
   returning case when a.expires_at > now() then jsonb_build_object(
     'nonce', a.nonce, 'code_challenge', a.code_challenge, 'redirect_uri', a.redirect_uri) end
   into result;
@@ -94,7 +97,7 @@ returns boolean language plpgsql security invoker set search_path='' as $$
 declare inserted integer;
 begin
   insert into watermark_private.agentboxd_consumed_tokens (jti, expires_at)
-  values (p_jti, greatest(p_expires_at, now() + interval '1 minute'))
+  values (p_jti, greatest(p_expires_at + interval '30 seconds', now() + interval '1 minute'))
   on conflict (jti) do nothing;
   get diagnostics inserted = row_count;
   return inserted = 1;

@@ -16,6 +16,8 @@ interface Props {
   region: RegionPick | null
   index: FloodHistoryIndex | null
   status: Loadable<true>
+  /** The time slider's year, or null for all years. */
+  year?: number | null
 }
 
 const EYEBROW: Record<RegionPick['level'], string> = { country: 'Country', admin1: 'Region', state: 'US state', county: 'US county' }
@@ -45,7 +47,7 @@ function metricsFor(p: RegionProps, isNoaa: boolean): MetricSeries[] {
   return list
 }
 
-export function RegionSummary({ region, index, status }: Props) {
+export function RegionSummary({ region, index, status, year = null }: Props) {
   const [metric, setMetric] = useState<Metric>('floods')
   if (!region) {
     return (
@@ -106,6 +108,25 @@ export function RegionSummary({ region, index, status }: Props) {
         )}
       </p>
 
+      {year != null && meta ? (() => {
+        const k = year - meta.years[0]
+        if (k < 0 || k >= p.y.length) {
+          return <p className="region-year">No {isNoaa ? 'NOAA reports' : 'GDACS figures'} for {year} here: they start in {meta.years[0]}.</p>
+        }
+        const extra = [
+          isNoaa && p.d?.[k] ? `${p.d[k].toLocaleString('en-US')} ${p.d[k] === 1 ? 'death' : 'deaths'}` : null,
+          isNoaa && p.$?.[k] ? `${fmtUsd(p.$[k])} damage` : null,
+          !isNoaa && p.x?.[k] ? `${p.x[k]} serious` : null,
+        ].filter(Boolean)
+        return (
+          <p className="region-year">
+            <span className="region-year-label">In {year}</span>
+            <strong>{p.y[k].toLocaleString('en-US')} {p.y[k] === 1 ? unit.replace(/s$/, '') : unit}</strong>
+            {extra.length ? <> · {extra.join(' · ')}</> : null}
+          </p>
+        )
+      })() : null}
+
       {p.e ? (
         <div className="report-tiles">
           <p className="report-tile">
@@ -153,7 +174,7 @@ export function RegionSummary({ region, index, status }: Props) {
               onChange={(id) => setMetric(id as Metric)} />
           ) : null}
           <YearBars key={shown.id} title={`${shown.label}, each year`} data={years.map((year, i) => ({ year, value: shown.values[i] ?? 0 }))}
-            format={shown.format} summary={`Total ${shown.format(sum(shown.values))}`} />
+            format={shown.format} summary={`Total ${shown.format(sum(shown.values))}`} highlight={year} />
           {p.m && p.m.some((x) => x > 0) ? <MonthBars counts={p.m} summary={months ? `Most in ${months.split(/,| and /)[0]}` : ''} /> : null}
         </section>
       ) : null}

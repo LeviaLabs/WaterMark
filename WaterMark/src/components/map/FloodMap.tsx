@@ -439,7 +439,7 @@ export function FloodMap(props: Props) {
     const map = mapRef.current
     if (!map) return
     syncRegionLayers(map, MAP_PALETTES[shownScheme.current], props.regions, shownRegions.current)
-    if (map.getLayer('countries-fill')) shownRegions.current = props.regions
+    if (map.getLayer('countries-line')) shownRegions.current = props.regions
   }, [props.regions])
 
   // Data and selection.

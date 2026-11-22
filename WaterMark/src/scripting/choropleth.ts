@@ -37,8 +37,9 @@ export function classOf(perYear: number, breaks: readonly number[]): number {
 /** MapLibre fill color for a numeric property (`py`, or a square's count `e`) with these breaks; `colors` has seven entries. */
 export function fillColor(breaks: readonly number[], colors: readonly string[], prop = 'py'): ExpressionSpecification {
   // Equal or falling breaks (few distinct values) would make an invalid step expression.
-  const stops: (number | string)[] = [1e-9, colors[1]]
-  stepBreaks(breaks).forEach((b, i) => stops.push(b, colors[i + 2]))
+  const shade = shadeOf(breaks)
+  const stops: (number | string)[] = [1e-9, colors[shade(1)]]
+  stepBreaks(breaks).forEach((b, i) => stops.push(b, colors[shade(i + 2)]))
   return ['step', ['coalesce', ['get', prop], 0], colors[0], ...stops] as unknown as ExpressionSpecification
 }
 
@@ -68,9 +69,31 @@ function stepBreaks(breaks: readonly number[]): number[] {
  * class that some count lands in, with its range ("1", "2–8", "88+"). Uses the same steps as
  * fillColor, so a row's color is exactly the color those squares get.
  */
+/** The step class (1 to 6) a whole count of 1 or more falls in. */
+function classOfCount(steps: readonly number[], v: number): number {
+  return 1 + steps.filter((b) => v >= b).length
+}
+
+/**
+ * Which ramp color (1 to 6) each step class gets. When few classes can occur (one year of the
+ * world grid holds mostly 1s and 2s), the ones that do are spread over the ramp ending on the
+ * brightest color, so the map never shows only the dimmest blues. Classes no count reaches keep
+ * their place. Used by both fillColor and cellLegend, so the legend matches the map.
+ */
+function shadeOf(breaks: readonly number[]): (cls: number) => number {
+  const steps = stepBreaks(breaks)
+  const top = Math.ceil(steps[steps.length - 1])
+  const used = [...new Set(Array.from({ length: top }, (_, k) => classOfCount(steps, k + 1)))].sort((a, b) => a - b)
+  const n = used.length
+  const span = Math.min(5, (n - 1) * 2.5)
+  const map = new Map(used.map((c, k) => [c, n === 1 ? 6 : Math.round(6 - span + (k * span) / (n - 1))]))
+  return (cls) => map.get(cls) ?? cls
+}
+
 export function cellLegend(breaks: readonly number[]): { cls: number; label: string }[] {
   const steps = stepBreaks(breaks)
-  const cls = (v: number) => 1 + steps.filter((b) => v >= b).length
+  const shade = shadeOf(breaks)
+  const cls = (v: number) => classOfCount(steps, v)
   const top = Math.ceil(steps[steps.length - 1])
   const ranges = new Map<number, [number, number]>()
   for (let v = 1; v <= top; v++) {
@@ -81,7 +104,7 @@ export function cellLegend(breaks: readonly number[]): { cls: number; label: str
   const n = (x: number) => x.toLocaleString('en-US')
   const last = cls(top)
   return [...ranges].sort((x, y) => x[0] - y[0]).map(([c, [lo, hi]]) => ({
-    cls: c, label: c === last ? `${n(lo)}+` : lo === hi ? n(lo) : `${n(lo)}–${n(hi)}`,
+    cls: shade(c), label: c === last ? `${n(lo)}+` : lo === hi ? n(lo) : `${n(lo)}–${n(hi)}`,
   }))
 }
 

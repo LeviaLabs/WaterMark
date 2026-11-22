@@ -7,7 +7,7 @@ const read = (p: string) => JSON.parse(readFileSync(`public/data/floods/${p}`, '
 describe('built flood-history files', () => {
   it('has an index with five rising breaks per level', () => {
     const i = read('index.json')
-    for (const b of [i.countries.breaks, i.admin1.breaks, i.states.breaks, i.states.countyBreaks]) {
+    for (const b of [i.countries.breaks, i.admin1.breaks, i.states.breaks, i.states.countyBreaks, i.cells.us.yearBreaks, i.cells.world.yearBreaks]) {
       expect(b).toHaveLength(5)
       for (let k = 1; k < 5; k++) expect(b[k]).toBeGreaterThanOrEqual(b[k - 1])
     }

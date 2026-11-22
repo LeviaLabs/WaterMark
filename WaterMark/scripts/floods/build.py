@@ -308,7 +308,7 @@ def build_countries():
     admin1_breaks = build_admin1(events, adm0_to_key, {f['properties']['k']: f['properties']['n'] for f in feats})
     pts = [(x, y, year, 1 if major else 0, mag) for year, isos, x, y, month, major, mag in events.values()
            if x is not None and y is not None and not ({i.upper() for i in isos} <= {'USA'} and isos)]
-    world_cells = build_cells(pts, WORLD_CELL, 'cells-world.json', years, us=False)
+    world_cells = build_cells(pts, WORLD_CELL, 'cells-world.json', years, us=False)  # (all years, one year)
     return len(events), breaks([f['properties']['py'] for f in feats]), admin1_breaks, world_cells
 
 
@@ -467,8 +467,8 @@ def build_us():
         all_counties.append(p['py'])
     for st, feats in per_state.items():
         write(os.path.join(OUT, 'counties', f'{st}.json'), {'type': 'FeatureCollection', 'features': feats})
-    us_cells = build_cells(points, US_CELL, 'cells-us.json', years, us=True)
-    return breaks([f['properties']['py'] for f in state_feats]), breaks(all_counties), us_cells
+    us_cells, us_year = build_cells(points, US_CELL, 'cells-us.json', years, us=True)
+    return breaks([f['properties']['py'] for f in state_feats]), breaks(all_counties), (us_cells, us_year)
 
 
 US_CELL = 0.5
@@ -489,14 +489,22 @@ def build_cells(points, size, name, years, us):
         c['a'] += a
         c['b'] = c['b'] + b if us else max(c['b'], b)
     # Compact rows; the browser rebuilds each square from its column and row (scripting/cells.ts):
-    # [column, row, records, years with any, worst year, records that year, deaths | serious, USD | magnitude]
+    # [column, row, records, years with any, worst year, records that year, deaths | serious, USD | magnitude,
+    #  [year offset, records, year offset, records, ...]]   (the time slider: only years with records)
     rows = []
+    per_year = []
     for (i, j), c in sorted(cells.items()):
         worst = max(years, key=lambda yr: (c['y'][yr], yr))
+        by_year = []
+        for k, yr in enumerate(years):
+            if c['y'][yr]:
+                by_year += [k, c['y'][yr]]
+                per_year.append(c['y'][yr])
         rows.append([i, j, sum(c['y'].values()), sum(1 for yr in years if c['y'][yr]), worst, c['y'][worst],
-                     int(c['a']), int(round(c['b'])) if us else round(c['b'], 1)])
+                     int(c['a']), int(round(c['b'])) if us else round(c['b'], 1), by_year])
     write(os.path.join(OUT, name), {'size': size, 'years': [years[0], years[-1]], 'us': us, 'rows': rows})
-    return breaks([r[2] for r in rows])
+    # One color scale for every single year, so years compare fairly on the slider.
+    return breaks([r[2] for r in rows]), breaks(per_year)
 
 
 def main():
@@ -514,10 +522,10 @@ def main():
         'admin1': {'source': 'GDACS flood events placed in Natural Earth provinces and regions', 'url': 'https://www.gdacs.org/',
                    'years': [GDACS_YEARS[0], GDACS_YEARS[-1]], 'breaks': admin1_breaks,
                    'unit': 'flood events per year whose GDACS event point falls in the area'},
-        'cells': {'us': {'size': US_CELL, 'breaks': us_cells, 'years': [NOAA_YEARS[0], NOAA_YEARS[-1]],
+        'cells': {'us': {'size': US_CELL, 'breaks': us_cells[0], 'yearBreaks': us_cells[1], 'years': [NOAA_YEARS[0], NOAA_YEARS[-1]],
                          'source': 'NOAA NCEI Storm Events Database', 'url': 'https://www.ncdc.noaa.gov/stormevents/',
                          'unit': 'flood reports whose reported starting point is in the square'},
-                  'world': {'size': WORLD_CELL, 'breaks': world_cells, 'years': [GDACS_YEARS[0], GDACS_YEARS[-1]],
+                  'world': {'size': WORLD_CELL, 'breaks': world_cells[0], 'yearBreaks': world_cells[1], 'years': [GDACS_YEARS[0], GDACS_YEARS[-1]],
                             'source': 'GDACS flood events (UN / European Commission JRC)', 'url': 'https://www.gdacs.org/',
                             'unit': 'flood events whose GDACS event point is in the square'}},
         'outlines': 'Natural Earth 1:50m (public domain); US Census Bureau cartographic boundaries via us-atlas',

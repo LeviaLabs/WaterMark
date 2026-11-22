@@ -20,7 +20,16 @@ export interface LevelMeta {
   breaks: number[]
 }
 
-export interface CellMeta { size: number; breaks: number[]; years: [number, number]; source: string; url: string; unit: string }
+export interface CellMeta {
+  size: number
+  /** Color classes for all years together, and for one year on the time slider (one scale for every year). */
+  breaks: number[]
+  yearBreaks: number[]
+  years: [number, number]
+  source: string
+  url: string
+  unit: string
+}
 
 export interface FloodHistoryIndex {
   builtAt: string
@@ -51,7 +60,7 @@ export function loadFloodIndex(): Promise<FloodHistoryIndex> {
     const cell = (k: GridKind): CellMeta => {
       const c = cells?.[k]
       if (!c || typeof c.size !== 'number' || !isBreaks(c.breaks) || !Array.isArray(c.years)) throw new Error('Flood index has no grid.')
-      return { size: c.size, breaks: c.breaks, years: [Number(c.years[0]), Number(c.years[1])], source: String(c.source ?? ''), url: String(c.url ?? ''), unit: String(c.unit ?? '') }
+      return { size: c.size, breaks: c.breaks, yearBreaks: isBreaks(c.yearBreaks) ? c.yearBreaks : c.breaks, years: [Number(c.years[0]), Number(c.years[1])], source: String(c.source ?? ''), url: String(c.url ?? ''), unit: String(c.unit ?? '') }
     }
     return {
       builtAt: String(j.builtAt ?? ''),

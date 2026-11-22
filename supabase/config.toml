@@ -431,7 +431,8 @@ verify_jwt = false
 [functions.watermark-v1]
 verify_jwt = false
 
-# The flood assistant (functions/assistant): public, CORS-limited like watermark-v1.
+# Public map chat. verify_jwt stays false so a guest can ask. CORS does not authenticate
+# callers. The Postgres budget (watermark_take_assistant_budget) and WATERMARK_ASSISTANT_DISABLED do.
 [functions.assistant]
 verify_jwt = false
 # Directory under `supabase/` where declarative files are written.

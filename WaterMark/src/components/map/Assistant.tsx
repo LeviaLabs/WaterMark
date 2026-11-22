@@ -149,14 +149,18 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
             {messages.length === 0 ? (
               <>
                 <p>
-                  Answers come from Google Gemini, which looks up the same sources as this map (GDACS, NOAA, Open-Meteo,
-                  NWS) and lists what it used. AI can make mistakes: check official warnings before you act, and in an
-                  emergency call your local emergency number.
+                  Questions go to Google Gemini. Lookups run in this browser, using the same public sources as the map
+                  (GDACS, NOAA, Open-Meteo, NWS), and the model only sees what the browser sends back. The server does
+                  not check those figures. This is not a verified flood report. Check official warnings before you act,
+                  and in an emergency call your local emergency number.
                 </p>
                 {Recognition ? <p>The mic uses your browser's speech service; in Chrome that sends audio to Google.</p> : null}
               </>
             ) : (
-              <p>AI can make mistakes. Check official warnings before you act.</p>
+              <p>
+                Unverified AI summary of browser lookups, not a server-checked flood report. Check official warnings
+                before you act.
+              </p>
             )}
             {canSpeak ? (
               <button type="button" role="switch" aria-checked={readAloud} className="assistant-switch" onClick={toggleReadAloud}>
@@ -171,7 +175,7 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
                 <div className="assistant-empty">
                   <p className="assistant-intro">
                     Ask about floods anywhere on Earth: how often a place floods, rain on the way, river levels, warnings in
-                    effect, or how to stay safe. When it looks up a place, it opens it on the map for you.
+                    effect, or how to stay safe. When a lookup names a place, the map opens it.
                   </p>
                   <p className="assistant-try">Try{placeName ? `, for ${placeName}` : ''}</p>
                   <ul className="assistant-suggestions">
@@ -185,7 +189,7 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
                   {m.role === 'user' ? <p>{m.text}</p> : <Reply text={m.text} />}
                   {m.used.length ? (
                     <details className="assistant-used">
-                      <summary>Data used ({m.used.length})</summary>
+                      <summary>Browser lookups ({m.used.length})</summary>
                       <ul>{m.used.map((u) => <li key={u}>{u}</li>)}</ul>
                     </details>
                   ) : null}

@@ -103,7 +103,7 @@ Five CLI-generated migrations create and refine these tables:
 | `public.monitoring_stations` | Composite provider/station primary key; source foreign key; name; `geography(Point,4326)`; metadata fetch time; measurement freshness interval. GiST location index. |
 | `public.flood_events` | Composite provider/station/event-start primary key; composite station foreign key; UTC start/end; peak depth in mm; fetch time; time index. Event peaks are not instantaneous gauge readings. |
 | `public.historical_observations` | UUID primary key; composite station foreign key; unique provider/station/metric/observation time; UTC observation and retrieval times; metric, normalized units, value and quality flags. Station/time index. No production measurement ingestion is claimed. |
-| `watermark_private.request_budgets` | Fixed global time-bucket primary key, atomic request count and expiry. No IP, user, coordinate or session identifier. |
+| `watermark_private.request_budgets` | Fixed time-bucket primary key, atomic request count and expiry. `watermark-v1` buckets are global and store no client identifier. Assistant buckets (`assistant:`) store a 32-character daily hash of the gateway client address, not the address, plus one global day counter and an optional `assistant:disabled` row. |
 
 All timestamps use `timestamptz`; API times are UTC ISO 8601. Values must be
 finite and nonnegative. Unit constraints pair water depth with mm and river
@@ -150,7 +150,17 @@ at most two Open-Meteo calls, so this implementation is bounded to 4,800/hour
 and 8,000/day for that provider. This is below its currently published free-tier
 limits; shared egress use by other applications can still cause 429 responses.
 An attacker can exhaust the shared availability budget; fair per-client limits
-and operational monitoring remain a production decision.
+and operational monitoring remain a production decision for `watermark-v1`.
+
+The flood assistant uses the same table through `watermark_take_assistant_budget(text)`
+(service role only; migration `20261122170000_watermark_assistant_budget.sql`). Its buckets are
+prefixed `assistant:` so they do not spend the `watermark-v1` counters. The argument is a
+32-character hex digest of the UTC day and the gateway client address, not the address itself.
+Limits are 12 requests per minute and 80 per UTC day for that digest, and 400 per UTC day for
+every caller. A row with bucket `assistant:disabled` and a future `expires_at` makes the function
+return `disabled` without counting the request. The Edge Function also treats
+`WATERMARK_ASSISTANT_DISABLED` as an off switch and does not call Gemini when the budget check
+fails. That migration is in the repo and has not been applied to a remote database by this change.
 
 **FAIL — local effective CORS response header.** The handler returns only its
 configured Origin, and an actual request with an unconfigured Origin returns

@@ -97,7 +97,17 @@ export interface PageContext {
   today: string
 }
 
-/** The page context as the plain text the assistant function passes to the model as data. */
+/**
+ * Where the chat sends questions. A production build with no URL calls nothing and the panel says
+ * the assistant is not set up. Dev falls back to the Vite route.
+ */
+export function resolveAssistantUrl(configured: string | undefined, isDev: boolean): string | null {
+  const value = configured?.trim() ?? ''
+  if (value) return value
+  return isDev ? '/api/assistant' : null
+}
+
+/** The page context as plain text. The server treats it as untrusted user-supplied data. */
 export function contextText(c: PageContext): string {
   const lines = [
     `Today: ${c.today}`,

@@ -31,9 +31,11 @@ interface Props {
   area: ReactNode
   alerts: ReactNode
   sources: ReactNode
+  /** Changes when the panel shows a different place; the body then starts again at the top. */
+  subject: string
 }
 
-export function DataPanel({ title, alertCount, panelRef, style, handleProps, onCollapse, isClosing, presence, area, alerts, sources }: Props) {
+export function DataPanel({ title, alertCount, panelRef, style, handleProps, onCollapse, isClosing, presence, area, alerts, sources, subject }: Props) {
   const [tab, setTab] = useState<TabId>('area')
   return (
     <aside className={isClosing ? 'map-card data-panel is-closing' : 'map-card data-panel'} style={style}
@@ -56,7 +58,7 @@ export function DataPanel({ title, alertCount, panelRef, style, handleProps, onC
           <Tab value="sources" label="Sources" />
         </TabList>
       </nav>
-      <ScrollArea className="panel-scroll">
+      <ScrollArea key={`${tab}:${subject}`} className="panel-scroll">
         <div className="panel-body">
           <div key={tab} className="panel-tab-body">{tab === 'area' ? area : tab === 'alerts' ? alerts : sources}</div>
         </div>

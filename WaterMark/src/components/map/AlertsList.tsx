@@ -1,9 +1,18 @@
 import { EvidenceTag } from '../common/EvidenceTag'
 import { fmtTime } from '../../scripting/format'
-import type { Loadable, WeatherAlert } from '../../scripting/types'
+import type { Coverable, WeatherAlert } from '../../scripting/types'
 
-export function AlertsList({ alerts }: { alerts: Loadable<WeatherAlert[]> }) {
+export function AlertsList({ alerts }: { alerts: Coverable<WeatherAlert[]> }) {
   if (alerts === null) return <p className="map-meta">Loading…</p>
+  if (alerts === 'unsupported') {
+    return (
+      <p className="callout callout-info">
+        WaterMark reads official alerts from the US National Weather Service, which does not cover this place. This is not an
+        all-clear: check your national weather service, listed by the{' '}
+        <a href="https://severeweather.wmo.int" target="_blank" rel="noopener">WMO Severe Weather Information Centre</a>.
+      </p>
+    )
+  }
   if (alerts === 'error') {
     return <p className="map-meta">Couldn't load weather alerts right now. Alerts cover the US only.</p>
   }

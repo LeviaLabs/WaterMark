@@ -795,3 +795,99 @@
     display: none;
   }
 }
+
+/* ---- Flood-history legend: above the Layers button (below it on phones) ---- */
+
+.layers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.map-legend {
+  padding: 10px 12px;
+  width: 196px;
+  animation: map-hint-in 0.3s var(--ease-out);
+}
+
+.map-legend-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.map-legend-sub {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.map-legend-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.map-legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.region-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+}
+
+.region-swatch--0 { background: var(--flood-0); }
+.region-swatch--1 { background: var(--flood-1); }
+.region-swatch--2 { background: var(--flood-2); }
+.region-swatch--3 { background: var(--flood-3); }
+.region-swatch--4 { background: var(--flood-4); }
+.region-swatch--5 { background: var(--flood-5); }
+.region-swatch--6 { background: var(--flood-6); }
+
+@media (max-width: 700px) {
+  .layers {
+    flex-direction: column-reverse;
+  }
+
+  /* Phones: a single row of swatches with the end labels, so the map stays visible. */
+  .map-legend {
+    width: auto;
+    padding: 8px 10px;
+  }
+
+  .map-legend-list {
+    display: flex;
+    gap: 2px;
+  }
+
+  .map-legend-list li {
+    font-size: 0;
+  }
+
+  .map-legend-list li:first-child,
+  .map-legend-list li:last-child {
+    font-size: 0.6875rem;
+    gap: 4px;
+  }
+}
+
+/* Phones: hints sit above the collapsed panel card instead of on top of it. */
+@media (max-width: 700px) {
+  .map-hint {
+    bottom: 104px;
+    max-width: calc(100vw - 2 * var(--map-gap));
+    text-align: center;
+  }
+}

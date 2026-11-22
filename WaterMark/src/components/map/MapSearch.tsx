@@ -11,7 +11,8 @@ import type { LngLat } from '../../scripting/types'
 
 interface Props {
   /** Biases results toward this point (usually the selected area). */
-  near: LngLat
+  /** Ranks places near here first; null searches the whole world evenly. */
+  near: LngLat | null
   onPick: (place: GeocodedPlace) => void
 }
 
@@ -35,7 +36,7 @@ export function MapSearch({ near, onPick }: Props) {
   // The text a pick put in the box; it is not searched again.
   const [picked, setPicked] = useState<string | null>(null)
   const isLoading = isSearchable && results.query !== q && q !== picked
-  const [nearLon, nearLat] = near
+  const [nearLon, nearLat] = near ?? [null, null]
 
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export function MapSearch({ near, onPick }: Props) {
     // Photon's rate limit (its public server cuts off busy clients, and the browser then reports
     // the refusal as a CORS error). The timer is cleared on the next keystroke.
     const pause = setTimeout(() => {
-      searchPlaces(q, ctl.signal, { near: { lat: nearLat, lon: nearLon } })
+      searchPlaces(q, ctl.signal, nearLat === null || nearLon === null ? {} : { near: { lat: nearLat, lon: nearLon } })
         // Photon down or rate-limiting: fall back to Nominatim for this one settled query.
         .catch((e: unknown) => (ctl.signal.aborted ? Promise.reject(e) : searchNominatim(q, ctl.signal)))
         .then(

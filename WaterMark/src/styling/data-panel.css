@@ -14,7 +14,7 @@
   width: min(400px, calc(100% - 2 * var(--map-gap)));
   /* Ends above the zoom buttons and scale, so opening the panel never moves them;
      in a very short window it keeps enough height to be usable. */
-  max-height: max(240px, calc(100% - 84px - 170px));
+  max-height: max(240px, calc(100% - 84px - 210px));
   overflow: hidden;
   transform-origin: top right;
   animation: panel-in 0.34s var(--ease-out);
@@ -598,3 +598,47 @@
   }
 }
 
+
+/* ---- Flood history of the clicked country, state or county ---- */
+
+.region-summary {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.region-big {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 2px;
+  color: var(--text);
+  font-size: 0.9375rem;
+}
+
+.region-big strong {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.region-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 56px;
+  margin-top: 4px;
+}
+
+.region-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+}
+
+.region-bar-ends {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+}

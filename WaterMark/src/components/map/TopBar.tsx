@@ -8,7 +8,7 @@ import type { LngLat } from '../../scripting/types'
 interface Props {
   isDrawing: boolean
   onToggleDraw: () => void
-  searchNear: LngLat
+  searchNear: LngLat | null
   onPick: (place: GeocodedPlace) => void
 }
 

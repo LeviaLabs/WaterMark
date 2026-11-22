@@ -31,3 +31,6 @@ themes/*/preview.html
 
 # Stormwater tile build downloads (scripts/stormwater)
 .cache
+
+# Downloaded archives for the data builds (scripts/floods)
+.cache

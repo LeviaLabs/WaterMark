@@ -1,4 +1,8 @@
 // /map: the 2D flood map, circle-an-area tool and data panel (Ryan L).
+// It opens on the whole world colored by floods per country. Clicking a country focuses it: the
+// camera glides in, the rest of the world goes dark and its provinces (in the US, states and then
+// counties) take the color, clickable straight away. Clicking inside a province or county selects
+// that spot and zooms in; the area data loads for it. Search and the circle tool select a spot directly.
 // Open a place directly with /map?lat=40.68&lon=-74.01&z=14&label=Red%20Hook
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
@@ -8,21 +12,42 @@ import { LayersCard } from './LayersCard'
 import { CollapsedPanel, DataPanel } from './DataPanel'
 import { AreaReport } from './AreaReport'
 import { AlertsList } from './AlertsList'
+import { MapLegend } from './MapLegend'
+import { RegionSummary } from './RegionSummary'
 import { SourcesList } from '../sources/SourcesList'
 import { useColorScheme } from '../../hooks/useColorScheme'
 import { useGlobalLayers } from '../../hooks/useGlobalLayers'
 import { useAreaReport } from '../../hooks/useAreaReport'
+import { useFloodHistory } from '../../hooks/useFloodHistory'
 import { useDraggablePanel } from '../../hooks/useDraggablePanel'
 import { usePresence } from '../../hooks/usePresence'
 import { distanceKm, makeCircle } from '../../scripting/geo'
-import type { GeocodedPlace } from '../../services/geocoding/photon'
-import type { LayerId, LayerVisibility, LngLat, Selection } from '../../scripting/types'
+import { bboxesOverlap, NYC_BOUNDS, touchesNYC, type BBox } from '../../scripting/region'
+import { DETAIL_ZOOM, pathTo } from '../../scripting/choropleth'
+import { cellAt, cellWidthKm, squareOf } from '../../scripting/cells'
+import { gridAt } from './regionLayers'
+import { fetchPlaceName, type GeocodedPlace } from '../../services/geocoding/photon'
+import type { LayerId, LayerVisibility, LngLat, RegionLevel, RegionPick, Selection } from '../../scripting/types'
+import '@fontsource-variable/bricolage-grotesque/index.css'
+import '@fontsource-variable/instrument-sans/index.css'
+import '@fontsource-variable/jetbrains-mono/index.css'
 import '../../styling/map-page.css'
+import '../../styling/map-premium.css'
 
-const DEFAULT = { lat: 40.5755, lon: -73.986, z: 13, label: 'Coney Island' }
 const HINT_MS = 4000
 // On phones the layers card and the data sheet share the screen, so opening one folds the other.
 const isPhone = () => matchMedia('(max-width: 700px)').matches
+// The whole world in view at any width: about 300 degrees of longitude across the screen
+// (a zoom-0 world is 512 px wide), never closer than 1.7 so wide screens still see every continent.
+const WORLD = { center: [12, 22] as LngLat, zoom: () => Math.min(1.7, Math.max(0, Math.log2(innerWidth / 430))) }
+// The lower 48 states: flying to the whole US (Alaska to Guam) would leave them tiny.
+const US_FOCUS: [number, number, number, number] = [-125, 24.5, -66.9, 49.5]
+const MAX_ZOOM: Record<RegionLevel, number> = { country: 7, admin1: 9, state: 8.5, county: 9.5 }
+
+const AREA_LABEL = 'Your selected area'
+const SPOT_LABEL = 'Selected square'
+// Zoomed in to here when a square is picked: the whole square in view, its streets just visible.
+const SQUARE_MAX_ZOOM = 9
 
 function select(center: LngLat, radiusKm: number, label: string): Selection {
   return { center, radiusKm, label, circle: makeCircle(center, radiusKm) }
@@ -30,23 +55,54 @@ function select(center: LngLat, radiusKm: number, label: string): Selection {
 
 export default function MapPage() {
   const [params] = useSearchParams()
-  const start = useMemo(() => ({
-    center: [Number(params.get('lon')) || DEFAULT.lon, Number(params.get('lat')) || DEFAULT.lat] as LngLat,
-    zoom: Number(params.get('z')) || DEFAULT.z,
-    label: params.get('label') || DEFAULT.label,
-  }), [params])
+  // A shared link with lat and lon opens on that spot with it selected; otherwise the world.
+  const start = useMemo(() => {
+    const lat = Number(params.get('lat'))
+    const lon = Number(params.get('lon'))
+    const has = params.has('lat') && params.has('lon') && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
+    return has
+      ? { center: [lon, lat] as LngLat, zoom: Number(params.get('z')) || 14, label: params.get('label') || 'Shared location', isSpot: true }
+      : { center: WORLD.center, zoom: WORLD.zoom(), label: '', isSpot: false }
+  }, [params])
 
   const { scheme } = useColorScheme()
-  const { sensors, floods } = useGlobalLayers()
-  const [selection, setSelection] = useState<Selection>(() => select(start.center, 1, start.label))
+  const [selection, setSelection] = useState<Selection | null>(() => (start.isSpot ? select(start.center, 1, start.label) : null))
+  // World > country > (province | state > county): the regions focused, outermost first.
+  const [path, setPath] = useState<RegionPick[]>([])
+  const history = useFloodHistory(path)
+  const region = path.at(-1) ?? null
+
+  // FloodNet covers NYC only, so its tables download the first time NYC is on screen up close or selected.
+  const [view, setView] = useState<{ isNyc: boolean; zoom: number }>({ isNyc: false, zoom: start.zoom })
+  const onViewChange = useCallback((b: BBox, zoom: number) => {
+    const isNyc = zoom >= 7 && bboxesOverlap(b, NYC_BOUNDS)
+    setView((v) => (v.isNyc === isNyc && Math.abs(v.zoom - zoom) < 0.01 ? v : { isNyc, zoom }))
+  }, [])
+  const { sensors, floods } = useGlobalLayers(view.isNyc || (selection ? touchesNYC(selection.circle) : false))
   const { report, retry } = useAreaReport(selection)
+
+  // A clicked spot or a drawn circle has no name of its own: name it from the reverse lookup.
+  const [placeName, setPlaceName] = useState<{ for: Selection; name: string } | null>(null)
+  useEffect(() => {
+    if (!selection || (selection.label !== AREA_LABEL && selection.label !== SPOT_LABEL)) return
+    const ctl = new AbortController()
+    fetchPlaceName(selection.center, ctl.signal).then((name) => {
+      if (name) setPlaceName({ for: selection, name: selection.label === AREA_LABEL ? `Area around ${name}` : `Square around ${name}` })
+    }, () => {})
+    return () => ctl.abort()
+  }, [selection])
   const panel = useDraggablePanel()
   const isPanelOpen = panel.mode === 'open'
   const panelPresence = usePresence(isPanelOpen)
   const cardPresence = usePresence(!isPanelOpen)
   const [isMapBusy, setIsMapBusy] = useState(true)
 
-  const [layers, setLayers] = useState<LayerVisibility>({ rain: true, floods: true, sensors: true, storm: true, fema: false })
+  // The rain radar starts off: over the flood colors it reads as noise. It is one toggle away, and
+  // each spot's own rain forecast is in the panel.
+  // Overlays start off, and only one shows at a time so the flood squares stay readable.
+  const [layers, setLayers] = useState<LayerVisibility>({ rain: false, floods: false, sensors: false, storm: false, fema: false })
+  const showOverlay = (id: LayerId, on: boolean) =>
+    setLayers({ rain: false, floods: false, sensors: false, storm: false, fema: false, [id]: on })
   const [stormNote, setStormNote] = useState<string | null>(null)
   const [flyTo, setFlyTo] = useState<FlyTarget | null>(null)
   const [isLayersOpen, setIsLayersOpen] = useState(false)
@@ -97,7 +153,7 @@ export default function MapPage() {
     }
     const km = distanceKm(drawCenter, at)
     stopDrawing()
-    choose(select(drawCenter, km, 'Your selected area'))
+    choose(select(drawCenter, km, AREA_LABEL))
   }
   const onDrawMove = (at: LngLat) => {
     if (drawCenter) setPreview(makeCircle(drawCenter, distanceKm(drawCenter, at)))
@@ -109,8 +165,62 @@ export default function MapPage() {
     choose(select(center, 1, place.label))
   }
 
+  // Parents of a picked region (the US above a state) come from the loaded files.
+  const find = useCallback((level: RegionLevel, k: string): RegionPick | null => {
+    const fc = level === 'country' ? history.countries : level === 'state' ? history.states : null
+    const props = fc?.features.find((f) => f.properties.k === k)?.properties
+    return props ? { level, props } : null
+  }, [history.countries, history.states])
+
+  const flyToRegion = (pick: RegionPick) => {
+    const bounds = pick.level === 'country' && pick.props.k === 'USA' ? US_FOCUS : pick.props.b
+    setFlyTo({ bounds, maxZoom: MAX_ZOOM[pick.level] })
+  }
+
+  // Focus a region: fly there, dim the rest and show its record. A new region clears the spot,
+  // whose data belonged to the place you just left.
+  const onRegionClick = (pick: RegionPick) => {
+    setPath(pathTo(pick, path, find))
+    setSelection(null)
+    flyToRegion(pick)
+    if (panel.mode !== 'open' && !isPhone()) openPanel()
+  }
+  const goTo = (depth: number) => {
+    const next = path.slice(0, depth)
+    setPath(next)
+    setSelection(null)
+    const last = next.at(-1)
+    if (last) flyToRegion(last)
+    else setFlyTo({ center: WORLD.center, zoom: WORLD.zoom() })
+  }
+  // A click inside a province or county (or anywhere at street zoom) picks the grid square there:
+  // its flood record, plus the forecasts and history at its middle.
+  const onSpotClick = (at: LngLat, shouldZoom: boolean) => {
+    const grid = gridAt(at, history)
+    if (!grid) return choose(select(at, 5, SPOT_LABEL))
+    const cell = cellAt(at, grid)
+    const [w, s0, e, n] = cell.bounds
+    const center: LngLat = [(w + e) / 2, (s0 + n) / 2]
+    if (shouldZoom) setFlyTo({ bounds: cell.bounds, maxZoom: SQUARE_MAX_ZOOM })
+    choose({ center, radiusKm: cellWidthKm(cell.bounds) / 2, label: SPOT_LABEL, cell,
+      circle: { type: 'Feature', properties: {}, geometry: squareOf(cell.bounds) } })
+  }
+
+  useEffect(() => {
+    if (!path.length || isDrawing) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) goTo(path.length - 1) }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  })
+
   const alertCount = Array.isArray(report.alerts) ? report.alerts.length : 0
-  const isReportLoading = Object.values(report).some((v) => v === null)
+  const isReportLoading = selection ? Object.values(report).some((v) => v === null) : false
+  const crumbName = (p: RegionPick) => (p.level === 'county' ? `${p.props.n} County` : p.level === 'country' && p.props.k === 'USA' ? 'United States' : p.props.n)
+  const named = placeName && placeName.for === selection ? placeName.name : null
+  const title = selection
+    ? named ?? (selection.label === SPOT_LABEL && region ? `Square in ${crumbName(region)}` : selection.label)
+    : region ? (region.level === 'county' && region.props.s ? `${crumbName(region)}, ${region.props.s}` : crumbName(region)) : 'Floods around the world'
+  const zoomHint = !selection && view.zoom >= DETAIL_ZOOM ? 'Click a spot on the map to see the data there.' : null
 
   return (
     <main className="map-page">
@@ -121,25 +231,43 @@ export default function MapPage() {
         layers={layers}
         sensors={sensors}
         floods={floods}
-        circle={preview ?? selection.circle}
+        circle={preview ?? selection?.circle ?? null}
         isDrawing={isDrawing}
         flyTo={flyTo}
+        regions={history}
+        onRegionClick={onRegionClick}
+        onSpotClick={onSpotClick}
         onDrawClick={onDrawClick}
         onDrawMove={onDrawMove}
         onStormNote={setStormNote}
+        onViewChange={onViewChange}
         onBusyChange={setIsMapBusy}
       />
       <TopBar
         isDrawing={isDrawing}
         onToggleDraw={isDrawing ? stopDrawing : startDrawing}
-        searchNear={selection.center}
+        searchNear={selection?.center ?? null}
         onPick={onPick}
       />
-      <LayersCard layers={layers} onToggle={(id: LayerId, on) => setLayers((l) => ({ ...l, [id]: on }))}
-        floods={floods} stormNote={stormNote} isOpen={isLayersOpen} onOpenChange={onLayersOpenChange} />
+      <LayersCard layers={layers} onToggle={showOverlay}
+        floods={floods} stormNote={stormNote} isOpen={isLayersOpen} onOpenChange={onLayersOpenChange}
+        legend={isLayersOpen || view.zoom >= 12 ? null : <MapLegend grid={path[0]?.props.k === 'USA' ? 'us' : 'world'} index={history.index} />} />
+      {path.length ? (
+        <nav className="map-crumbs" aria-label="Map focus">
+          <button type="button" className="map-crumb map-crumb--back" onClick={() => goTo(path.length - 1)} aria-label="Back out one level">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg>
+          </button>
+          <button type="button" className="map-crumb" onClick={() => goTo(0)}>World</button>
+          {path.map((p, i) => (
+            <button key={p.level + p.props.k} type="button" className="map-crumb" aria-current={i === path.length - 1 ? 'location' : undefined}
+              onClick={() => goTo(i + 1)}>{crumbName(p)}</button>
+          ))}
+        </nav>
+      ) : null}
       {panelPresence.isMounted ? (
         <DataPanel
-          title={selection.label}
+          title={title}
+          subject={selection ? `${selection.center.join()}:${selection.radiusKm}` : region ? `${region.level}:${region.props.k}` : 'world'}
           alertCount={alertCount}
           panelRef={panel.panelRef}
           style={panel.style}
@@ -147,17 +275,24 @@ export default function MapPage() {
           onCollapse={() => panel.setMode('stowed')}
           isClosing={panelPresence.isClosing}
           presence={panelPresence.bind}
-          area={<AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods} />}
-          alerts={<AlertsList alerts={report.alerts} />}
+          area={
+            <>
+              {selection ? null : <RegionSummary region={region} index={history.index} status={history.status} />}
+              {selection ? <AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods}
+                cellMeta={selection.cell ? history.index?.cells[selection.cell.grid] : null} /> : null}
+            </>
+          }
+          alerts={selection ? <AlertsList alerts={report.alerts} />
+            : <p className="map-meta">Select a spot to check its official alerts: click inside a region on the map, or search for a place.</p>}
           sources={<SourcesList isToggleable={false} />}
         />
       ) : null}
       {cardPresence.isMounted ? (
-        <CollapsedPanel title={selection.label} alertCount={alertCount} onOpen={openPanel}
+        <CollapsedPanel title={title} alertCount={alertCount} onOpen={openPanel}
           isClosing={cardPresence.isClosing} presence={cardPresence.bind} />
       ) : null}
       <span className={isMapBusy || isReportLoading ? 'map-progress is-busy' : 'map-progress'} aria-hidden="true" />
-      {hint ? <p className="map-hint" role="status">{hint.text}</p> : null}
+      {hint ? <p className="map-hint" role="status">{hint.text}</p> : zoomHint && !isDrawing ? <p className="map-hint" role="status">{zoomHint}</p> : null}
     </main>
   )
 }

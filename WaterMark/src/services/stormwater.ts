@@ -11,6 +11,7 @@ import Pbf from 'pbf'
 import type { Feature, MultiPolygon, Polygon } from 'geojson'
 import { ENDPOINTS } from './endpoints'
 import { getJSON } from './http'
+import { withSignal } from './shared'
 import { markFetched } from '../scripting/freshness'
 import { stormShareFromTiles, type StormTile } from '../scripting/geo'
 import { tileBounds, tilesCovering } from '../scripting/tiles'
@@ -68,16 +69,6 @@ async function tileBuffer(key: string): Promise<ArrayBuffer> {
   return job
 }
 
-/** Rejects with an AbortError as soon as `signal` aborts, even if the shared download continues. */
-function withSignal<T>(job: Promise<T>, signal?: AbortSignal): Promise<T> {
-  if (!signal) return job
-  if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'))
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'))
-    signal.addEventListener('abort', onAbort, { once: true })
-    job.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort))
-  })
-}
 
 /** MapLibre protocol handler for `wmstorm://{z}/{x}/{y}`. Register once with maplibregl.addProtocol. */
 export async function loadStormTile(params: { url: string }, abort: AbortController): Promise<{ data: ArrayBuffer }> {

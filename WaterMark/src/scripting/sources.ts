@@ -2,7 +2,7 @@
 // Ryan B: import SourcesList on the landing page; it reads this list.
 
 export type SourceId =
-  | 'imerg' | 'gdacs' | 'floodnet' | 'stormwater' | 'fema' | 'nws' | 'rain' | 'river' | 'nfip' | 'geocode' | 'zip' | 'basemap'
+  | 'imerg' | 'gdacs' | 'rain-history' | 'elevation' | 'gdacs-history' | 'noaa-storm-events' | 'floodnet' | 'stormwater' | 'fema' | 'nws' | 'rain' | 'river' | 'nfip' | 'geocode' | 'zip' | 'basemap'
 
 export interface DataSource {
   id: SourceId
@@ -23,6 +23,14 @@ export const SOURCES: readonly DataSource[] = [
     publisher: 'United Nations and the European Commission Joint Research Centre',
     use: 'Floods reported worldwide in the past 30 days, with alert level and dates.',
     url: 'https://www.gdacs.org/', live: true },
+  { id: 'gdacs-history', name: 'GDACS flood events, 2001 to 2025',
+    publisher: 'United Nations and the European Commission Joint Research Centre',
+    use: 'Countries on the world map are colored by how many floods GDACS recorded there per year. Totaled by WaterMark from the GDACS event archive; floods large enough for international notice only.',
+    url: 'https://www.gdacs.org/', live: false },
+  { id: 'noaa-storm-events', name: 'Storm Events Database: flood, flash flood, coastal and lakeshore flood reports, 2016 to 2025',
+    publisher: 'NOAA National Centers for Environmental Information',
+    use: 'US states and counties are colored by flood reports per year (one report per county or zone an event touched). Totaled by WaterMark; outlines from the US Census Bureau via us-atlas, countries from Natural Earth.',
+    url: 'https://www.ncdc.noaa.gov/stormevents/', live: false },
   { id: 'floodnet', name: 'FloodNet NYC: street flooding events and sensor locations',
     publisher: 'FloodNet (NYU, CUNY and NYC agencies), via NYC Open Data',
     use: 'Sensor locations and every street flood each sensor recorded (depth, duration).',
@@ -40,17 +48,25 @@ export const SOURCES: readonly DataSource[] = [
     use: 'Flood, storm and coastal warnings in effect at the selected point.',
     url: 'https://www.weather.gov/documentation/services-web-api', live: true },
   { id: 'rain', name: 'Precipitation forecast', publisher: 'Open-Meteo weather forecast API',
-    use: 'Expected rainfall for the next 3 days at the selected point.',
+    use: 'Daily rain for the past 30 days and the next 16 at the selected point, anywhere in the world, on the local calendar days. Past days are model analysis, not gauge readings.',
     url: 'https://open-meteo.com/en/docs', live: true },
+  { id: 'rain-history', name: 'Historical weather (ERA5 reanalysis), daily rain since 1991',
+    publisher: 'Copernicus Climate Change Service (ECMWF), via the Open-Meteo historical weather API',
+    use: 'The heaviest day of rain in each year and how often 50 mm (2 in) days happen at the selected spot, anywhere in the world. A model reconstruction on a roughly 25 km grid, not a rain gauge.',
+    url: 'https://open-meteo.com/en/docs/historical-weather-api', live: true },
+  { id: 'elevation', name: 'Ground elevation (Copernicus DEM GLO-90)',
+    publisher: 'European Space Agency / Copernicus, via the Open-Meteo elevation API',
+    use: 'How high the selected spot sits above sea level. Low ground near a coast or river floods more easily, but height alone does not set flood risk.',
+    url: 'https://open-meteo.com/en/docs/elevation-api', live: true },
   { id: 'river', name: 'River discharge forecast (GloFAS v4)',
     publisher: 'Copernicus Emergency Management Service, via the Open-Meteo Flood API',
-    use: 'Modeled river flow for the nearest river. Not flood depth, and not meaningful for coastal surge.',
+    use: 'Modeled river flow at the nearest GloFAS river cell: the last 60 days and the next 3 months with the forecast spread, and every day since 1984 for comparison. Not flood depth, and not meaningful for coastal surge.',
     url: 'https://open-meteo.com/en/docs/flood-api', live: true },
   { id: 'nfip', name: 'NFIP Redacted Claims (v3)', publisher: 'FEMA, OpenFEMA',
     use: 'Past flood insurance claims for the ZIP code at the center of the selected area, totaled in the browser.',
     url: 'https://www.fema.gov/openfema-data-page/nfip-redacted-claims-v3', live: true },
   { id: 'geocode', name: 'Place search', publisher: 'OpenStreetMap contributors, via Photon (komoot)',
-    use: 'Search as you type for a ZIP code, neighborhood or address.',
+    use: 'Search as you type for a ZIP code, neighborhood or address, and find the country at the selected point so only datasets that cover it are asked (US alerts, FEMA zones and claims in the US; the NYC model and sensors in NYC).',
     url: 'https://photon.komoot.io', live: true },
   { id: 'zip', name: 'ZIP Code Tabulation Areas (2020 Census)', publisher: 'US Census Bureau, TIGERweb',
     use: 'The ZIP code at the center of the selected area, for insurance claims.',

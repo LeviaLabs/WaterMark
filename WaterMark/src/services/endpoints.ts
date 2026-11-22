@@ -18,6 +18,10 @@ export const ENDPOINTS = {
   gdacs: 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH',
   forecast: 'https://api.open-meteo.com/v1/forecast',
   flood: 'https://flood-api.open-meteo.com/v1/flood',
+  // ERA5 reanalysis, daily since 1940 (Open-Meteo historical weather API).
+  rainArchive: 'https://archive-api.open-meteo.com/v1/archive',
+  // Copernicus DEM GLO-90 ground height.
+  elevation: 'https://api.open-meteo.com/v1/elevation',
   nwsAlerts: 'https://api.weather.gov/alerts/active',
   // Photon (OpenStreetMap data): forward search lives in services/geocoding/photon.ts.
   // Census ZIP Code Tabulation Areas (2020 Census), the ZIP areas the claims are counted by.

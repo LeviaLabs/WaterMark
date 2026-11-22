@@ -82,37 +82,96 @@ Exact menu labels could not be checked without a signed-in dashboard; these foll
 
 Free tier per MojoAuth's docs: 25,000 monthly active users. Documented rate limits: OTP APIs 50 requests/minute, token APIs 200/minute.
 
-### Supabase
+### Local development env
 
-No WaterMark Supabase project is visible to the connected Supabase account (only an inactive, unrelated project).
-
-1. Create or choose the WaterMark project (team decision; Decong owns it per AGENTS.md).
-2. Set function secrets yourself (values never in git):
-   ```powershell
-   supabase secrets set --project-ref <project-ref> MOJOAUTH_API_KEY=<api key> WATERMARK_ALLOWED_ORIGINS=http://localhost:5173
-   ```
-   Optional: `MOJOAUTH_ISSUER` to require an exact `iss` claim once a real token shows its value.
-3. Deploy (needs your go-ahead; it is production infrastructure):
-   ```powershell
-   supabase functions deploy auth-verify --no-verify-jwt --project-ref <project-ref>
-   ```
-   `--no-verify-jwt` is required: the caller sends a MojoAuth token, not a Supabase JWT. The function does its own verification.
-   After PR #4 merges, add this to `supabase/config.toml` (Codex's file) instead of the flag:
-   ```toml
-   [functions.auth-verify]
-   verify_jwt = false
-   ```
-
-### Frontend env
-
-Create the git-ignored `WaterMark/.env.local`:
+Git-ignored files (values never in git):
 
 ```text
-VITE_MOJOAUTH_API_KEY=<the same API key>
+WaterMark/.env.local         VITE_MOJOAUTH_API_KEY=<api key>
+                             VITE_WATERMARK_AUTH_VERIFY_URL=http://127.0.0.1:8000
+supabase/functions/.env      MOJOAUTH_API_KEY=<same api key>
+                             WATERMARK_ALLOWED_ORIGINS=http://localhost:5173
+```
+
+Without both frontend values the page shows "Sign-in is not set up" and the app stays guest-only.
+
+## Production deployment (`watermark-dev`)
+
+Codex owns the Supabase project setup. `auth-verify` deploys into the same project as `watermark-v1`.
+Nothing below has been run yet: each step needs the project to exist and the owner's go-ahead.
+
+### What is already in the repo
+
+- `supabase/config.toml`: `[functions.auth-verify] verify_jwt = false`. The caller sends a MojoAuth token, not a
+  Supabase JWT; the function verifies it itself. (One added stanza in Codex's file; please review.)
+- `supabase/.env.example`: adds the names `MOJOAUTH_API_KEY`, `MOJOAUTH_ISSUER`.
+- `auth-verify` imports nothing, uses no database and no Supabase key. It needs only the secrets below.
+
+### Function secrets (Supabase project)
+
+| Name | Value | Notes |
+|---|---|---|
+| `MOJOAUTH_API_KEY` | MojoAuth "API Key / Client ID" | The same public key the browser uses. Also the required token `aud`. |
+| `WATERMARK_ALLOWED_ORIGINS` | `https://watermark.works` plus any other exact site origins | **Shared with `watermark-v1`.** No `localhost` in production. Exact origins only, no wildcards. |
+| `MOJOAUTH_ISSUER` | `https://api.mojoauth.com` | Optional. |
+
+Never set: the MojoAuth **API Secret**, or any Supabase service-role / secret key for this function.
+
+Set them from a git-ignored file so values stay out of shell history and chat:
+
+```powershell
+supabase secrets set --project-ref <project-ref> --env-file supabase/.env.production
+```
+
+### Deploy (needs approval)
+
+```powershell
+supabase functions deploy auth-verify --project-ref <project-ref>
+```
+
+`config.toml` already turns off the Supabase JWT check for this function; `--no-verify-jwt` is the same thing as a flag.
+
+### Frontend build env (Cloudflare Pages, Production)
+
+```text
+VITE_MOJOAUTH_API_KEY=<api key>
 VITE_WATERMARK_AUTH_VERIFY_URL=https://<project-ref>.supabase.co/functions/v1/auth-verify
 ```
 
-Without both values the page shows "Sign-in is not set up" and the app stays guest-only.
+These are baked in at build time. A production build ignores an `http://` or localhost verify URL and stays
+guest-only, so the deployed site can never depend on a developer machine.
+
+### MojoAuth dashboard
+
+Add `https://watermark.works` (and any other production origin) to the allowed domains, if the dashboard has that setting.
+
+### Hosted end-to-end check
+
+```powershell
+$env:AUTH_VERIFY_URL = 'https://<project-ref>.supabase.co/functions/v1/auth-verify'
+$env:AUTH_VERIFY_ORIGIN = 'https://watermark.works'
+npx --yes deno@2.9.6 run --allow-env=AUTH_VERIFY_URL,AUTH_VERIFY_ORIGIN,WATERMARK_TEST_TOKEN,AUTH_VERIFY_ALLOW_HTTP --allow-net supabase/tests/auth-verify/hosted.ts
+```
+
+It checks:
+- the URL and origin are HTTPS and not localhost;
+- the site origin gets CORS, while `http://localhost:5173` and other sites get 403;
+- GET returns 405, a malformed body 400, and a forged token 401;
+- responses carry `no-store`.
+
+Then sign in on the deployed site. Optionally, copy `sessionStorage["wm-auth"]` into
+`$env:WATERMARK_TEST_TOKEN` and rerun: it checks that a real token returns only `id`, `displayName` and
+`expiresAt`. Clear the variable afterwards.
+
+### Backend authorization (checked in the repo, 2026-11-22)
+
+- `watermark-v1` is a public, read-only data API (`verify_jwt = false`, GET routes plus POST `/area-summary`).
+  It uses the Supabase secret key only on the server.
+- Every table has RLS with a `service_role`-only policy, and `anon`/`authenticated` grants are revoked.
+  `watermark_private` and the RPCs are `service_role` only. So the browser cannot read or write the database directly.
+- No backend endpoint needs a signed-in user yet. When one does (saved places, alert preferences), it must verify
+  the MojoAuth token server-side the same way (`verifyMojoAuthToken` in `auth-verify/verify.ts`), never trust a
+  user id sent by the browser, and store rows under RLS.
 
 ## How to test
 
@@ -123,7 +182,7 @@ cd WaterMark; npm test
 node --test supabase/tests/auth-verify/verify.test.ts
 ```
 
-Live, without a hosted Supabase project: run the function with Deno on port 8000, then the app.
+Live, locally: run the function with Deno on port 8000, then the app.
 
 ```powershell
 $env:MOJOAUTH_API_KEY = '<api key>'; $env:WATERMARK_ALLOWED_ORIGINS = 'http://localhost:5173'
@@ -157,5 +216,10 @@ Reload: still signed in (the token is re-verified). Close the tab: signed out. "
 - A live token showed `iss` = `https://api.mojoauth.com`, `aud` = the project API key, a 60-minute lifetime, and claims
   `identifier, email, user_id, auth_type, token_type, aud, exp, jti, iat, iss, nbf, sub`. Setting `MOJOAUTH_ISSUER` to that
   issuer is optional; the `aud` check already ties tokens to this project.
-- No profile table: saving places needs a migration with RLS, coordinated with Codex's PR #4.
+- **Deployment blockers:**
+  - No `watermark-dev` Supabase project is visible to the Supabase account connected here; only an inactive, unrelated one is. Codex has to create it, or share access to it.
+  - Owner approval is needed to set secrets and deploy.
+  - The Cloudflare Pages production variables must be set.
+  - `https://watermark.works` must be added in MojoAuth.
+- No profile table: saving places needs a migration with RLS, coordinated with Codex.
 - Nothing in the app needs an account yet (`savedPlaces`, `notificationPrefs` are planned).

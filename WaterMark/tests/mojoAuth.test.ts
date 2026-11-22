@@ -129,3 +129,19 @@ test('config from env: both values required, verify URL must be http(s)', () => 
     mojoAuthConfigFromEnv({ VITE_MOJOAUTH_API_KEY: ' k ', VITE_WATERMARK_AUTH_VERIFY_URL: 'http://127.0.0.1:8000/auth-verify' }),
     { apiKey: 'k', verifyUrl: 'http://127.0.0.1:8000/auth-verify' })
 })
+
+test('config from env: a production build never uses http or a localhost verify URL', () => {
+  const prod = (url: string) => mojoAuthConfigFromEnv({ PROD: true, VITE_MOJOAUTH_API_KEY: 'k', VITE_WATERMARK_AUTH_VERIFY_URL: url })
+  for (const bad of [
+    'http://abc.supabase.co/functions/v1/auth-verify',
+    'https://localhost:8000',
+    'https://127.0.0.1:8000',
+    'https://app.localhost',
+    'https://[::1]:8000',
+    'https://0.0.0.0',
+    'not a url',
+  ]) assert.equal(prod(bad), null, bad)
+  assert.deepEqual(prod('https://abc.supabase.co/functions/v1/auth-verify'), {
+    apiKey: 'k', verifyUrl: 'https://abc.supabase.co/functions/v1/auth-verify',
+  })
+})

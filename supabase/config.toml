@@ -422,6 +422,11 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [experimental.pgdelta]
 enabled = true
 
+# Callers send a MojoAuth access token, not a Supabase JWT; the function verifies it itself
+# (MojoAuth /token/verify, expiry and aud = MOJOAUTH_API_KEY). It touches no database.
+[functions.auth-verify]
+verify_jwt = false
+
 # Public environmental reads; all database writes remain server-only.
 [functions.watermark-v1]
 verify_jwt = false

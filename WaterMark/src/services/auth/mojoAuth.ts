@@ -193,10 +193,25 @@ function safeSessionStorage(): Storage | null {
   }
 }
 
-/** Reads the Vite env. Returns null (guest-only) unless both values are set. */
-export function mojoAuthConfigFromEnv(env: Record<string, string | undefined>): MojoAuthConfig | null {
-  const apiKey = env.VITE_MOJOAUTH_API_KEY?.trim()
-  const verifyUrl = env.VITE_WATERMARK_AUTH_VERIFY_URL?.trim()
-  if (!apiKey || !verifyUrl || !/^https?:\/\//.test(verifyUrl)) return null
+const LOCAL_HOST = /^(localhost|.+\.localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|\[::1?\])$/i
+
+/**
+ * Reads the Vite env. Returns null (guest-only) unless both values are set. A production build
+ * (`PROD`) accepts only an HTTPS verify URL that is not on this machine, so a deployed site can
+ * never depend on a developer's localhost function.
+ */
+export function mojoAuthConfigFromEnv(env: Record<string, unknown>): MojoAuthConfig | null {
+  const read = (name: string) => (typeof env[name] === 'string' ? (env[name] as string).trim() : '')
+  const apiKey = read('VITE_MOJOAUTH_API_KEY')
+  const verifyUrl = read('VITE_WATERMARK_AUTH_VERIFY_URL')
+  if (!apiKey || !verifyUrl) return null
+  let url: URL
+  try {
+    url = new URL(verifyUrl)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+  if (env.PROD === true && (url.protocol !== 'https:' || LOCAL_HOST.test(url.hostname))) return null
   return { apiKey, verifyUrl }
 }

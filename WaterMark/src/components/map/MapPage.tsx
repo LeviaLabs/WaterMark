@@ -4,8 +4,11 @@
 // counties) take the color, clickable straight away. Clicking inside a province or county selects
 // that spot and zooms in; the area data loads for it. Search and the circle tool select a spot directly.
 // Back, the breadcrumb, and Escape each step up one level and clear the spot.
+// Zooming does the same by itself (scripting/zoomFocus.ts): zooming in focuses the country, state or
+// province, county and then the block under the middle of the screen; zooming out steps back up to
+// the world. It never moves the camera, so it never fights the zoom.
 // Open a place directly with /map?lat=40.68&lon=-74.01&z=14&label=Red%20Hook
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import type { FeatureCollection } from 'geojson'
 import { FloodMap, type FlyTarget } from './FloodMap'
@@ -34,6 +37,8 @@ import { gridAt, regionPathAt } from './regionLayers'
 import { contextText } from '../../scripting/assistant'
 import { UNITS } from '../../scripting/format'
 import { fetchPlaceName, type GeocodedPlace } from '../../services/geocoding/photon'
+import { regionChainAt } from '../../services/floodHistory'
+import { blockZoomFor, zoomDepth } from '../../scripting/zoomFocus'
 import type { LayerId, LayerVisibility, LngLat, RegionLevel, RegionPick, Selection } from '../../scripting/types'
 import '@fontsource-variable/bricolage-grotesque/index.css'
 import '@fontsource-variable/instrument-sans/index.css'
@@ -77,6 +82,8 @@ function select(center: LngLat, radiusKm: number, label: string): Selection {
 }
 
 const EMPTY_MARKS: FeatureCollection = { type: 'FeatureCollection', features: [] }
+const samePath = (a: readonly RegionPick[], b: readonly RegionPick[]) =>
+  a.length === b.length && a.every((p, i) => p.level === b[i].level && p.props.k === b[i].props.k)
 
 export default function MapPage() {
   const [params, setParams] = useSearchParams()
@@ -229,6 +236,12 @@ export default function MapPage() {
     choose(select(center, 1, place.label))
   }
 
+  // Zoom-to-focus (onUserZoom, below): each zoom or click bumps the sequence, so an older zoom's
+  // late answer is dropped. `nav` is the focus as last rendered, read after the region lookup.
+  const zoomSeq = useRef(0)
+  const nav = useRef({ path, selection })
+  useEffect(() => { nav.current = { path, selection } })
+
   // Parents of a picked region (the US above a state) come from the loaded files.
   const find = useCallback((level: RegionLevel, k: string): RegionPick | null => {
     const fc = level === 'country' ? history.countries : level === 'state' ? history.states : null
@@ -244,6 +257,7 @@ export default function MapPage() {
   // Focus a region: fly there, dim the rest and show its record. A new region clears the spot,
   // whose data belonged to the place you just left.
   const onRegionClick = (pick: RegionPick) => {
+    zoomSeq.current++
     setPath(pathTo(pick, path, find))
     setSelection(null)
     flyToRegion(pick)
@@ -252,6 +266,7 @@ export default function MapPage() {
   // Breadcrumb jumps and Back both drop the selected square. Depth 0 is the world, which also
   // drops the region veil. Back steps one level: square to its region, then region to its parent.
   const showFocus = useCallback((nextPath: readonly RegionPick[]) => {
+    zoomSeq.current++
     setPath(nextPath.slice())
     setSelection(null)
     const last = nextPath.at(-1)
@@ -265,19 +280,56 @@ export default function MapPage() {
   }, [path, selection, showFocus])
   // A click inside a province or county (or anywhere at street zoom) picks the grid square there:
   // its flood record, plus the forecasts and history at its middle.
-  const onSpotClick = (at: LngLat, shouldZoom: boolean) => {
+  // The square (or, close up, the smaller block) at a point. The historical count stays on `cell`,
+  // which is still the native 0.5° or 1° square; the block is what the live lookups use.
+  const squareAt = (at: LngLat, zoom: number): { selection: Selection; bounds: BBox | null; isBlock: boolean } => {
     const grid = gridAt(at, history)
-    if (!grid) return choose(select(at, 5, SPOT_LABEL))
+    if (!grid) return { selection: select(at, 5, SPOT_LABEL), bounds: null, isBlock: false }
     const cell = cellAt(at, grid)
-    // Close up, pick a smaller block for the live lookups. The historical count stays on `cell`,
-    // which is still the native 0.5° or 1° square.
-    const step = selectionStep(grid.size, view.zoom)
+    const step = selectionStep(grid.size, zoom)
     const bounds = step < grid.size ? selectionBounds(at, step) : cell.bounds
     const [w, s0, e, n] = bounds
-    const center: LngLat = [(w + e) / 2, (s0 + n) / 2]
-    if (shouldZoom) setFlyTo({ bounds, maxZoom: step < grid.size ? 13 : SQUARE_MAX_ZOOM })
-    choose({ center, radiusKm: cellWidthKm(bounds) / 2, label: SPOT_LABEL, cell,
-      circle: { type: 'Feature', properties: {}, geometry: squareOf(bounds) } })
+    return {
+      selection: { center: [(w + e) / 2, (s0 + n) / 2], radiusKm: cellWidthKm(bounds) / 2, label: SPOT_LABEL, cell,
+        circle: { type: 'Feature', properties: {}, geometry: squareOf(bounds) } },
+      bounds,
+      isBlock: step < grid.size,
+    }
+  }
+  const onSpotClick = (at: LngLat, shouldZoom: boolean) => {
+    const square = squareAt(at, view.zoom)
+    if (shouldZoom && square.bounds) setFlyTo({ bounds: square.bounds, maxZoom: square.isBlock ? 13 : SQUARE_MAX_ZOOM })
+    choose(square.selection)
+  }
+
+  // Zoom-to-focus: after each zoom of the user's, focus the level that zoom shows under the middle of
+  // the screen. The camera stays where the user put it; a newer zoom or any click wins over this one.
+  const onUserZoom = async (center: LngLat, zoom: number, prevZoom: number, fitZoom: (b: BBox) => number) => {
+    if (isDrawing) return
+    const seq = ++zoomSeq.current
+    const chain = await regionChainAt(center).catch(() => null)
+    if (chain === null || seq !== zoomSeq.current) return
+    const { path: shown, selection: picked } = nav.current
+    if (!chain.length) {
+      // Over the sea: zooming out far enough still returns to the world; otherwise keep the focus.
+      if (zoom < prevZoom && zoom < WORLD.zoom() + 0.9 && (shown.length || picked)) { setPath([]); setSelection(null) }
+      return
+    }
+    const fits = chain.map((p) => Math.min(fitZoom(p.level === 'country' && p.props.k === 'USA' ? US_FOCUS : p.props.b), MAX_ZOOM[p.level]))
+    // A selected place of any kind (square, search result, drawn area) counts as the block level.
+    const current = picked ? chain.length + 1 : shown.length
+    const depth = zoomDepth({ zoom, prevZoom, fits, blockZoom: blockZoomFor(fits.at(-1)), worldZoom: WORLD.zoom(), current })
+    if (depth === null) return
+    const nextPath = chain.slice(0, Math.min(depth, chain.length))
+    if (!samePath(nextPath, shown)) setPath(nextPath)
+    if (depth <= chain.length) {
+      if (picked) setSelection(null)
+      return
+    }
+    // The block. A searched place or a drawn area stays selected while zooming around it.
+    if (picked && picked.label !== SPOT_LABEL) return
+    const next = squareAt(center, zoom).selection
+    if (!picked || distanceKm(picked.center, next.center) > 0.01 || Math.abs(picked.radiusKm - next.radiusKm) > 0.01) setSelection(next)
   }
 
   // The assistant opened a place: focus its country (and US state) so the veil never hides it, fly
@@ -395,6 +447,7 @@ export default function MapPage() {
         onStormNote={setStormNote}
         onViewChange={onViewChange}
         onBusyChange={setIsMapBusy}
+        onUserZoom={onUserZoom}
       />
       <TopBar
         isDrawing={isDrawing}

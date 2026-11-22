@@ -5,7 +5,7 @@ import type { FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { getJSON } from './http'
 import { markFetched } from '../scripting/freshness'
-import type { LngLat, RegionLevel, RegionProps } from '../scripting/types'
+import type { LngLat, RegionLevel, RegionPick, RegionProps } from '../scripting/types'
 import { parseGrid, type Grid, type GridKind } from '../scripting/cells'
 
 const BASE = '/data/floods'
@@ -140,4 +140,26 @@ export function regionAt(fc: RegionCollection | null, [x, y]: LngLat): RegionPro
     if (inBox && booleanPointInPolygon([x, y], f.geometry)) return f.properties
   }
   return null
+}
+
+/**
+ * The regions at a point, outermost first: its country, then its state and county in the US or
+ * its province elsewhere. Loads (and caches) the subdivision files it needs, so zooming can focus a
+ * county or province whose file was not open yet. A level that has no region here ends the chain.
+ */
+export async function regionChainAt(at: LngLat): Promise<RegionPick[]> {
+  const country = regionAt(await loadCountries(), at)
+  if (!country) return []
+  const chain: RegionPick[] = [{ level: 'country', props: country }]
+  if (country.k === 'USA') {
+    const state = regionAt(await loadStates(), at)
+    if (!state) return chain
+    chain.push({ level: 'state', props: state })
+    const county = regionAt(await loadCounties(state.k).catch(() => null), at)
+    if (county) chain.push({ level: 'county', props: county })
+  } else {
+    const province = regionAt(await loadAdmin1(country.k).catch(() => null), at)
+    if (province) chain.push({ level: 'admin1', props: province })
+  }
+  return chain
 }

@@ -1,12 +1,20 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@astryxdesign/core/Button'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { CityScene } from '../city/CityScene'
 import { RouterLink } from '../common/RouterLink'
 import { useAuth } from '../../hooks/useAuth'
-import { mojoAuthConfig as config } from '../../services/auth/appAuth'
+import { agentboxdConfig, mojoAuthConfig as config } from '../../services/auth/appAuth'
+import {
+  AgentboxdError,
+  clearAgentboxdCallback,
+  readAgentboxdCallback,
+  startAgentboxdSignIn,
+  type AgentboxdErrorCode,
+} from '../../services/auth/agentboxd'
 import { MojoAuthError, sendEmailCode, verifyEmailCode, type MojoAuthErrorCode } from '../../services/auth/mojoAuth'
+import { isAgentAccount } from '../../services/auth/session'
 
 type Mode = 'login' | 'signup'
 
@@ -36,12 +44,34 @@ const ERRORS: Record<MojoAuthErrorCode, string> = {
   misconfigured: 'Sign-in is not set up on this site yet. You can explore every map and data layer without an account.',
 }
 
+const AGENT_ERRORS: Record<AgentboxdErrorCode, string> = {
+  cancelled: 'Agentboxd sign-in was cancelled. Nothing was shared.',
+  'state-mismatch': 'That Agentboxd sign-in did not start on this tab, so we did not use it. Start again here.',
+  'expired-attempt': 'That Agentboxd sign-in expired or was already used. Start again.',
+  'provider-error': 'Agentboxd could not complete the sign-in. Try again.',
+  'rate-limited': 'Too many sign-in attempts. Wait a minute, then try again.',
+  network: 'Could not reach Agentboxd or our sign-in service. Try again in a moment.',
+  'verify-failed': 'We could not confirm that Agentboxd identity. Try again.',
+  misconfigured: 'Agent sign-in is not set up on this site yet. You can explore every map and data layer without an account.',
+}
+
+const agentMessage = (code: string | null) => AGENT_ERRORS[(code ?? '') as AgentboxdErrorCode] ?? AGENT_ERRORS['verify-failed']
+
+function sessionStore() {
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
+}
+
 type Step = 'email' | 'code'
 
 /**
- * Log in / sign up. Both modes use the same MojoAuth email code: MojoAuth creates the
- * account on first sign-in. The token is trusted only after our auth-verify Edge Function
- * confirms it; the shared <AuthProvider> (App.tsx) holds the session. Accounts stay optional.
+ * Log in / sign up. People use a MojoAuth email code (MojoAuth creates the account on first
+ * sign-in); AI agents use Sign in with Agentboxd. Every token is trusted only after our Edge
+ * Functions (auth-verify, agentboxd-auth) confirm it; the shared <AuthProvider> (App.tsx)
+ * holds the session. Accounts stay optional: guests keep every map and data layer.
  */
 export function AuthPage({ mode }: { mode: Mode }) {
   const copy = COPY[mode]
@@ -50,13 +80,31 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [stateId, setStateId] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  // Agentboxd callback: public/agentboxd-callback.html saved the query and sent us here.
+  // Read it (no side effects) for the first render; the effect below deletes it and finishes.
+  const [callback] = useState(() => readAgentboxdCallback(sessionStore()))
+  const [busy, setBusy] = useState(callback?.ok === true)
+  const [error, setError] = useState(callback && !callback.ok ? agentMessage(callback.code) : '')
+  const callbackHandled = useRef(false)
 
   const signedIn = auth.state.status === 'signed-in'
+  const agent = isAgentAccount(auth.state.account)
   // The provider is re-checking a stored session (not this page's own sign-in).
   const checking = auth.state.status === 'loading' && !busy
   const name = auth.state.account?.displayName ?? ''
+
+  const { signIn } = auth
+  useEffect(() => {
+    if (!callback || callbackHandled.current) return
+    callbackHandled.current = true
+    clearAgentboxdCallback(sessionStore()) // single use, even if this tab reloads
+    if (!callback.ok) return
+    signIn(callback.credential)
+      .then((state) => {
+        if (state.status !== 'signed-in') setError(agentMessage(state.error))
+      })
+      .finally(() => setBusy(false))
+  }, [callback, signIn])
 
   async function run(task: () => Promise<void>) {
     setBusy(true)
@@ -91,6 +139,18 @@ export function AuthPage({ mode }: { mode: Mode }) {
     })
   }
 
+  const startAgent = () => {
+    const cfg = agentboxdConfig
+    if (!cfg) return setError(AGENT_ERRORS.misconfigured)
+    setBusy(true)
+    setError('')
+    // On success the browser leaves for agentboxd.com, so busy stays on until then.
+    startAgentboxdSignIn(cfg).catch((err) => {
+      setError(agentMessage(err instanceof AgentboxdError ? err.code : 'network'))
+      setBusy(false)
+    })
+  }
+
   const signOut = () => {
     void auth.signOut()
     setEmail('')
@@ -107,12 +167,16 @@ export function AuthPage({ mode }: { mode: Mode }) {
         </h1>
         <p className="auth-lede" role="status" aria-live="polite">
           {signedIn
-            ? `Signed in as ${name}.`
+            ? agent
+              ? `Signed in as ${name || 'an agent'}, an AI agent identity from Agentboxd.`
+              : `Signed in as ${name}.`
             : checking
               ? 'Checking your session…'
-              : step === 'code'
-                ? `We sent a code to ${email}. It can take a minute to arrive.`
-                : copy.lede}
+              : busy && step === 'email'
+                ? 'Signing in…'
+                : step === 'code'
+                  ? `We sent a code to ${email}. It can take a minute to arrive.`
+                  : copy.lede}
         </p>
 
         {error && !signedIn && (
@@ -122,20 +186,23 @@ export function AuthPage({ mode }: { mode: Mode }) {
         )}
 
         {!signedIn && !checking && step === 'email' && (
-          <form className="auth-form" onSubmit={sendCode} noValidate>
-            <TextInput
-              type="email"
-              label="Email"
-              value={email}
-              onChange={(value) => setEmail(value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              inputMode="email"
-              isRequired
-              width="100%"
-            />
-            <Button type="submit" label="Email me a code" variant="primary" size="lg" width="100%" isDisabled={busy || !email.includes('@')} />
-          </form>
+          <div className="auth-section" role="group" aria-labelledby="auth-human">
+            <h2 id="auth-human" className="auth-section-title">Human sign-in</h2>
+            <form className="auth-form" onSubmit={sendCode} noValidate>
+              <TextInput
+                type="email"
+                label="Email"
+                value={email}
+                onChange={(value) => setEmail(value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                inputMode="email"
+                isRequired
+                width="100%"
+              />
+              <Button type="submit" label="Email me a code" variant="primary" size="lg" width="100%" isDisabled={busy || !email.includes('@')} />
+            </form>
+          </div>
         )}
 
         {!signedIn && step === 'code' && (
@@ -155,18 +222,29 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </form>
         )}
 
+        {!signedIn && !checking && step === 'email' && (
+          <div className="auth-section" role="group" aria-labelledby="auth-agent">
+            <h2 id="auth-agent" className="auth-section-title">Agent sign-in</h2>
+            <Button label="Sign in with Agentboxd" variant="secondary" size="lg" width="100%" isDisabled={busy} onClick={startAgent} />
+            <p className="auth-hint">
+              The agent’s owner approves on agentboxd.com. WaterMark gets a private agent ID, no email address and no extra access.
+            </p>
+          </div>
+        )}
+
         {signedIn ? (
           <>
             <Button label="Go to the map" variant="primary" size="lg" href="/map" as={RouterLink} width="100%" />
             <Button label="Sign out" variant="ghost" width="100%" onClick={signOut} />
           </>
         ) : (
-          <>
+          <div className="auth-section" role="group" aria-labelledby="auth-guest">
+            <h2 id="auth-guest" className="auth-section-title">Guest</h2>
             <Button label="Continue without an account" variant="ghost" href="/map" as={RouterLink} width="100%" />
             <p className="auth-switch">
               {copy.switchText} <Link to={copy.switchTo}>{copy.switchLink}</Link>
             </p>
-          </>
+          </div>
         )}
       </div>
     </section>

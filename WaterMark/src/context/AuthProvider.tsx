@@ -8,6 +8,7 @@ import {
   sanitizeState,
   type AuthAdapter,
   type AuthState,
+  type SignInCredential,
 } from '../services/auth/session.ts'
 
 /** Longest delay setTimeout accepts (about 24.8 days). */
@@ -37,12 +38,12 @@ export function AuthProvider({ children, adapter = guestAdapter }: { children: R
     return () => window.clearTimeout(id)
   }, [state.status, state.expiresAt])
 
-  const signIn = useCallback(async (providerToken: string) => {
+  const signIn = useCallback(async (credential: SignInCredential) => {
     if (!adapter.canSignIn) return { ...GUEST, status: 'error', error: 'sign-in-disabled' } satisfies AuthState
     setState((s) => ({ ...s, status: 'loading', error: null }))
     let next: AuthState
     try {
-      next = evaluateSession(sanitizeState(await adapter.signIn(providerToken)))
+      next = evaluateSession(sanitizeState(await adapter.signIn(credential)))
     } catch {
       next = { ...GUEST, status: 'error', error: 'sign-in-failed' }
     }

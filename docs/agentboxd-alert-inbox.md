@@ -54,6 +54,7 @@ sequenceDiagram
 | `risk.phishing < 0.5`, no `ai:phishing` | `phishing-risk` |
 | no `blocked` label | `blocked` |
 | No `spf-fail` / `dmarc-fail` label (Agentboxd's reserved sender-authentication labels; the From header alone is forgeable, and usgs.gov publishes DMARC `p=reject`) | `sender-auth-failed` |
+| `headers["authentication-results"]` has the exact trusted authserv-id `mx.agentboxd.com`, one `dmarc=pass`, and one `header.from` matching the allowlisted From domain | `sender-auth-unverified` |
 | Sender address or domain on `ALERT_SENDER_ALLOWLIST` (exact domain or subdomain; lookalikes fail) | `sender-not-allowed` |
 | A USGS site id (8–15 digits) appears in an unambiguous form (`monitoring-location/…`, `USGS 0164…`, `site_no=…`, `Site number: …`) in the subject or the first 3,000 characters of the new text | `no-usgs-site` |
 
@@ -62,6 +63,18 @@ Messages that fail any of these checks are stored as `quarantined`, with only th
 Readings are USGS gauge **observations** (provisional data may be revised), not National Weather Service watches or warnings; the feed says so in `kind`/`notice` and the page shows the same notice. The `/alerts` page lists them under **Held back** so people can see the screening working.
 
 USGS doesn't publish the WaterAlert email layout, so nothing depends on it beyond finding the site id.
+
+### Positive sender authentication (WM-CODEX-012)
+
+The absence of failure labels, low phishing scores, or `ai.verification.auth_failed=false` alone is not an authentication pass. The gate now requires the receiver-generated result described in [Agentboxd's authentication guidance](https://agentboxd.com/blog/prompt-injection-email-ai-agents). A real, authorized Gmail self-test on 2026-11-22 had `mx.agentboxd.com; ... dmarc=pass ... header.from=gmail.com`, while `ai.verification` was null. It was correctly quarantined because Gmail is not on WaterMark's sender allowlist.
+
+Missing, non-pass, untrusted-issuer, mismatched-domain, duplicated or unsupported authentication headers are held with `sender-auth-unverified`. Comments cannot supply a pass. This deliberately accepts only the observed, unambiguous header syntax; unfamiliar valid syntax can be held for review. Agentboxd's receiver-generated header provenance remains an upstream trust boundary, as with its signing key and authentication checks. Raw email headers, bodies, subjects and sender addresses are never exposed by the public feed.
+
+The public API adds only the quarantine reason `sender-auth-unverified`; the response shape is unchanged. Older clients display their generic held label until the updated reason text is released. Existing stored decisions stay immutable; there is no database migration or retroactive rewrite.
+
+The actual USGS confirmation payload also had a quoted DKIM signature fragment before its valid DMARC result. The parser skips quoted values and comments so neither can supply authentication tokens, while preserving the actual receiver result. The confirmation itself is not a flood-threshold notification.
+
+Bounded reads stop at their byte/time limit. Incoming request lifetime is left to the server; outbound response cancellation is requested without awaiting transport completion. A regression reproduces an indefinitely pending cancellation promise: the old helper hung instead of rejecting the oversized body; the fixed helper returns immediately. Actual hosted 413 transport behavior is checked separately from this deterministic regression and must not be inferred from an application log alone.
 
 ## Files
 

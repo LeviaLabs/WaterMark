@@ -58,8 +58,10 @@ Exact menu labels could not be checked without a signed-in dashboard; these foll
 
 1. Create a project (dashboard: `https://mojoauth.com`, sign in). Website URL: `http://localhost:5173` for testing.
 2. Authentication methods: turn on **Email OTP** (one-time passcode). Magic link, phone OTP and passkeys are not used.
-3. Allowed domains / whitelist: add `http://localhost:5173` now, and the production `.xyz` / Amplify origin later.
-4. **Overview -> API Credentials**: copy the **API Key**. The API Secret is not needed by this code. Do not share either in chat or commits.
+3. Allowed domains / whitelist, if the dashboard has it: add `http://localhost:5173` and `https://watermark.works`.
+   The live test worked; MojoAuth's API answers browser requests from any origin.
+4. **Overview -> API Credentials**: copy the **API Key / Client ID** value. The same value goes in both env files.
+   The API Secret and the Authorization Endpoints are not used by this code. Do not share the key or secret in chat or commits.
 5. Optional: email template branding and languages. The page asks MojoAuth for `en`, `es`, `zh`, `ru` or `hi`; whether each is supported is unverified.
 
 Free tier per MojoAuth's docs: 25,000 monthly active users. Documented rate limits: OTP APIs 50 requests/minute, token APIs 200/minute.
@@ -123,7 +125,9 @@ Reload: still signed in (the token is re-verified). Close the tab: signed out. "
 
 - The browser holds only MojoAuth's public API key. That key lets anyone request codes for any email from an allowed domain;
   MojoAuth's domain whitelist and rate limits are the protection.
-- The app treats a user as signed in only after `auth-verify` gets `isValid: true` from MojoAuth and the token is not expired.
+- The app treats a user as signed in only after `auth-verify` gets `isValid: true` from MojoAuth, the token is not expired,
+  and its `aud` claim equals the function's `MOJOAUTH_API_KEY`. MojoAuth sets `aud` to the project's API key, so a token
+  from a different MojoAuth project is rejected even if MojoAuth calls it valid.
 - The function never logs or returns the token or email beyond `{ id, displayName, expiresAt }` to the same caller.
   CORS allows only `WATERMARK_ALLOWED_ORIGINS`; an empty list rejects every browser origin.
 - The token sits in `sessionStorage` (tab-scoped). Any XSS on the page could read it, as with any SPA token.
@@ -132,8 +136,9 @@ Reload: still signed in (the token is re-verified). Close the tab: signed out. "
 
 ## Open items
 
-- Live sign-in has not been completed: it needs the MojoAuth API key and an inbox.
-- `iss` / `aud` values of real tokens are undocumented; check one live token, then decide on `MOJOAUTH_ISSUER`.
-- Whether `/token/verify` rejects tokens from a different MojoAuth project is undocumented; confirm with a second project or MojoAuth support.
+- Live sign-in was completed locally on 2026-11-21 (Deno-served `auth-verify`, Vite dev). Not yet run against hosted Supabase.
+- A live token showed `iss` = `https://api.mojoauth.com`, `aud` = the project API key, a 60-minute lifetime, and claims
+  `identifier, email, user_id, auth_type, token_type, aud, exp, jti, iat, iss, nbf, sub`. Setting `MOJOAUTH_ISSUER` to that
+  issuer is optional; the `aud` check already ties tokens to this project.
 - No profile table: saving places needs a migration with RLS, coordinated with Codex's PR #4.
 - Production route `/login` waits for PR #5's router; `login.html` is dev-only and is not in `vite build` output.

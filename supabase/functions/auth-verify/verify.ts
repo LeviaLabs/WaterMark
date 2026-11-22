@@ -116,6 +116,12 @@ export async function verifyMojoAuthToken(token: string, options: VerifyOptions)
   const nbf = num(user.nbf) ?? num(claims.nbf)
   if (nbf !== null && nbf * 1000 > now + CLOCK_SKEW_MS) return { ok: false, status: 401, code: 'invalid-token' }
 
+  // MojoAuth sets `aud` to the project's API key (seen on a live token, 2026-11-21). Requiring it
+  // rejects tokens that another MojoAuth project issued, even though MojoAuth calls them valid.
+  const aud = user.aud ?? claims.aud
+  const audiences = Array.isArray(aud) ? aud : [aud]
+  if (!audiences.includes(apiKey)) return { ok: false, status: 401, code: 'invalid-token' }
+
   if (expectedIssuer) {
     const iss = str(user.iss) ?? str(claims.iss)
     if (iss !== expectedIssuer) return { ok: false, status: 401, code: 'invalid-token' }

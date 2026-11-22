@@ -16,9 +16,9 @@ const b64url = (o: unknown) =>
   btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o))))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const jwt = (claims: Record<string, unknown>) => `${b64url({ alg: 'RS256', typ: 'JWT' })}.${b64url(claims)}.c2ln`
-const CLAIMS = { sub: 'user-123', iss: 'https://www.mojoauth.com', exp: NOW / 1000 + 3600, email: 'river@example.test' }
-const TOKEN = jwt(CLAIMS)
 const API_KEY = 'test-api-key-not-real'
+const CLAIMS = { sub: 'user-123', iss: 'https://www.mojoauth.com', aud: API_KEY, exp: NOW / 1000 + 3600, email: 'river@example.test' }
+const TOKEN = jwt(CLAIMS)
 
 type Call = { url: string; init: RequestInit }
 function fakeFetch(status: number, body: unknown, calls: Call[] = []): typeof fetch {
@@ -29,7 +29,7 @@ function fakeFetch(status: number, body: unknown, calls: Call[] = []): typeof fe
 }
 const valid = (user: Record<string, unknown> = {}) => ({
   isValid: true,
-  user: { identifier: 'river@example.test', exp: CLAIMS.exp, iss: CLAIMS.iss, ...user },
+  user: { identifier: 'river@example.test', exp: CLAIMS.exp, iss: CLAIMS.iss, aud: API_KEY, ...user },
 })
 
 test('parseToken accepts compact JWTs only', () => {
@@ -74,6 +74,17 @@ test('rejections: isValid false, 4xx, expired, not-yet-valid, issuer mismatch, n
   assert.deepEqual(await run(200, { isValid: true, user: { exp: CLAIMS.exp } }, anonymous), {
     ok: false, status: 401, code: 'invalid-token',
   })
+})
+
+test('audience: token must be issued for this project (aud = our API key)', async () => {
+  const run = (user: Record<string, unknown>, token = TOKEN) =>
+    verifyMojoAuthToken(token, { apiKey: API_KEY, now: NOW, fetcher: fakeFetch(200, valid(user)) })
+  const rejected = { ok: false, status: 401, code: 'invalid-token' }
+  assert.deepEqual(await run({ aud: 'another-project-key' }), rejected)
+  assert.equal((await run({ aud: ['other', API_KEY] })).ok, true)
+  const noAud = jwt({ sub: 'user-123', exp: CLAIMS.exp })
+  assert.deepEqual(await run({ aud: undefined }, noAud), rejected)
+  assert.equal((await run({ aud: undefined })).ok, true) // falls back to the token's own aud claim
 })
 
 test('no sub claim: id is a stable hash of the identifier, never the raw email', async () => {

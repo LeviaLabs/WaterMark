@@ -1,7 +1,7 @@
 // Floating data panel: drag it by its header, or collapse it into a small card (CollapsedPanel)
-// that keeps the area's name and alert count in view. The body scrolls with the site's glowing
+// that keeps the area's name and alert count in view. Both scale in and out of the same corner. The body scrolls with the site's glowing
 // scrollbar (common/ScrollArea).
-import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject, type AnimationEvent } from 'react'
 import { IconButton } from '@astryxdesign/core/IconButton'
 import { Tab, TabList } from '@astryxdesign/core/TabList'
 import { ScrollArea } from '../common/ScrollArea'
@@ -24,15 +24,19 @@ interface Props {
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => void
   }
   onCollapse: () => void
+  /** Plays the closing animation; the panel unmounts when it ends (hooks/usePresence). */
+  isClosing: boolean
+  onAnimationEnd: (e: AnimationEvent<HTMLElement>) => void
   area: ReactNode
   alerts: ReactNode
   sources: ReactNode
 }
 
-export function DataPanel({ title, alertCount, panelRef, style, handleProps, onCollapse, area, alerts, sources }: Props) {
+export function DataPanel({ title, alertCount, panelRef, style, handleProps, onCollapse, isClosing, onAnimationEnd, area, alerts, sources }: Props) {
   const [tab, setTab] = useState<TabId>('area')
   return (
-    <aside ref={panelRef} className="map-card data-panel" style={style} aria-label="Area data">
+    <aside ref={panelRef} className={isClosing ? 'map-card data-panel is-closing' : 'map-card data-panel'} style={style}
+      aria-label="Area data" onAnimationEnd={onAnimationEnd} inert={isClosing}>
       <header className="panel-head">
         <div className="panel-handle" tabIndex={0} {...handleProps}
           aria-label="Data panel header. Drag, or use the arrow keys, to move it. Double-click to reset its position.">
@@ -52,7 +56,7 @@ export function DataPanel({ title, alertCount, panelRef, style, handleProps, onC
       </nav>
       <ScrollArea className="panel-scroll">
         <div className="panel-body">
-          {tab === 'area' ? area : tab === 'alerts' ? alerts : sources}
+          <div key={tab} className="panel-tab-body">{tab === 'area' ? area : tab === 'alerts' ? alerts : sources}</div>
         </div>
       </ScrollArea>
     </aside>
@@ -60,9 +64,13 @@ export function DataPanel({ title, alertCount, panelRef, style, handleProps, onC
 }
 
 /** The panel folded away: a small card in the panel's place that opens it again. */
-export function CollapsedPanel({ title, alertCount, onOpen }: { title: string; alertCount: number; onOpen: () => void }) {
+export function CollapsedPanel({ title, alertCount, onOpen, isClosing, onAnimationEnd }: {
+  title: string; alertCount: number; onOpen: () => void
+  isClosing: boolean; onAnimationEnd: (e: AnimationEvent<HTMLElement>) => void
+}) {
   return (
-    <button type="button" className="map-card panel-collapsed" onClick={onOpen} aria-label={`Open area data for ${title}`}>
+    <button type="button" className={isClosing ? 'map-card panel-collapsed is-closing' : 'map-card panel-collapsed'}
+      onClick={onOpen} onAnimationEnd={onAnimationEnd} tabIndex={isClosing ? -1 : 0} aria-label={`Open area data for ${title}`}>
       <span className="panel-collapsed-text">
         <span className="panel-eyebrow">Area data</span>
         <span className="panel-collapsed-title">{title}</span>

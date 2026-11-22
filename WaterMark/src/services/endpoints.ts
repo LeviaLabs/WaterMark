@@ -20,6 +20,7 @@ export const ENDPOINTS = {
   flood: 'https://flood-api.open-meteo.com/v1/flood',
   nwsAlerts: 'https://api.weather.gov/alerts/active',
   // Photon (OpenStreetMap data): forward search lives in services/geocoding/photon.ts.
-  photonReverse: 'https://photon.komoot.io/reverse',
+  // Census ZIP Code Tabulation Areas (2020 Census), the ZIP areas the claims are counted by.
+  censusZcta: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/PUMA_TAD_TAZ_UGA_ZCTA/MapServer/7/query',
   nfipClaims: 'https://www.fema.gov/api/open/v3/NfipClaims',
 } as const

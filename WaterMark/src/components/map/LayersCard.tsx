@@ -1,5 +1,9 @@
-import { Switch } from '@astryxdesign/core/Switch'
+// The Layers button and the list it opens. The list floats beside the button (above it on
+// desktop, below it on phones) and scales in and out from the button's corner.
+import { useId } from 'react'
 import { Icon } from '../common/Icon'
+import { LayerSwitch } from './LayerSwitch'
+import { usePresence } from '../../hooks/usePresence'
 import type { GlobalFloodCollection, LayerId, LayerVisibility, Loadable } from '../../scripting/types'
 
 // Swatch colors live in map-page.css (.layer-swatch--<id>) so they follow the theme tokens.
@@ -21,6 +25,10 @@ interface Props {
 }
 
 export function LayersCard({ layers, onToggle, floods, stormNote, isOpen, onOpenChange }: Props) {
+  const id = useId()
+  const presence = usePresence(isOpen)
+  const shown = LAYERS.filter((l) => layers[l.id]).length
+
   let globalNote = 'Loading worldwide flood reports…'
   if (floods === 'error') globalNote = "Worldwide flood reports didn't load. GDACS may be busy; reload to try again."
   else if (floods) {
@@ -29,24 +37,32 @@ export function LayersCard({ layers, onToggle, floods, stormNote, isOpen, onOpen
   }
 
   return (
-    // A <details> that starts folded, so the map is the first thing people see.
-    <details className="map-card layers-card" open={isOpen}
-      onToggle={(e) => { if (e.currentTarget.open !== isOpen) onOpenChange(e.currentTarget.open) }}>
-      <summary className="layers-title"><Icon name="layers" size={18} />Layers</summary>
-      <ul className="layers-list">
-        {LAYERS.map((l) => (
-          <li key={l.id}>
-            <Switch size="sm" label={l.label} value={layers[l.id]} onChange={(on) => onToggle(l.id, on)}
-              labelIcon={<span className={`layer-swatch layer-swatch--${l.id}`} />} />
-          </li>
-        ))}
-      </ul>
-      <div className="rain-scale" aria-hidden="true">
-        <span className="rain-scale-bar" />
-        <span className="rain-scale-ends"><span>Light rain</span><span>Heavy</span></span>
-      </div>
-      {stormNote ? <p className="map-meta">{stormNote}</p> : null}
-      <p className="map-meta">{globalNote}</p>
-    </details>
+    <div className="layers">
+      <button type="button" className={isOpen ? 'map-card layers-toggle is-open' : 'map-card layers-toggle'}
+        aria-expanded={isOpen} aria-controls={id} onClick={() => onOpenChange(!isOpen)}>
+        <Icon name="layers" size={18} />
+        <span className="layers-toggle-label">Layers</span>
+        <span className="layers-count" aria-label={`${shown} of ${LAYERS.length} shown`}>{shown}/{LAYERS.length}</span>
+        <span className="layers-chev" aria-hidden="true" />
+      </button>
+      {presence.isMounted ? (
+        <section id={id} aria-label="Map layers" onAnimationEnd={presence.onAnimationEnd}
+          className={presence.isClosing ? 'map-card layers-panel is-closing' : 'map-card layers-panel'}>
+          <ul className="layers-list">
+            {LAYERS.map((l) => (
+              <li key={l.id}>
+                <LayerSwitch label={l.label} swatch={l.id} isOn={layers[l.id]} onChange={(on) => onToggle(l.id, on)} />
+              </li>
+            ))}
+          </ul>
+          <div className="rain-scale" aria-hidden="true">
+            <span className="rain-scale-bar" />
+            <span className="rain-scale-ends"><span>Light rain</span><span>Heavy</span></span>
+          </div>
+          {stormNote ? <p className="map-meta">{stormNote}</p> : null}
+          <p className="map-meta">{globalNote}</p>
+        </section>
+      ) : null}
+    </div>
   )
 }

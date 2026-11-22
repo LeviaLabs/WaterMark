@@ -59,7 +59,8 @@ async function download(zip: string): Promise<ClaimsSummary> {
       $select: 'yearOfLoss,amountPaidOnBuildingClaim,amountPaidOnContentsClaim,amountPaidOnIncreasedCostOfComplianceClaim',
       $top: String(PAGE), $skip: String(page * PAGE), $metadata: 'false',
     })
-    const j = await getJSON<{ NfipClaims?: unknown }>(`${ENDPOINTS.nfipClaims}?${q}`)
+    // OpenFEMA answers most ZIPs in a second but has taken over 30 s on a cold query, so allow a minute.
+    const j = await getJSON<{ NfipClaims?: unknown }>(`${ENDPOINTS.nfipClaims}?${q}`, { timeoutMs: 60_000 })
     if (!Array.isArray(j.NfipClaims)) throw new Error('OpenFEMA returned an unexpected response.')
     rows.push(...(j.NfipClaims as RawClaim[]))
     if (j.NfipClaims.length < PAGE) {

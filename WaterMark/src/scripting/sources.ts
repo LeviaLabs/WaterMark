@@ -2,7 +2,7 @@
 // Ryan B: import SourcesList on the landing page; it reads this list.
 
 export type SourceId =
-  | 'imerg' | 'gdacs' | 'floodnet' | 'stormwater' | 'fema' | 'nws' | 'rain' | 'river' | 'nfip' | 'geocode' | 'basemap'
+  | 'imerg' | 'gdacs' | 'floodnet' | 'stormwater' | 'fema' | 'nws' | 'rain' | 'river' | 'nfip' | 'geocode' | 'zip' | 'basemap'
 
 export interface DataSource {
   id: SourceId
@@ -49,9 +49,12 @@ export const SOURCES: readonly DataSource[] = [
   { id: 'nfip', name: 'NFIP Redacted Claims (v3)', publisher: 'FEMA, OpenFEMA',
     use: 'Past flood insurance claims for the ZIP code at the center of the selected area, totaled in the browser.',
     url: 'https://www.fema.gov/openfema-data-page/nfip-redacted-claims-v3', live: true },
-  { id: 'geocode', name: 'Place search and reverse geocoding', publisher: 'OpenStreetMap contributors, via Photon (komoot)',
-    use: 'Search as you type, and the ZIP code at the selected point (for insurance claims).',
+  { id: 'geocode', name: 'Place search', publisher: 'OpenStreetMap contributors, via Photon (komoot)',
+    use: 'Search as you type for a ZIP code, neighborhood or address.',
     url: 'https://photon.komoot.io', live: true },
+  { id: 'zip', name: 'ZIP Code Tabulation Areas (2020 Census)', publisher: 'US Census Bureau, TIGERweb',
+    use: 'The ZIP code at the center of the selected area, for insurance claims.',
+    url: 'https://tigerweb.geo.census.gov/', live: true },
   { id: 'basemap', name: 'Basemap', publisher: 'OpenStreetMap contributors, OpenFreeMap',
     use: 'The background map.', url: 'https://openfreemap.org/', live: false },
 ]

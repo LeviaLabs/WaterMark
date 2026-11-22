@@ -56,6 +56,12 @@ export interface FloodZone {
   FLD_ZONE: string
   ZONE_SUBTY?: string | null
 }
+/** FEMA zones for a circle: the zone at its center and every zone that touches it. */
+export interface ZoneReport {
+  center: FloodZone | null
+  /** Distinct zone codes inside the circle, high-risk ones first. */
+  inArea: string[]
+}
 export interface StormShare {
   /** Percent of the circle modeled at 4 in to 1 ft. */
   nuisance: number
@@ -76,7 +82,7 @@ export interface WeatherAlert {
 export interface AreaReport {
   rain: Loadable<RainForecast>
   river: Loadable<RiverForecast>
-  zone: Loadable<FloodZone | 'none'>
+  zone: Loadable<ZoneReport>
   storm: Loadable<StormShare>
   zip: Loadable<string>
   alerts: Loadable<WeatherAlert[]>

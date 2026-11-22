@@ -81,8 +81,3 @@
   font-weight: 600;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .citations-chev {
-    transition: none;
-  }
-}

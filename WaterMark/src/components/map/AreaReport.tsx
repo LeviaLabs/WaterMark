@@ -2,7 +2,8 @@
 // already shows its one-line answer, and opens for the numbers, sources and caveats. Every number
 // names its source and fetch time, and every empty or failed state says what it means
 // (no sensor is not the same as no flooding).
-import type { ReactNode } from 'react'
+import { createContext, useContext, useId, useState, type ReactNode } from 'react'
+import { usePresence } from '../../hooks/usePresence'
 import { EvidenceTag } from '../common/EvidenceTag'
 import type { EvidenceKind } from '../../scripting/content/dataSources'
 import { fmtDate, fmtMiles, fmtRadius, fmtTime, pct, weekday } from '../../scripting/format'
@@ -13,6 +14,8 @@ import type { AreaReport as Report, GlobalFloodCollection, Loadable, Selection, 
 interface Props {
   selection: Selection
   report: Report
+  /** Reruns the lookups that failed. */
+  onRetry: () => void
   sensors: Loadable<SensorCollection>
   floods: Loadable<GlobalFloodCollection>
 }
@@ -22,48 +25,70 @@ const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', curren
 const Row = ({ k, v }: { k: string; v: ReactNode }) => (
   <p className="stat-row"><span>{k}</span><span className="report-stat-value">{v}</span></p>
 )
-const Failed = ({ what }: { what: string }) => (
-  <p className="map-meta">Couldn't load {what} right now. The source may be down or blocking requests; try again in a minute.</p>
-)
+// GDACS lists floods worldwide; farther than this, "nearest" says nothing useful about the area.
+const NEAR_FLOOD_KM = 800
+
+const RetryContext = createContext<() => void>(() => {})
+function Failed({ what }: { what: string }) {
+  const retry = useContext(RetryContext)
+  return (
+    <p className="panel-failed">
+      Couldn't load {what}. The source may be busy or blocking requests.{' '}
+      <button type="button" className="panel-retry" onClick={retry}>Try again</button>
+    </p>
+  )
+}
 const Fetched = ({ from }: { from: string }) => <p className="map-meta">From {from}, fetched {fmtTime(new Date())}</p>
 const Empty = ({ children }: { children: ReactNode }) => <p className="panel-empty">{children}</p>
 
 /** The one-line answer for a folded row, from its loading state. */
-function line<T>(v: Loadable<T>, done: (v: T) => string): string {
-  if (v === null) return 'Loading…'
-  if (v === 'error') return "Couldn't load"
-  return done(v)
+function line<T>(v: Loadable<T>, done: (v: T) => string, waiting = 'Loading…'): ReactNode {
+  if (v === null) return <span className="report-loading">{waiting}</span>
+  if (v === 'error') return <span className="report-error">Couldn't load. Open to retry.</span>
+  return <span className="report-value">{done(v)}</span>
 }
 
-/** A folded row: title, evidence pill and the one-line answer; opens for the details. */
-function Section({ title, kind, summary, children }: { title: string; kind: EvidenceKind; summary: string; children: ReactNode }) {
+/** A folded row: title, evidence pill and the one-line answer; opens and closes with a short slide. */
+function Section({ title, kind, summary, children }: { title: string; kind: EvidenceKind; summary: ReactNode; children: ReactNode }) {
+  const id = useId()
+  const [isOpen, setIsOpen] = useState(false)
+  const body = usePresence(isOpen)
   return (
-    <details className="report-section">
-      <summary className="report-summary">
+    <section className={isOpen ? 'report-section is-open' : 'report-section'}>
+      <button type="button" className="report-summary" aria-expanded={isOpen} aria-controls={id} onClick={() => setIsOpen(!isOpen)}>
         <span className="report-head">
           <span className="report-title">{title}</span>
           <EvidenceTag kind={kind} />
         </span>
         <span className="report-line">{summary}</span>
-      </summary>
-      <div className="report-body">{children}</div>
-    </details>
+      </button>
+      {body.isMounted ? (
+        <div id={id} className={body.isClosing ? 'report-body is-closing' : 'report-body'} onAnimationEnd={body.onAnimationEnd}>
+          {children}
+        </div>
+      ) : null}
+    </section>
   )
 }
 
-export function AreaReport({ selection, report: s, sensors, floods }: Props) {
+export function AreaReport({ selection, report: s, onRetry, sensors, floods }: Props) {
   const { center, radiusKm, circle } = selection
 
   const sensorSummary = sensors && sensors !== 'error' ? summarizeSensors(sensors, circle) : null
-  const near = floods && floods !== 'error' ? nearestFlood(floods, center) : null
-  const zone = s.zone && s.zone !== 'error' && s.zone !== 'none' ? s.zone : null
-  const isHighRisk = (zone && HIGH_RISK_ZONES.has(zone.FLD_ZONE)) || (s.storm && s.storm !== 'error' && s.storm.deep > 1)
+  const nearest = floods && floods !== 'error' ? nearestFlood(floods, center) : null
+  const near = nearest && nearest.km <= NEAR_FLOOD_KM ? nearest : null
+  const zones = s.zone && s.zone !== 'error' ? s.zone : null
+  const highZones = zones ? zones.inArea.filter((z) => HIGH_RISK_ZONES.has(z)) : []
+  const isHighRisk = highZones.length > 0 || (s.storm && s.storm !== 'error' && s.storm.deep > 1)
   const alertCount = Array.isArray(s.alerts) ? s.alerts.length : 0
   const riverFlows = s.river && s.river !== 'error' ? s.river.river_discharge.filter((x): x is number => x != null) : []
 
   return (
-    <>
-      <p className="map-meta report-where">Circle of {fmtRadius(radiusKm)} radius around {center[1].toFixed(4)}, {center[0].toFixed(4)}</p>
+    <RetryContext.Provider value={onRetry}>
+      <p className="map-meta report-where">
+        Circle of {fmtRadius(radiusKm)} radius around {center[1].toFixed(4)}, {center[0].toFixed(4)}.
+        Sensors, the heavy-rain model and FEMA zones cover the whole circle; rain, river and ZIP code are read at its center.
+      </p>
 
       {alertCount ? (
         <p className="callout callout-alert">
@@ -122,15 +147,22 @@ export function AreaReport({ selection, report: s, sensors, floods }: Props) {
         )}
       </Section>
 
-      <Section title="FEMA flood zone" kind="reference"
-        summary={line(s.zone, (v) => (v === 'none' ? 'No zone mapped here' : `Zone ${v.FLD_ZONE}${HIGH_RISK_ZONES.has(v.FLD_ZONE) ? ', high risk' : ''}`))}>
-        {s.zone === 'error' ? <Failed what="FEMA flood zones" /> : s.zone === null ? null : s.zone === 'none' ? (
-          <Empty>No FEMA flood zone is mapped at this point. FEMA maps cover the US only.</Empty>
+      <Section title="FEMA flood zones" kind="reference"
+        summary={line(s.zone, (v) => (!v.inArea.length ? 'No zone mapped here'
+          : highZones.length ? `High-risk zone ${highZones.join(', ')} in this area` : `Zone ${v.inArea.join(', ')}, outside high risk`))}>
+        {s.zone === 'error' ? <Failed what="FEMA flood zones" /> : s.zone === null ? null : !s.zone.inArea.length ? (
+          <Empty>No FEMA flood zone is mapped in this area. FEMA maps cover the US only, and some areas are unmapped.</Empty>
         ) : (
           <>
-            <Row k="Zone at the center" v={s.zone.FLD_ZONE + (s.zone.ZONE_SUBTY ? ` (${s.zone.ZONE_SUBTY.toLowerCase()})` : '')} />
-            {ZONE_TEXT[s.zone.FLD_ZONE] ? <p className="report-text">{ZONE_TEXT[s.zone.FLD_ZONE]}</p> : null}
-            <Fetched from="FEMA NFHL" />
+            <Row k="Zones in this area" v={s.zone.inArea.join(', ')} />
+            <Row k="Zone at the center" v={s.zone.center
+              ? s.zone.center.FLD_ZONE + (s.zone.center.ZONE_SUBTY ? ` (${s.zone.center.ZONE_SUBTY.toLowerCase()})` : '')
+              : 'none mapped'} />
+            {s.zone.inArea.filter((z) => ZONE_TEXT[z]).map((z) => (
+              <p key={z} className="report-text"><strong>{z}:</strong> {ZONE_TEXT[z]}</p>
+            ))}
+            <p className="map-meta">A reference map for insurance, not a current warning.</p>
+            <Fetched from="FEMA National Flood Hazard Layer" />
           </>
         )}
       </Section>
@@ -148,14 +180,18 @@ export function AreaReport({ selection, report: s, sensors, floods }: Props) {
           <>
             <Row k="Today" v={`${riverFlows[0].toLocaleString('en-US')} m³/s`} />
             <Row k="7-day peak" v={`${Math.max(...riverFlows).toLocaleString('en-US')} m³/s`} />
-            <p className="map-meta">Modeled flow of the nearest river cell. It does not include coastal surge or street flooding.</p>
+            <p className="map-meta">
+              Modeled flow in the GloFAS river cell nearest the center (a 5 km grid), which may be a small stream rather than the river
+              you have in mind. It does not include coastal surge or street flooding.
+            </p>
             <Fetched from="GloFAS via Open-Meteo" />
           </>
         )}
       </Section>
 
       <Section title="Past insurance claims" kind="historical"
-        summary={line(s.claims, (v) => (v === 'none' ? 'No US ZIP code here' : `${v.claims.toLocaleString('en-US')} claims in ZIP ${v.zip}`))}>
+        summary={line(s.claims, (v) => (v === 'none' ? 'No US ZIP code here' : `${v.claims.toLocaleString('en-US')} claims in ZIP ${v.zip}`),
+          typeof s.zip === 'string' && s.zip !== 'none' ? `Counting claims in ZIP ${s.zip}…` : 'Finding the ZIP code…')}>
         {s.claims === 'error' ? <Failed what="flood insurance claims from OpenFEMA" /> : s.claims === null ? null : s.claims === 'none' ? (
           <Empty>Claims are listed by US ZIP code, and no ZIP code was found at the center of this area.</Empty>
         ) : !s.claims.claims ? (
@@ -178,9 +214,13 @@ export function AreaReport({ selection, report: s, sensors, floods }: Props) {
       </Section>
 
       <Section title="Nearest reported flood" kind="historical"
-        summary={line(floods, () => (near ? `${fmtMiles(near.km)} away` : 'None in the past 30 days'))}>
+        summary={line(floods, () => (near ? `${near.feature.properties.name}, ${fmtMiles(near.km)} away` : 'None within 500 miles'))}>
         {floods === 'error' ? <Failed what="worldwide flood reports" /> : !near ? (
-          <Empty>No floods reported worldwide in the past 30 days.</Empty>
+          <Empty>
+            No GDACS flood events within 500 miles in the past 30 days
+            {nearest ? ` (the nearest is ${fmtMiles(nearest.km)} away)` : ''}. GDACS lists floods large enough for international
+            notice, so local street flooding won't appear here.
+          </Empty>
         ) : (
           <>
             <Row k="Event" v={near.feature.properties.name} />
@@ -194,7 +234,7 @@ export function AreaReport({ selection, report: s, sensors, floods }: Props) {
           </>
         )}
       </Section>
-    </>
+    </RetryContext.Provider>
   )
 }
 

@@ -2,7 +2,7 @@
 // keyless OpenStreetMap geocoder the landing page uses. Each keystroke cancels the previous
 // request, repeated queries come from Photon's in-memory cache, and places near the current area
 // rank higher. An accessible combobox: arrow keys move, Enter picks, Escape closes.
-import { useEffect, useId, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../common/Icon'
 import { MIN_QUERY_LENGTH, PHOTON_ATTRIBUTION, searchPlaces, type GeocodedPlace } from '../../services/geocoding/photon'
 import { markFetched } from '../../scripting/freshness'
@@ -22,6 +22,10 @@ export function MapSearch({ near, onPick }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const [active, setActive] = useState(0)
   const [results, setResults] = useState<Results>({ query: '', places: [], error: null })
+  // Enter pressed before the results for the current text arrived: pick the best one when they do.
+  const pendingPick = useRef<string | null>(null)
+  const onPickRef = useRef(onPick)
+  useEffect(() => { onPickRef.current = onPick })
 
   const q = text.trim()
   const isSearchable = q.length >= MIN_QUERY_LENGTH
@@ -32,7 +36,16 @@ export function MapSearch({ near, onPick }: Props) {
     if (!isSearchable) return
     const ctl = new AbortController()
     searchPlaces(q, ctl.signal, { near: { lat: nearLat, lon: nearLon } }).then(
-      (places) => { markFetched('geocode'); setResults({ query: q, places, error: null }) },
+      (places) => {
+        markFetched('geocode')
+        setResults({ query: q, places, error: null })
+        if (pendingPick.current === q && places[0]) {
+          pendingPick.current = null
+          setText(places[0].label)
+          setIsOpen(false)
+          onPickRef.current(places[0])
+        }
+      },
       (e: unknown) => {
         if (ctl.signal.aborted) return
         const limited = e instanceof Error && 'code' in e && e.code === 'rate-limited'
@@ -48,13 +61,20 @@ export function MapSearch({ near, onPick }: Props) {
   const pick = (place: GeocodedPlace) => {
     setText(place.label)
     setIsOpen(false)
+    pendingPick.current = null
     onPick(place)
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setIsOpen(true); setActive((i) => Math.min(i + 1, places.length - 1)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)) }
-    else if (e.key === 'Enter') { e.preventDefault(); if (places[active]) pick(places[active]) }
+    else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (!isSearchable) return
+      // Never pick from the results of an older, shorter query.
+      if (isLoading) pendingPick.current = q
+      else if (places[active]) pick(places[active])
+    }
     else if (e.key === 'Escape') setIsOpen(false)
   }
 

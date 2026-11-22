@@ -3,12 +3,14 @@
 // color scheme -> setStyle (overlays are re-added on "style.load").
 //
 // Performance: the stormwater model is our own vector tiles (services/stormwater.ts), so only the
-// blocks in view load, zoomed-out blocks are simplified, and MapLibre's tile cache is capped so
-// blocks far from the view are dropped instead of piling up in memory.
+// blocks in view load and zoomed-out blocks are simplified. MapLibre's tile cache is capped so
+// blocks far from the view are dropped, and sensor and flood points are trimmed to the area
+// around the view after every move, so points you have panned away from are removed.
+// The rain layer fades in as one image once its tiles arrive instead of tile by tile.
 import { useEffect, useRef } from 'react'
 import maplibregl, { type GeoJSONSource, type MapLayerMouseEvent } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import type { Feature, FeatureCollection, Polygon } from 'geojson'
+import type { Feature, FeatureCollection, Point, Polygon } from 'geojson'
 import { ENDPOINTS } from '../../services/endpoints'
 import { STORM_PROTOCOL, loadStormTile } from '../../services/stormwater'
 import { markFetched } from '../../scripting/freshness'
@@ -23,8 +25,29 @@ const STORM_MIN_ZOOM = 10
 const STORM_MAX_ZOOM = 14
 
 // Tiles kept in memory per source beyond the ones on screen. MapLibre's default grows with the
-// window size; a fixed cap keeps memory flat on long sessions and drops blocks you have left.
-const TILE_CACHE = 48
+// window size; a fixed cap keeps memory flat on long sessions and drops blocks you have left,
+// while the parent zoom levels stay so zooming out shows the coarser map instantly.
+const TILE_CACHE = 96
+
+// NASA IMERG is a 0.1-degree (about 10 km) grid: zoom 5 tiles already show every pixel, so asking
+// for closer tiles only adds requests and a blurry-then-sharp flash while they load.
+const RAIN_MAX_ZOOM = 5
+const RAIN_OPACITY: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 3, 0.8, 8, 0.6, 12, 0.4]
+
+/** Points within the view plus half a screen on every side; the rest are dropped from the map. */
+function nearView<T extends FeatureCollection>(fc: T, map: maplibregl.Map): T {
+  const b = map.getBounds()
+  const padX = (b.getEast() - b.getWest()) / 2
+  const padY = (b.getNorth() - b.getSouth()) / 2
+  if (b.getEast() - b.getWest() + 2 * padX >= 360) return fc
+  const [w, e, s, n] = [b.getWest() - padX, b.getEast() + padX, b.getSouth() - padY, b.getNorth() + padY]
+  const features = fc.features.filter((f) => {
+    if (f.geometry?.type !== 'Point') return true
+    const [x, y] = (f.geometry as Point).coordinates
+    return x >= w && x <= e && y >= s && y <= n
+  })
+  return { ...fc, features }
+}
 
 let protocolAdded = false
 function addStormProtocol() {
@@ -50,6 +73,8 @@ interface Props {
   onDrawClick: (at: LngLat) => void
   onDrawMove: (at: LngLat) => void
   onStormNote: (note: string | null) => void
+  /** True while map tiles or data are loading, for the progress bar. */
+  onBusyChange: (isBusy: boolean) => void
 }
 
 const data = <T,>(v: Loadable<T>): T | FeatureCollection => (v && v !== 'error' ? v : EMPTY)
@@ -77,6 +102,13 @@ export function FloodMap(props: Props) {
   const latest = useRef(props)
   const shownScheme = useRef(props.scheme)
 
+  /** Pushes the sensors and floods near the current view into the map. */
+  const syncPoints = (map: maplibregl.Map) => {
+    const p = latest.current
+    ;(map.getSource('sensors') as GeoJSONSource | undefined)?.setData(nearView(data(p.sensors), map))
+    ;(map.getSource('floods') as GeoJSONSource | undefined)?.setData(nearView(data(p.floods), map))
+  }
+
   useEffect(() => { latest.current = props })
 
   // Create the map once.
@@ -91,7 +123,9 @@ export function FloodMap(props: Props) {
       zoom: initialZoom,
       attributionControl: { compact: true },
       maxTileCacheSize: TILE_CACHE,
-      maxTileCacheZoomLevels: 2,
+      // Sharp enough on high-density screens without drawing 9x the pixels on a 3x phone.
+      pixelRatio: Math.min(devicePixelRatio, 2),
+      fadeDuration: 200,
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
@@ -102,10 +136,15 @@ export function FloodMap(props: Props) {
       const t = MAP_PALETTES[shownScheme.current]
       const vis = (id: LayerId) => (p.layers[id] ? 'visible' : 'none')
 
-      map.addSource('rain', { type: 'raster', tiles: [ENDPOINTS.imergTiles], tileSize: 256, maxzoom: 6,
+      // 256 px images declared as 512 px tiles: MapLibre asks for one zoom level lower and stretches
+      // them with linear smoothing, which softens IMERG's blocky pixels and needs 4x fewer requests.
+      map.addSource('rain', { type: 'raster', tiles: [ENDPOINTS.imergTiles], tileSize: 512, maxzoom: RAIN_MAX_ZOOM,
         attribution: 'Rain: NASA GPM IMERG via GIBS' })
+      // Starts invisible; fades in once (see onSourceData) so the rain appears as one image.
       map.addLayer({ id: 'rain', type: 'raster', source: 'rain', layout: { visibility: vis('rain') },
-        paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.75, 11, 0.45], 'raster-resampling': 'linear' } })
+        paint: { 'raster-opacity': 0, 'raster-resampling': 'linear', 'raster-fade-duration': 0 } })
+      map.setPaintProperty('rain', 'raster-opacity-transition', { duration: 600, delay: 0 })
+      rainShown = false
 
       map.addSource('fema', { type: 'raster', tiles: [ENDPOINTS.femaTiles], tileSize: 256, attribution: 'Flood zones: FEMA NFHL' })
       map.addLayer({ id: 'fema', type: 'raster', source: 'fema', layout: { visibility: vis('fema') }, paint: { 'raster-opacity': 0.6 } })
@@ -117,7 +156,9 @@ export function FloodMap(props: Props) {
       map.addLayer({ id: 'storm', type: 'fill', source: 'storm', 'source-layer': 'stormwater', minzoom: STORM_MIN_ZOOM,
         layout: { visibility: vis('storm') }, paint: {
         'fill-color': ['match', ['get', 'Flooding_Category'], 2, t.storm[1], t.storm[0]],
-        'fill-opacity': ['match', ['get', 'Flooding_Category'], 2, t.stormOpacity[1], t.stormOpacity[0]],
+        // Fades in over the first half zoom instead of popping in at zoom 10.
+        'fill-opacity': ['interpolate', ['linear'], ['zoom'], STORM_MIN_ZOOM, 0, STORM_MIN_ZOOM + 0.5,
+          ['match', ['get', 'Flooding_Category'], 2, t.stormOpacity[1], t.stormOpacity[0]]],
       } })
 
       map.addSource('sel', { type: 'geojson', data: p.circle ?? EMPTY })
@@ -125,21 +166,36 @@ export function FloodMap(props: Props) {
       map.addLayer({ id: 'sel-line', type: 'line', source: 'sel',
         paint: { 'line-color': t.selectionLine, 'line-width': 3, 'line-dasharray': [2, 1.4] } })
 
-      map.addSource('sensors', { type: 'geojson', data: data(p.sensors), attribution: 'Sensors: FloodNet NYC' })
+      map.addSource('sensors', { type: 'geojson', data: nearView(data(p.sensors), map), attribution: 'Sensors: FloodNet NYC' })
       map.addLayer({ id: 'sensors', type: 'circle', source: 'sensors', layout: { visibility: vis('sensors') }, paint: {
         'circle-radius': ['interpolate', ['linear'], ['coalesce', ['get', 'events'], 0], 0, 4, 10, 6, 50, 9, 150, 13],
         'circle-color': ['case', ['>', ['coalesce', ['get', 'events'], 0], 0], t.sensorFlooded, t.hollow],
         'circle-stroke-color': t.sensorStroke, 'circle-stroke-width': 1.5,
       } })
 
-      map.addSource('floods', { type: 'geojson', data: data(p.floods), attribution: 'Floods: GDACS' })
+      map.addSource('floods', { type: 'geojson', data: nearView(data(p.floods), map), attribution: 'Floods: GDACS' })
       map.addLayer({ id: 'floods', type: 'circle', source: 'floods', layout: { visibility: vis('floods') }, paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 6, 6, 9, 10, 12],
         'circle-color': ['case', ['get', 'active'], ['get', 'color'], t.hollow],
         'circle-stroke-color': ['get', 'color'], 'circle-stroke-width': 2.5,
       } })
     }
+    let rainShown = false
     map.on('style.load', addOverlays)
+    map.on('sourcedata', (e) => {
+      if (rainShown || e.sourceId !== 'rain' || !map.getLayer('rain') || !map.isSourceLoaded('rain')) return
+      rainShown = true
+      map.setPaintProperty('rain', 'raster-opacity', RAIN_OPACITY)
+    })
+
+    // Progress bar: busy from the first tile request until the map settles.
+    let isBusy = true
+    const busy = (on: boolean) => { if (on !== isBusy) { isBusy = on; latest.current.onBusyChange(on) } }
+    map.on('dataloading', () => busy(true))
+    map.on('idle', () => busy(false))
+
+    // Keep only the points around the view; the full lists stay in React state.
+    map.on('moveend', () => syncPoints(map))
 
     // The heavy-rain model is citywide at zoom 10 and closer; say so when zoomed further out.
     const stormNote = () => {
@@ -204,8 +260,7 @@ export function FloodMap(props: Props) {
   }, [props.scheme])
 
   // Data and selection.
-  useEffect(() => { (mapRef.current?.getSource('sensors') as GeoJSONSource | undefined)?.setData(data(props.sensors)) }, [props.sensors])
-  useEffect(() => { (mapRef.current?.getSource('floods') as GeoJSONSource | undefined)?.setData(data(props.floods)) }, [props.floods])
+  useEffect(() => { if (mapRef.current) syncPoints(mapRef.current) }, [props.sensors, props.floods])
   useEffect(() => { (mapRef.current?.getSource('sel') as GeoJSONSource | undefined)?.setData(props.circle ?? EMPTY) }, [props.circle])
 
   // Layer toggles.

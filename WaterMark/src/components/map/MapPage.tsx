@@ -13,6 +13,7 @@ import { useColorScheme } from '../../hooks/useColorScheme'
 import { useGlobalLayers } from '../../hooks/useGlobalLayers'
 import { useAreaReport } from '../../hooks/useAreaReport'
 import { useDraggablePanel } from '../../hooks/useDraggablePanel'
+import { usePresence } from '../../hooks/usePresence'
 import { distanceKm, makeCircle } from '../../scripting/geo'
 import type { GeocodedPlace } from '../../services/geocoding/photon'
 import type { LayerId, LayerVisibility, LngLat, Selection } from '../../scripting/types'
@@ -38,8 +39,12 @@ export default function MapPage() {
   const { scheme } = useColorScheme()
   const { sensors, floods } = useGlobalLayers()
   const [selection, setSelection] = useState<Selection>(() => select(start.center, 1, start.label))
-  const report = useAreaReport(selection)
+  const { report, retry } = useAreaReport(selection)
   const panel = useDraggablePanel()
+  const isPanelOpen = panel.mode === 'open'
+  const panelPresence = usePresence(isPanelOpen)
+  const cardPresence = usePresence(!isPanelOpen)
+  const [isMapBusy, setIsMapBusy] = useState(true)
 
   const [layers, setLayers] = useState<LayerVisibility>({ rain: true, floods: true, sensors: true, storm: true, fema: false })
   const [stormNote, setStormNote] = useState<string | null>(null)
@@ -105,6 +110,7 @@ export default function MapPage() {
   }
 
   const alertCount = Array.isArray(report.alerts) ? report.alerts.length : 0
+  const isReportLoading = Object.values(report).some((v) => v === null)
 
   return (
     <main className="map-page">
@@ -121,6 +127,7 @@ export default function MapPage() {
         onDrawClick={onDrawClick}
         onDrawMove={onDrawMove}
         onStormNote={setStormNote}
+        onBusyChange={setIsMapBusy}
       />
       <TopBar
         isDrawing={isDrawing}
@@ -130,7 +137,7 @@ export default function MapPage() {
       />
       <LayersCard layers={layers} onToggle={(id: LayerId, on) => setLayers((l) => ({ ...l, [id]: on }))}
         floods={floods} stormNote={stormNote} isOpen={isLayersOpen} onOpenChange={onLayersOpenChange} />
-      {panel.mode === 'open' ? (
+      {panelPresence.isMounted ? (
         <DataPanel
           title={selection.label}
           alertCount={alertCount}
@@ -138,12 +145,18 @@ export default function MapPage() {
           style={panel.style}
           handleProps={panel.handleProps}
           onCollapse={() => panel.setMode('stowed')}
-          area={<AreaReport selection={selection} report={report} sensors={sensors} floods={floods} />}
+          isClosing={panelPresence.isClosing}
+          onAnimationEnd={panelPresence.onAnimationEnd}
+          area={<AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods} />}
           alerts={<AlertsList alerts={report.alerts} />}
           sources={<SourcesList isToggleable={false} />}
         />
       ) : null}
-      {panel.mode !== 'open' ? <CollapsedPanel title={selection.label} alertCount={alertCount} onOpen={openPanel} /> : null}
+      {cardPresence.isMounted ? (
+        <CollapsedPanel title={selection.label} alertCount={alertCount} onOpen={openPanel}
+          isClosing={cardPresence.isClosing} onAnimationEnd={cardPresence.onAnimationEnd} />
+      ) : null}
+      <span className={isMapBusy || isReportLoading ? 'map-progress is-busy' : 'map-progress'} aria-hidden="true" />
       {hint ? <p className="map-hint" role="status">{hint.text}</p> : null}
     </main>
   )

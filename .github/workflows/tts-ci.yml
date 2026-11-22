@@ -1,0 +1,41 @@
+name: ElevenLabs voice CI
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tts-ci.yml'
+      - 'supabase/functions/watermark-tts/**'
+      - 'supabase/tests/tts/**'
+      - 'supabase/tests/unit/tts_test.ts'
+      - 'supabase/migrations/*watermark_tts_budget.sql'
+permissions:
+  contents: read
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: supabase/package-lock.json
+      - run: npm ci
+        working-directory: supabase
+      - run: npx deno check functions/watermark-tts/index.ts && npx deno lint functions/watermark-tts tests/unit/tts_test.ts tests/tts/concurrency_test.ts && npx deno test --allow-env tests/unit
+        working-directory: supabase
+      - name: Private local budget database
+        run: |
+          docker run -d --name watermark-tts-ci --network none --tmpfs /var/lib/postgresql/data -e POSTGRES_HOST_AUTH_METHOD=trust postgres:17-alpine
+          for attempt in $(seq 1 30); do docker exec watermark-tts-ci pg_isready -U postgres && break; sleep 1; done
+          docker exec watermark-tts-ci psql -U postgres -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated; create role service_role;'
+          docker exec watermark-tts-ci createdb -U postgres watermark_tts_test
+          docker exec -i watermark-tts-ci psql -U postgres -d watermark_tts_test -v ON_ERROR_STOP=1 < supabase/tests/tts/setup.sql
+          docker exec -i watermark-tts-ci psql -U postgres -d watermark_tts_test -v ON_ERROR_STOP=1 < supabase/migrations/*watermark_tts_budget.sql
+          docker exec -i watermark-tts-ci psql -U postgres -d watermark_tts_test -v ON_ERROR_STOP=1 < supabase/tests/tts/budget.sql
+      - name: Concurrent budget regression
+        env:
+          TTS_TEST_CONTAINER: watermark-tts-ci
+          TTS_TEST_DATABASE: watermark_tts_test
+        run: npx deno test --allow-env --allow-run=docker tests/tts/concurrency_test.ts
+        working-directory: supabase

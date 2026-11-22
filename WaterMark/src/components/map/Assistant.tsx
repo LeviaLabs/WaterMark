@@ -1,7 +1,7 @@
 // The flood assistant: a tab at the bottom of the map that opens a chat panel (closed when the page
 // opens). Questions go to Google Gemini through our assistant function; the model looks things up
 // with the map's own data sources and answers from them, listing the data it used under each answer.
-// Optional voice: the browser's speech recognition for the mic and speech synthesis to read answers.
+// Optional voice: browser speech recognition for the mic; ElevenLabs output with browser fallback.
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Icon } from '../common/Icon'
 import { ScrollArea } from '../common/ScrollArea'
@@ -9,6 +9,7 @@ import { usePresence } from '../../hooks/usePresence'
 import { useAssistant } from '../../hooks/useAssistant'
 import { blocksOf, speakableText, suggestionsFor, type Inline } from '../../scripting/assistant'
 import type { LngLat } from '../../scripting/types'
+import { browserVoiceDeps, createVoiceOutput, resolveTtsUrl, type VoiceState } from '../../services/voice/output'
 
 interface Props {
   isOpen: boolean
@@ -35,9 +36,10 @@ const Recognition: RecognizerClass | undefined = typeof window === 'undefined'
   ? undefined
   : (window as unknown as { SpeechRecognition?: RecognizerClass; webkitSpeechRecognition?: RecognizerClass }).SpeechRecognition
     ?? (window as unknown as { webkitSpeechRecognition?: RecognizerClass }).webkitSpeechRecognition
-const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window
+const canSpeak = typeof window !== 'undefined' && ('Audio' in window || 'speechSynthesis' in window)
 
-const READ_ALOUD_KEY = 'watermark-assistant-read-aloud'
+// Ask again after the provider changes: the old browser-only preference did not send text to ElevenLabs.
+const READ_ALOUD_KEY = 'watermark-assistant-read-aloud-elevenlabs'
 function loadReadAloud(): boolean {
   try { return localStorage.getItem(READ_ALOUD_KEY) === '1' } catch { return false }
 }
@@ -63,6 +65,8 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
   const [draft, setDraft] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [readAloud, setReadAloud] = useState(loadReadAloud)
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle')
+  const [voice] = useState(() => createVoiceOutput(browserVoiceDeps(resolveTtsUrl(import.meta.env.VITE_WATERMARK_TTS_URL), setVoiceState)))
   const [isNoteOpen, setIsNoteOpen] = useState(false)
   const recognizer = useRef<Recognizer | null>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -77,18 +81,16 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
   // Read each new answer aloud when asked to.
   useEffect(() => {
     const last = messages.at(-1)
-    if (!canSpeak || !readAloud || !last || last.role !== 'assistant' || last.id === spoken.current) return
+    if (!canSpeak || !isOpen || !readAloud || !last || last.role !== 'assistant' || last.isError || last.id === spoken.current) return
     spoken.current = last.id
-    speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(speakableText(last.text))
-    u.lang = navigator.language
-    speechSynthesis.speak(u)
-  }, [messages, readAloud])
-  useEffect(() => () => { if (canSpeak) speechSynthesis.cancel(); recognizer.current?.stop() }, [])
-  useEffect(() => { if (!isOpen && canSpeak) speechSynthesis.cancel() }, [isOpen])
+    void voice.speak(speakableText(last.text), navigator.language)
+  }, [messages, readAloud, isOpen, voice])
+  useEffect(() => () => { voice.cancel(); recognizer.current?.stop() }, [voice])
+  useEffect(() => { if (!isOpen) voice.cancel() }, [isOpen, voice])
 
   const ask = (q: string) => {
     if (!q.trim() || isBusy) return
+    voice.cancel()
     setDraft('')
     void send(q)
   }
@@ -97,13 +99,14 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
   const toggleReadAloud = () => {
     const next = !readAloud
     setReadAloud(next)
-    if (!next && canSpeak) speechSynthesis.cancel()
+    if (!next) voice.cancel()
     try { localStorage.setItem(READ_ALOUD_KEY, next ? '1' : '0') } catch { /* private mode: not remembered */ }
   }
 
   const listen = () => {
     if (!Recognition) return
     if (isListening) { recognizer.current?.stop(); return }
+    voice.cancel()
     const r = new Recognition()
     r.lang = navigator.language
     r.interimResults = true
@@ -120,8 +123,10 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
     r.start()
   }
 
-  const newConversation = () => { reset(); if (canSpeak) speechSynthesis.cancel(); setDraft(''); input.current?.focus() }
+  const newConversation = () => { reset(); voice.cancel(); setDraft(''); input.current?.focus() }
   const suggestions = suggestionsFor(placeName, isUS)
+  const lastAnswer = messages.findLast((m) => m.role === 'assistant' && !m.isError)
+  const isVoicing = voiceState === 'loading' || voiceState === 'elevenlabs' || voiceState === 'browser'
 
   return (
     <>
@@ -161,6 +166,16 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
               </button>
             </div>
             <p>Unverified AI summary. Check official warnings before you act.</p>
+            {canSpeak ? <>
+              <p>Read aloud sends answer text to ElevenLabs. Browser voice is the fallback.</p>
+              {lastAnswer ? <button type="button" className="assistant-link" onClick={() => {
+                if (isVoicing) voice.cancel()
+                else void voice.speak(speakableText(lastAnswer.text), navigator.language)
+              }} aria-label={isVoicing ? 'Stop reading' : 'Play last answer'}>
+                {isVoicing ? 'Stop reading' : 'Play last answer'}
+              </button> : null}
+              <p role="status">{voiceState === 'loading' ? 'Preparing voice…' : voiceState === 'elevenlabs' ? 'Playing ElevenLabs voice.' : voiceState === 'browser' ? 'Using browser voice; ElevenLabs is unavailable or this answer exceeds the voice limit.' : voiceState === 'unavailable' ? 'Voice is unavailable. Read the answer below.' : ''}</p>
+            </> : null}
             {isNoteOpen ? (
               <div id={`${id}-note`} className="assistant-note-more">
                 <p>
@@ -219,7 +234,7 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
               </button>
             ) : null}
             {isBusy ? (
-              <button type="button" className="assistant-send" onClick={stop} aria-label="Stop">
+              <button type="button" className="assistant-send" onClick={() => { stop(); voice.cancel() }} aria-label="Stop">
                 <Icon name="stop" size={16} />
               </button>
             ) : (

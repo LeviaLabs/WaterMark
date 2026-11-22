@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react'
-import type { AuthState, Feature } from '../services/auth/session.ts'
+import type { AuthState, Feature, SignInCredential } from '../services/auth/session.ts'
 
 export interface AuthValue {
   state: AuthState
   canSignIn: boolean
-  /** Finish sign-in with a provider token; resolves to the verified state. */
-  signIn: (providerToken: string) => Promise<AuthState>
+  /** Finish sign-in with a MojoAuth token or an Agentboxd callback; resolves to the verified state. */
+  signIn: (credential: SignInCredential) => Promise<AuthState>
   signOut: () => Promise<void>
   canUse: (feature: Feature) => boolean
 }

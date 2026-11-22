@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router'
 import { Button } from '@astryxdesign/core/Button'
 import { useAuth } from '../../hooks/useAuth'
 import { useInView } from '../../hooks/useInView'
+import { isAgentAccount } from '../../services/auth/session'
 import { Icon } from '../common/Icon'
 import { Logo } from '../common/Logo'
 import { RollText } from '../common/RollText'
@@ -41,7 +42,9 @@ export function NavBar() {
   const signedIn = state.status === 'signed-in'
   const checking = state.status === 'loading'
   const account = state.account?.displayName ?? ''
-  const label = accountLabel(account)
+  // Agentboxd sessions are AI agents; say so wherever the account is named.
+  const agent = isAgentAccount(state.account)
+  const label = agent ? `Agent · ${accountLabel(account || 'Agent')}` : accountLabel(account)
 
   // Escape closes the mobile menu; the listener exists only while it is open.
   useEffect(() => {
@@ -78,7 +81,7 @@ export function NavBar() {
             <span className="nav-auth" aria-busy={checking || undefined}>
               {signedIn ? (
                 <>
-                  <Button label={`Account: ${account || label}`} variant="ghost" size="sm" href="/login" as={RouterLink}>
+                  <Button label={`${agent ? 'AI agent account' : 'Account'}: ${account || label}`} variant="ghost" size="sm" href="/login" as={RouterLink}>
                     <RollText text={label} />
                   </Button>
                   <Button label="Sign out" variant="secondary" size="sm" onClick={() => void signOut()}>

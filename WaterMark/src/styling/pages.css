@@ -61,6 +61,32 @@
   font-size: 0.92rem;
 }
 
+/* Human / agent / guest groups on the auth card. */
+.auth-section {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-section + .auth-section {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.auth-section-title {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
 .auth-switch {
   margin: 4px 0 0;
   color: var(--text-muted);

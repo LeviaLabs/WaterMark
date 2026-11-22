@@ -3,18 +3,21 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import { runAssistant } from '../supabase/functions/assistant/core.mts'
+import { runSummary } from '../supabase/functions/outlook-summary/core.mts'
+
+type Answer = { ok: true; body: unknown } | { ok: false; status: number; code: string; retryAfterSeconds?: number }
 
 /**
- * Serves the flood assistant at /api/assistant while developing, running the same code as the
- * Supabase Edge Function (supabase/functions/assistant). The key comes from WATERMARK_GEMINI_API_KEY
- * in .env.local, which is git-ignored and, having no VITE_ prefix, never reaches the browser bundle.
+ * Serves a Supabase Edge Function's core at `path` while developing, so `npm run dev` runs the same
+ * code as production. Keys come from .env.local (WATERMARK_* names), which is git-ignored and,
+ * having no VITE_ prefix, never reaches the browser bundle.
  */
-function assistantDevRoute(apiKey: string | undefined): Plugin {
+function devRoute(name: string, path: string, handle: (body: unknown, warn: (msg: string) => void) => Promise<Answer>): Plugin {
   return {
-    name: 'watermark-assistant-dev',
+    name,
     apply: 'serve',
     configureServer(server) {
-      server.middlewares.use('/api/assistant', (req, res) => {
+      server.middlewares.use(path, (req, res) => {
         const send = (status: number, body: unknown) => {
           res.statusCode = status
           res.setHeader('content-type', 'application/json')
@@ -32,12 +35,12 @@ function assistantDevRoute(apiKey: string | undefined): Plugin {
           } catch {
             return send(400, { code: 'INVALID_REQUEST' })
           }
-          const result = await runAssistant(body, apiKey, fetch, (msg) => server.config.logger.warn(msg))
+          const result = await handle(body, (msg) => server.config.logger.warn(msg))
           if (!result.ok) {
             if (result.retryAfterSeconds) res.setHeader('retry-after', String(result.retryAfterSeconds))
             return send(result.status, { code: result.code })
           }
-          send(200, { content: result.content, model: result.model, finishReason: result.finishReason })
+          send(200, result.body)
         })
       })
     },
@@ -45,14 +48,30 @@ function assistantDevRoute(apiKey: string | undefined): Plugin {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    react(),
-    babel({ presets: [reactCompilerPreset()] }),
-    assistantDevRoute(loadEnv(mode, process.cwd(), 'WATERMARK_').WATERMARK_GEMINI_API_KEY),
-  ],
-  test: {
-    include: ['tests/**/*.test.ts'],
-    environment: 'node',
-  },
-}))
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'WATERMARK_')
+  return {
+    plugins: [
+      react(),
+      babel({ presets: [reactCompilerPreset()] }),
+      // The flood assistant (Gemini): supabase/functions/assistant.
+      devRoute('watermark-assistant-dev', '/api/assistant', async (body, warn) => {
+        const r = await runAssistant(body, env.WATERMARK_GEMINI_API_KEY, fetch, warn)
+        return r.ok ? { ok: true, body: { content: r.content, model: r.model, finishReason: r.finishReason } } : r
+      }),
+      // Flood-outlook summaries (open-weight model): supabase/functions/outlook-summary.
+      devRoute('watermark-summary-dev', '/api/outlook-summary', async (body, warn) => {
+        const r = await runSummary(body, {
+          apiKey: env.WATERMARK_SUMMARY_API_KEY,
+          baseUrl: env.WATERMARK_SUMMARY_BASE_URL,
+          models: env.WATERMARK_SUMMARY_MODELS,
+        }, fetch, warn)
+        return r.ok ? { ok: true, body: { text: r.text, model: r.model } } : r
+      }),
+    ],
+    test: {
+      include: ['tests/**/*.test.ts'],
+      environment: 'node',
+    },
+  }
+})

@@ -134,7 +134,7 @@ export interface RegionProps {
   k: string
   /** Name. */
   n: string
-  /** Events (countries, GDACS) or reports (states and counties, NOAA) over the whole period. */
+  /** Events (countries and provinces, GDACS) or episodes (states and counties, NOAA) over the whole period. */
   e: number
   /** Yearly average of `e`. */
   py: number
@@ -146,8 +146,10 @@ export interface RegionProps {
   s?: string
   /** Kind of subdivision as the source names it ("Department", "Province"), provinces only. */
   t?: string
-  /** Count for each calendar month, January first (countries, provinces and states). */
+  /** Count for each calendar month, January first. */
   m?: number[]
+  /** Start of the most recent flood, YYYY-MM-DD. */
+  l?: string
   /** US (NOAA): deaths, injuries and damage in USD (property and crops) per year. */
   d?: number[]
   i?: number[]

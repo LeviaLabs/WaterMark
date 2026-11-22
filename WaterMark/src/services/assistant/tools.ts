@@ -2,9 +2,8 @@
 // model only asks for them (by name, with arguments checked here); each returns a small object
 // with the figures, where they come from and their limits, which goes back to the model as the
 // only data it may quote. Tool declarations live with the server (supabase/functions/assistant/core.mts).
-import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { searchPlaces } from '../geocoding/photon'
-import { loadAdmin1, loadCountries, loadCounties, loadFloodIndex, loadGrid, loadStates, type RegionCollection } from '../floodHistory'
+import { loadAdmin1, loadCountries, loadCounties, loadFloodIndex, loadGrid, loadStates, regionAt } from '../floodHistory'
 import { fetchRainHistory, fetchRainOutlook, fetchRiverHistory, fetchRiverOutlook } from '../openMeteo'
 import { fetchAlerts } from '../pointLookups'
 import { fetchGlobalFloods } from '../gdacs'
@@ -35,17 +34,6 @@ function point(args: Record<string, unknown> | undefined): LngLat {
     throw new Error('lat and lon must be valid coordinates')
   }
   return [lon, lat]
-}
-
-function regionAt(fc: RegionCollection | null, [x, y]: LngLat): RegionProps | null {
-  if (!fc) return null
-  for (const f of fc.features) {
-    const [w, s, e, n] = f.properties.b
-    // Boxes of shapes across the antimeridian are stored with e < w.
-    const inBox = y >= s && y <= n && (w <= e ? x >= w && x <= e : x >= w || x <= e)
-    if (inBox && booleanPointInPolygon([x, y], f.geometry)) return f.properties
-  }
-  return null
 }
 
 /** A region's record in plain fields: totals, worst years and harm, never per-year fractions. */

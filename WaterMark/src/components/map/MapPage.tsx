@@ -11,6 +11,7 @@ import { TopBar } from './TopBar'
 import { LayersCard } from './LayersCard'
 import { CollapsedPanel, DataPanel } from './DataPanel'
 import { AreaReport } from './AreaReport'
+import { FloodOutlook } from './FloodOutlook'
 import { AlertsList } from './AlertsList'
 import { MapLegend } from './MapLegend'
 import { RegionSummary } from './RegionSummary'
@@ -19,6 +20,7 @@ import { SourcesList } from '../sources/SourcesList'
 import { useColorScheme } from '../../hooks/useColorScheme'
 import { useGlobalLayers } from '../../hooks/useGlobalLayers'
 import { useAreaReport } from '../../hooks/useAreaReport'
+import { useFloodOutlook } from '../../hooks/useFloodOutlook'
 import { useFloodHistory } from '../../hooks/useFloodHistory'
 import { useDraggablePanel } from '../../hooks/useDraggablePanel'
 import { usePresence } from '../../hooks/usePresence'
@@ -37,6 +39,7 @@ import '@fontsource-variable/jetbrains-mono/index.css'
 import '../../styling/map-page.css'
 import '../../styling/map-premium.css'
 import '../../styling/assistant.css'
+import '../../styling/outlook.css'
 
 const HINT_MS = 4000
 // On phones the layers card and the data sheet share the screen, so opening one folds the other.
@@ -251,6 +254,7 @@ export default function MapPage() {
   const title = selection
     ? named ?? (selection.label === SPOT_LABEL && region ? `Square in ${crumbName(region)}` : selection.label)
     : region ? (region.level === 'county' && region.props.s ? `${crumbName(region)}, ${region.props.s}` : crumbName(region)) : 'Floods around the world'
+  const { outlook, summary } = useFloodOutlook(selection, report, title)
   const zoomHint = !selection && view.zoom >= DETAIL_ZOOM ? 'Click a spot on the map to see the data there.' : null
 
   return (
@@ -309,6 +313,7 @@ export default function MapPage() {
           area={
             <>
               {selection ? null : <RegionSummary region={region} index={history.index} status={history.status} year={year} />}
+              {selection && outlook ? <FloodOutlook outlook={outlook} summary={summary} /> : null}
               {selection ? <AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods}
                 cellMeta={selection.cell ? history.index?.cells[selection.cell.grid] : null} year={year} /> : null}
             </>

@@ -2,9 +2,10 @@
 // (scripts/floods/build.py) from GDACS and the NOAA Storm Events Database. The world and state
 // files load once; a country's provinces and a state's counties load the first time it is opened.
 import type { FeatureCollection, MultiPolygon, Polygon } from 'geojson'
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { getJSON } from './http'
 import { markFetched } from '../scripting/freshness'
-import type { RegionLevel, RegionProps } from '../scripting/types'
+import type { LngLat, RegionLevel, RegionProps } from '../scripting/types'
 import { parseGrid, type Grid, type GridKind } from '../scripting/cells'
 
 const BASE = '/data/floods'
@@ -127,4 +128,16 @@ export function loadGrid(kind: GridKind): Promise<Grid> {
     job.catch(() => gridJobs.delete(kind))
   }
   return job
+}
+
+/** The region of a collection that contains a point, or null. */
+export function regionAt(fc: RegionCollection | null, [x, y]: LngLat): RegionProps | null {
+  if (!fc) return null
+  for (const f of fc.features) {
+    const [w, s, e, n] = f.properties.b
+    // Boxes of shapes across the antimeridian are stored with e < w.
+    const inBox = y >= s && y <= n && (w <= e ? x >= w && x <= e : x >= w || x <= e)
+    if (inBox && booleanPointInPolygon([x, y], f.geometry)) return f.properties
+  }
+  return null
 }

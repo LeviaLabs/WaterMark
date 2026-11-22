@@ -9,7 +9,7 @@ Sign-in is optional. The map, alerts and forecasts never wait for it.
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant P as LoginPage (browser)
+    participant P as AuthPage /login (browser)
     participant M as api.mojoauth.com
     participant F as Edge Function auth-verify
     U->>P: email
@@ -33,10 +33,8 @@ MojoAuth's API sends `Access-Control-Allow-Origin: *` for these routes (checked 
 
 ```text
 WaterMark/
-├── login.html                         dev entry: /login.html (until PR #5's router exists)
 ├── .env.example                       VITE_MOJOAUTH_API_KEY, VITE_WATERMARK_AUTH_VERIFY_URL
-├── src/login.tsx                      mounts Theme + LocalizationProvider + AuthProvider + LoginPage
-├── src/components/LoginPage.tsx       Astryx page: email -> code -> signed in / sign out
+├── src/components/pages/AuthPage.tsx  Ryan B's /login + /signup page: email -> code -> signed in / sign out
 ├── src/services/auth/mojoAuth.ts      MojoAuth calls, backend check, AuthAdapter
 └── tests/mojoAuth.test.ts
 supabase/
@@ -48,7 +46,18 @@ supabase/
 Changed from PR #1: `AuthAdapter.signIn(providerToken)` now takes the token; `useAuth().signIn` returns the
 verified state; `AuthStatus` links to the login page (`loginHref`, default `/login`) instead of a button.
 
-No new npm dependencies. Nothing in `main.tsx`, `App.tsx`, the map, Ryan B's components or Codex's `supabase/` files changed.
+`AuthPage.tsx` is Ryan B's page; his PR #7 review asked for the flow to live there. Its layout, city scene and
+`auth-*` styling are unchanged; only the form logic and the button copy ("Email me a code") changed. `/signup` runs
+the same flow because MojoAuth creates the account on first sign-in.
+
+No new npm dependencies. Nothing in `main.tsx`, `App.tsx`, the map or Codex's `supabase/` files changed.
+
+### Sign-in methods
+
+MojoAuth's REST API (browser-safe, public key only) offers email OTP, magic link and phone (SMS) OTP. Only email OTP
+is built and tested. Magic link needs a redirect URL in the dashboard; SMS must be enabled and may cost money.
+Passkeys are not in the REST API: they need MojoAuth's hosted OIDC page and the API secret on a server, so there is
+no passkey button.
 
 ## What you must configure by hand
 
@@ -118,7 +127,7 @@ npx --yes deno@2.9.6 run --allow-env=MOJOAUTH_API_KEY,WATERMARK_ALLOWED_ORIGINS,
 cd WaterMark; npm run dev   # with .env.local: VITE_WATERMARK_AUTH_VERIFY_URL=http://127.0.0.1:8000
 ```
 
-Open `http://localhost:5173/login.html`, enter your email, type the code from the email. Expect "You are signed in as ...".
+Open `http://localhost:5173/login` (or `/signup`), enter your email, type the code from the email. Expect "You are signed in as ...".
 Reload: still signed in (the token is re-verified). Close the tab: signed out. "Sign out" clears it at once.
 
 ## Security notes
@@ -136,9 +145,10 @@ Reload: still signed in (the token is re-verified). Close the tab: signed out. "
 
 ## Open items
 
-- Live sign-in was completed locally on 2026-11-21 (Deno-served `auth-verify`, Vite dev). Not yet run against hosted Supabase.
+- Live sign-in was completed locally on 2026-11-21 (Deno-served `auth-verify`, Vite dev), first on the old dev page and
+  again on `/login` after the move. Not yet run against hosted Supabase.
 - A live token showed `iss` = `https://api.mojoauth.com`, `aud` = the project API key, a 60-minute lifetime, and claims
   `identifier, email, user_id, auth_type, token_type, aud, exp, jti, iat, iss, nbf, sub`. Setting `MOJOAUTH_ISSUER` to that
   issuer is optional; the `aud` check already ties tokens to this project.
 - No profile table: saving places needs a migration with RLS, coordinated with Codex's PR #4.
-- Production route `/login` waits for PR #5's router; `login.html` is dev-only and is not in `vite build` output.
+- The nav still shows "Log in" while signed in: `AuthProvider` is not mounted in `App.tsx`, so only `/login` knows the session.

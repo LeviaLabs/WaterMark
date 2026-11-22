@@ -23,6 +23,8 @@ import './styling/sea.css'
 import './styling/transitions.css'
 import './styling/lazy.css'
 import { ThemeProvider } from './context/ThemeProvider'
+import { AuthProvider } from './context/AuthProvider'
+import { authAdapter } from './services/auth/appAuth'
 import { ScrollGlow } from './components/layout/ScrollGlow'
 import { SiteLayout } from './components/layout/SiteLayout'
 import { LandingPage } from './components/pages/LandingPage'
@@ -39,18 +41,21 @@ const NotFoundPage = lazy(() => import('./components/pages/NotFoundPage').then((
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<SiteLayout />}>
-            <Route index element={<LandingPage />} />
-            <Route path="map" element={<MapPage />} />
-            <Route path="login" element={<AuthPage mode="login" />} />
-            <Route path="signup" element={<AuthPage mode="signup" />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
-        <ScrollGlow />
-      </BrowserRouter>
+      {/* Sign-in state for the nav and pages. Children never wait for it; see AuthProvider. */}
+      <AuthProvider adapter={authAdapter}>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<SiteLayout />}>
+              <Route index element={<LandingPage />} />
+              <Route path="map" element={<MapPage />} />
+              <Route path="login" element={<AuthPage mode="login" />} />
+              <Route path="signup" element={<AuthPage mode="signup" />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+          <ScrollGlow />
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

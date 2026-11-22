@@ -35,6 +35,8 @@ MojoAuth's API sends `Access-Control-Allow-Origin: *` for these routes (checked 
 WaterMark/
 ├── .env.example                       VITE_MOJOAUTH_API_KEY, VITE_WATERMARK_AUTH_VERIFY_URL
 ├── src/components/pages/AuthPage.tsx  Ryan B's /login + /signup page: email -> code -> signed in / sign out
+├── src/components/layout/NavBar.tsx   shows Log in, or the account + Sign out
+├── src/services/auth/appAuth.ts       the app's one MojoAuth adapter (from env)
 ├── src/services/auth/mojoAuth.ts      MojoAuth calls, backend check, AuthAdapter
 └── tests/mojoAuth.test.ts
 supabase/
@@ -50,7 +52,12 @@ verified state; `AuthStatus` links to the login page (`loginHref`, default `/log
 `auth-*` styling are unchanged; only the form logic and the button copy ("Email me a code") changed. `/signup` runs
 the same flow because MojoAuth creates the account on first sign-in.
 
-No new npm dependencies. Nothing in `main.tsx`, `App.tsx`, the map or Codex's `supabase/` files changed.
+`App.tsx` mounts `<AuthProvider adapter={authAdapter}>` around the router (Ryan approved on PR #7).
+`src/services/auth/appAuth.ts` builds the one adapter from the Vite env (guest-only without it).
+`NavBar` reads `useAuth()`: Log in / Sign up for guests, the account name (email before "@") and
+Sign out when signed in, and neither while a stored session is being re-checked, so it never flashes "Log in".
+
+No new npm dependencies. Nothing in `main.tsx`, the map or Codex's `supabase/` files changed.
 
 ### Sign-in methods
 
@@ -151,4 +158,4 @@ Reload: still signed in (the token is re-verified). Close the tab: signed out. "
   `identifier, email, user_id, auth_type, token_type, aud, exp, jti, iat, iss, nbf, sub`. Setting `MOJOAUTH_ISSUER` to that
   issuer is optional; the `aud` check already ties tokens to this project.
 - No profile table: saving places needs a migration with RLS, coordinated with Codex's PR #4.
-- The nav still shows "Log in" while signed in: `AuthProvider` is not mounted in `App.tsx`, so only `/login` knows the session.
+- Nothing in the app needs an account yet (`savedPlaces`, `notificationPrefs` are planned).

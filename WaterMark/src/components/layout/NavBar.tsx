@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { Button } from '@astryxdesign/core/Button'
+import { useAuth } from '../../hooks/useAuth'
 import { useInView } from '../../hooks/useInView'
 import { Icon } from '../common/Icon'
 import { Logo } from '../common/Logo'
@@ -15,10 +16,19 @@ const SECTIONS = [
   { hash: '#team', label: 'Team' },
 ]
 
+/** Short nav label for an account: the part of the email before "@", at most 16 characters. */
+function accountLabel(displayName: string | null | undefined) {
+  const local = (displayName ?? '').split('@')[0].trim()
+  if (!local) return 'Account'
+  return local.length > 16 ? `${local.slice(0, 15)}…` : local
+}
+
 /**
  * Floating glass navigation. Transparent over the hero, frosted once the page
  * scrolls (detected with an IntersectionObserver on a tiny sentinel at the top
- * of the document, not a scroll listener). Log in / Sign up sit on the right.
+ * of the document, not a scroll listener). The right side follows the sign-in
+ * state: Log in / Sign up for guests, the account and Sign out when signed in,
+ * and nothing while a stored session is being re-checked.
  */
 export function NavBar() {
   const sentinel = useRef<HTMLSpanElement>(null)
@@ -26,6 +36,11 @@ export function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { pathname } = useLocation()
   const onLanding = pathname === '/'
+  const { state, signOut } = useAuth()
+  const signedIn = state.status === 'signed-in'
+  const checking = state.status === 'loading'
+  const account = state.account?.displayName ?? ''
+  const label = accountLabel(account)
 
   // Escape closes the mobile menu; the listener exists only while it is open.
   useEffect(() => {
@@ -59,13 +74,26 @@ export function NavBar() {
           <div className="nav-links">{sectionLinks}</div>
           <div className="nav-actions">
             <ThemeToggle />
-            <span className="nav-auth">
-              <Button label="Log in" variant="ghost" size="sm" href="/login" as={RouterLink}>
-                <RollText text="Log in" />
-              </Button>
-              <Button label="Sign up" variant="primary" size="sm" href="/signup" as={RouterLink}>
-                <RollText text="Sign up" />
-              </Button>
+            <span className="nav-auth" aria-busy={checking || undefined}>
+              {signedIn ? (
+                <>
+                  <Button label={`Account: ${account || label}`} variant="ghost" size="sm" href="/login" as={RouterLink}>
+                    <RollText text={label} />
+                  </Button>
+                  <Button label="Sign out" variant="secondary" size="sm" onClick={() => void signOut()}>
+                    <RollText text="Sign out" />
+                  </Button>
+                </>
+              ) : checking ? null : (
+                <>
+                  <Button label="Log in" variant="ghost" size="sm" href="/login" as={RouterLink}>
+                    <RollText text="Log in" />
+                  </Button>
+                  <Button label="Sign up" variant="primary" size="sm" href="/signup" as={RouterLink}>
+                    <RollText text="Sign up" />
+                  </Button>
+                </>
+              )}
             </span>
             <button
               type="button"
@@ -83,8 +111,17 @@ export function NavBar() {
           <div id="nav-menu" className="nav-menu">
             {sectionLinks}
             <span className="nav-menu-auth" onClick={closeMenu}>
-              <Button label="Log in" variant="secondary" href="/login" as={RouterLink} width="100%" />
-              <Button label="Sign up" variant="primary" href="/signup" as={RouterLink} width="100%" />
+              {signedIn ? (
+                <>
+                  <Button label={`Signed in as ${label}`} variant="secondary" href="/login" as={RouterLink} width="100%" />
+                  <Button label="Sign out" variant="primary" width="100%" onClick={() => void signOut()} />
+                </>
+              ) : checking ? null : (
+                <>
+                  <Button label="Log in" variant="secondary" href="/login" as={RouterLink} width="100%" />
+                  <Button label="Sign up" variant="primary" href="/signup" as={RouterLink} width="100%" />
+                </>
+              )}
             </span>
           </div>
         )}

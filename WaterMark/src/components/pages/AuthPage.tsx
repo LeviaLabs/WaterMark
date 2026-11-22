@@ -1,18 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@astryxdesign/core/Button'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { CityScene } from '../city/CityScene'
 import { RouterLink } from '../common/RouterLink'
-import {
-  createMojoAuthAdapter,
-  mojoAuthConfigFromEnv,
-  MojoAuthError,
-  sendEmailCode,
-  verifyEmailCode,
-  type MojoAuthErrorCode,
-} from '../../services/auth/mojoAuth'
-import type { AuthState } from '../../services/auth/session'
+import { useAuth } from '../../hooks/useAuth'
+import { mojoAuthConfig as config } from '../../services/auth/appAuth'
+import { MojoAuthError, sendEmailCode, verifyEmailCode, type MojoAuthErrorCode } from '../../services/auth/mojoAuth'
 
 type Mode = 'login' | 'signup'
 
@@ -42,41 +36,27 @@ const ERRORS: Record<MojoAuthErrorCode, string> = {
   misconfigured: 'Sign-in is not set up on this site yet. You can explore every map and data layer without an account.',
 }
 
-// MojoAuth email one-time code (see docs/mojoauth-login.md). Null when the env values are missing.
-const config = mojoAuthConfigFromEnv(import.meta.env)
-const adapter = config ? createMojoAuthAdapter(config) : null
-
-type Step = 'email' | 'code' | 'signed-in'
+type Step = 'email' | 'code'
 
 /**
  * Log in / sign up. Both modes use the same MojoAuth email code: MojoAuth creates the
  * account on first sign-in. The token is trusted only after our auth-verify Edge Function
- * confirms it. Accounts stay optional.
+ * confirms it; the shared <AuthProvider> (App.tsx) holds the session. Accounts stay optional.
  */
 export function AuthPage({ mode }: { mode: Mode }) {
   const copy = COPY[mode]
+  const auth = useAuth()
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [stateId, setStateId] = useState('')
-  const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    let active = true
-    adapter?.restore().then((state) => {
-      if (active && state.status === 'signed-in') showSignedIn(state)
-    })
-    return () => {
-      active = false
-    }
-  }, [])
-
-  function showSignedIn(state: AuthState) {
-    setName(state.account?.displayName ?? '')
-    setStep('signed-in')
-  }
+  const signedIn = auth.state.status === 'signed-in'
+  // The provider is re-checking a stored session (not this page's own sign-in).
+  const checking = auth.state.status === 'loading' && !busy
+  const name = auth.state.account?.displayName ?? ''
 
   async function run(task: () => Promise<void>) {
     setBusy(true)
@@ -92,9 +72,10 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
   const sendCode = (event?: FormEvent) => {
     event?.preventDefault()
-    if (!config) return setError(ERRORS.misconfigured)
+    const cfg = config
+    if (!cfg) return setError(ERRORS.misconfigured)
     void run(async () => {
-      setStateId(await sendEmailCode(config, email, 'en'))
+      setStateId(await sendEmailCode(cfg, email, 'en'))
       setCode('')
       setStep('code')
     })
@@ -102,16 +83,16 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
   const verify = (event: FormEvent) => {
     event.preventDefault()
-    if (!config || !adapter) return
+    const cfg = config
+    if (!cfg) return
     void run(async () => {
-      const state = await adapter.signIn(await verifyEmailCode(config, stateId, code))
+      const state = await auth.signIn(await verifyEmailCode(cfg, stateId, code))
       if (state.status !== 'signed-in') throw new MojoAuthError('verify-failed')
-      showSignedIn(state)
     })
   }
 
   const signOut = () => {
-    void adapter?.signOut()
+    void auth.signOut()
     setEmail('')
     setStep('email')
   }
@@ -122,19 +103,25 @@ export function AuthPage({ mode }: { mode: Mode }) {
       <span className="auth-shade" aria-hidden="true" />
       <div className="auth-card glass-panel">
         <h1 id="auth-title" className="auth-title">
-          {step === 'signed-in' ? 'You are signed in' : copy.title}
+          {signedIn ? 'You are signed in' : copy.title}
         </h1>
-        <p className="auth-lede">
-          {step === 'signed-in' ? `Signed in as ${name}.` : step === 'code' ? `We sent a code to ${email}. It can take a minute to arrive.` : copy.lede}
+        <p className="auth-lede" role="status" aria-live="polite">
+          {signedIn
+            ? `Signed in as ${name}.`
+            : checking
+              ? 'Checking your session…'
+              : step === 'code'
+                ? `We sent a code to ${email}. It can take a minute to arrive.`
+                : copy.lede}
         </p>
 
-        {error && (
+        {error && !signedIn && (
           <p className="auth-notice" role="alert">
             {error}
           </p>
         )}
 
-        {step === 'email' && (
+        {!signedIn && !checking && step === 'email' && (
           <form className="auth-form" onSubmit={sendCode} noValidate>
             <TextInput
               type="email"
@@ -151,7 +138,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </form>
         )}
 
-        {step === 'code' && (
+        {!signedIn && step === 'code' && (
           <form className="auth-form" onSubmit={verify} noValidate>
             <TextInput
               label="One-time code"
@@ -168,7 +155,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </form>
         )}
 
-        {step === 'signed-in' ? (
+        {signedIn ? (
           <>
             <Button label="Go to the map" variant="primary" size="lg" href="/map" as={RouterLink} width="100%" />
             <Button label="Sign out" variant="ghost" width="100%" onClick={signOut} />

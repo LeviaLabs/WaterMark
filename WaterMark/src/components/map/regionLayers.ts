@@ -14,7 +14,7 @@ import type maplibregl from 'maplibre-gl'
 import type { ExpressionSpecification, GeoJSONSource } from 'maplibre-gl'
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
-import { childLevel, fillColor, maskAround } from '../../scripting/choropleth'
+import { childLevel, fillColor, focusVeil, maskAround } from '../../scripting/choropleth'
 import type { Grid, GridKind } from '../../scripting/cells'
 import type { MapPalette } from '../../scripting/mapTheme'
 import type { FloodHistoryIndex, RegionCollection } from '../../services/floodHistory'
@@ -40,6 +40,16 @@ const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 const LEVELS: RegionLevel[] = ['country', 'admin1', 'state', 'county']
 const GRIDS: GridKind[] = ['world', 'us']
 const SOURCE: Record<RegionLevel, string> = { country: 'countries', admin1: 'admin1', state: 'states', county: 'counties' }
+// GeoJSON is cut into vector tiles in the browser. maxzoom is the last tile that keeps its own
+// vertices; past that, MapLibre enlarges the last tile. Local borders use a higher maxzoom and a
+// tighter tolerance so a county line stays the census shape when you zoom in. Countries stay
+// coarser because the world file is large and is only read zoomed out.
+const OUTLINE: Record<RegionLevel, { maxzoom: number; tolerance: number }> = {
+  country: { maxzoom: 6, tolerance: 0.5 },
+  state: { maxzoom: 9, tolerance: 0.25 },
+  admin1: { maxzoom: 12, tolerance: 0.12 },
+  county: { maxzoom: 13, tolerance: 0.04 },
+}
 const lineId = (l: RegionLevel) => `${SOURCE[l]}-line`
 const cellSource = (g: GridKind) => `cells-${g}`
 const hovered = ['boolean', ['feature-state', 'hover'], false] as ExpressionSpecification
@@ -59,8 +69,8 @@ function isShown(d: RegionData, level: RegionLevel): boolean {
   return !inUS // admin1: a focused country outside the US, or one of its provinces
 }
 
-/** The squares stay until street zoom, then fade so the streets and detailed layers show. */
-const CELL_OPACITY = ['interpolate', ['linear'], ['zoom'], 11, 0.92, 13, 0] as ExpressionSpecification
+/** The squares are 0.5° or 1° of real counts. They fade once streets are readable so a coarse fill is not mistaken for block-level data. */
+const CELL_OPACITY = ['interpolate', ['linear'], ['zoom'], 10, 0.9, 12.5, 0] as ExpressionSpecification
 /** Thin gaps between squares: a hairline zoomed out, a clear gap up close. */
 const GAP_WIDTH = ['interpolate', ['linear'], ['zoom'], 1, 0.15, 4, 0.5, 8, 1.4, 11, 2] as ExpressionSpecification
 
@@ -88,7 +98,7 @@ function regionBeforeId(map: maplibregl.Map): string | undefined {
 export function addRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionData): void {
   const beforeId = regionBeforeId(map)
   for (const g of GRIDS) {
-    map.addSource(cellSource(g), { type: 'geojson', data: d.grids[g]?.cells ?? EMPTY, maxzoom: 10, tolerance: 0, buffer: 4 })
+    map.addSource(cellSource(g), { type: 'geojson', data: d.grids[g]?.cells ?? EMPTY, maxzoom: 12, tolerance: 0, buffer: 4 })
     map.addLayer({ id: `${cellSource(g)}-fill`, type: 'fill', source: cellSource(g), paint: {
       'fill-color': cellColor(d, t, g), 'fill-opacity': CELL_OPACITY, 'fill-antialias': false,
     } }, beforeId)
@@ -97,8 +107,7 @@ export function addRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionDat
     } }, beforeId)
   }
   for (const level of LEVELS) {
-    // geojson-vt tiles stop at zoom 9 and are overzoomed beyond; a coarser tolerance keeps world tiles small.
-    map.addSource(SOURCE[level], { type: 'geojson', data: collectionOf(d, level) ?? EMPTY, promoteId: 'k', maxzoom: 9, tolerance: 0.5 })
+    map.addSource(SOURCE[level], { type: 'geojson', data: collectionOf(d, level) ?? EMPTY, promoteId: 'k', ...OUTLINE[level] })
     map.addLayer({ id: lineId(level), type: 'line', source: SOURCE[level], layout: { 'line-join': 'round' }, paint: {
       'line-color': ['case', hovered, t.hoverLine, t.regionLine] as ExpressionSpecification,
       'line-width': ['case', hovered, 2, level === 'country' ? 0.8 : 0.7] as ExpressionSpecification,
@@ -116,12 +125,40 @@ const TARGET_OPACITY: Record<(typeof FOCUS_LAYERS)[number], (t: MapPalette) => n
   'mask-fill': (t) => t.maskOpacity, 'focus-edge': () => 0.35, 'focus-line': () => 0.95,
 }
 
+// A fade scheduled for the previous focus. Bumped whenever the veil is shown, cleared, or rebuilt,
+// so a late frame cannot paint the old region back on after the user has stepped up.
+let focusFade = 0
+let focusGen = 0
+
+function setFocusOpacity(map: maplibregl.Map, t: MapPalette, show: boolean): void {
+  cancelAnimationFrame(focusFade)
+  const gen = ++focusGen
+  for (const id of FOCUS_LAYERS) {
+    if (!map.getLayer(id)) continue
+    const prop = id === 'mask-fill' ? 'fill-opacity' : 'line-opacity'
+    map.setPaintProperty(id, `${prop}-transition` as 'fill-opacity', { duration: 0, delay: 0 } as unknown as number)
+    map.setPaintProperty(id, prop, 0)
+  }
+  if (!show) return
+  focusFade = requestAnimationFrame(() => {
+    if (gen !== focusGen) return
+    for (const id of FOCUS_LAYERS) {
+      if (!map.getLayer(id)) continue
+      const prop = id === 'mask-fill' ? 'fill-opacity' : 'line-opacity'
+      map.setPaintProperty(id, `${prop}-transition` as 'fill-opacity', { duration: 900, delay: id === 'mask-fill' ? 0 : 300 } as unknown as number)
+      map.setPaintProperty(id, prop, TARGET_OPACITY[id](t))
+    }
+  })
+}
+
 /**
  * The veil and the outline, above the data overlays (rain, FEMA, the NYC model) and below the points.
  * The outline is a crisp 1.4 px line over a narrow 3 px soft edge: enough to lift the region off
  * the dark without a halo.
  */
 export function addFocusLayers(map: maplibregl.Map, t: MapPalette, d: RegionData, beforeId?: string): void {
+  cancelAnimationFrame(focusFade)
+  focusGen += 1
   const { mask, edge } = focusData(d)
   map.addSource('mask', { type: 'geojson', data: mask, tolerance: 0.5 })
   map.addSource('focus', { type: 'geojson', data: edge, tolerance: 0.3 })
@@ -132,9 +169,14 @@ export function addFocusLayers(map: maplibregl.Map, t: MapPalette, d: RegionData
     paint: { 'line-color': t.focusLine, 'line-width': 1.4, 'line-opacity': 0.95 } }, beforeId)
 }
 
-/** Pushes changed data, class breaks or focus into existing layers; a new focus fades its veil in. */
-export function syncRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionData, prev: RegionData | null): void {
-  if (!map.getLayer(lineId('country'))) return
+/**
+ * Pushes changed data, class breaks or focus into existing layers. A new region fades its veil in.
+ * Returning to the world clears the veil instead of fading it back on: the previous geometry stays
+ * on screen until the empty shape is tiled, so raising the opacity again would repaint it.
+ * Returns false when the layers are not on the map yet, so the caller does not treat this as drawn.
+ */
+export function syncRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionData, prev: RegionData | null): boolean {
+  if (!map.getLayer(lineId('country'))) return false
   for (const g of GRIDS) {
     if (!prev || prev.grids[g] !== d.grids[g]) (map.getSource(cellSource(g)) as GeoJSONSource).setData(d.grids[g]?.cells ?? EMPTY)
     if (!prev || prev.index !== d.index) map.setPaintProperty(`${cellSource(g)}-fill`, 'fill-color', cellColor(d, t, g))
@@ -144,29 +186,21 @@ export function syncRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionDa
       (map.getSource(SOURCE[level]) as GeoJSONSource).setData(collectionOf(d, level) ?? EMPTY)
     }
   }
-  const isNewFocus = !prev || prev.focus?.props.k !== d.focus?.props.k || prev.focus?.level !== d.focus?.level
-  if (isNewFocus || prev?.focusGeometry !== d.focusGeometry) {
-    for (const level of LEVELS) map.setPaintProperty(lineId(level), 'line-opacity', lineOpacity(d, level))
+  const veil = focusVeil(
+    prev?.focus ? { level: prev.focus.level, k: prev.focus.props.k } : null,
+    d.focus ? { level: d.focus.level, k: d.focus.props.k } : null,
+  )
+  if (veil !== 'keep' || prev?.focusGeometry !== d.focusGeometry) {
+    if (veil !== 'keep') {
+      for (const level of LEVELS) map.setPaintProperty(lineId(level), 'line-opacity', lineOpacity(d, level))
+    }
     const { mask, edge } = focusData(d)
     ;(map.getSource('mask') as GeoJSONSource | undefined)?.setData(mask)
     ;(map.getSource('focus') as GeoJSONSource | undefined)?.setData(edge)
-    if (isNewFocus && map.getLayer('focus-line')) {
-      // Start clear and fade in, so the region lights up as the camera arrives.
-      for (const id of FOCUS_LAYERS) {
-        const prop = id === 'mask-fill' ? 'fill-opacity' : 'line-opacity'
-        map.setPaintProperty(id, `${prop}-transition` as 'fill-opacity', { duration: 0, delay: 0 } as unknown as number)
-        map.setPaintProperty(id, prop, 0)
-      }
-      requestAnimationFrame(() => {
-        for (const id of FOCUS_LAYERS) {
-          if (!map.getLayer(id)) continue
-          const prop = id === 'mask-fill' ? 'fill-opacity' : 'line-opacity'
-          map.setPaintProperty(id, `${prop}-transition` as 'fill-opacity', { duration: 900, delay: id === 'mask-fill' ? 0 : 300 } as unknown as number)
-          map.setPaintProperty(id, prop, TARGET_OPACITY[id](t))
-        }
-      })
-    }
+    if (veil === 'show') setFocusOpacity(map, t, true)
+    else if (veil === 'clear') setFocusOpacity(map, t, false)
   }
+  return true
 }
 
 // ---- picking ----

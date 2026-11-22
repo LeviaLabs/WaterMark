@@ -9,7 +9,7 @@ import { EvidenceTag } from '../common/EvidenceTag'
 import { RainOutlookChart, FlowChart, YearBars } from './Charts'
 import type { EvidenceKind } from '../../scripting/content/dataSources'
 import { fmtDate, fmtDepthIn, fmtDistance, fmtRadius, fmtRain, fmtTime, fmtUsd, pct, UNITS } from '../../scripting/format'
-import { howOften, type CellProps } from '../../scripting/cells'
+import { cellWidthKm, howOften, type CellProps } from '../../scripting/cells'
 import type { CellMeta } from '../../services/floodHistory'
 import { nearestFlood, summarizeSensors } from '../../scripting/geo'
 import { touchesNYC } from '../../scripting/region'
@@ -104,7 +104,7 @@ function Tile({ label, value, note }: { label: string; value: ReactNode; note?: 
 const pending = (v: Coverable<unknown>) => (v === null ? <span className="report-loading">…</span> : v === 'error' ? '—' : null)
 
 /** The flood record of a picked grid square, like the reference's "square you picked". */
-function CellRecord({ cell, meta }: { cell: CellProps; meta: CellMeta }) {
+function CellRecord({ cell, meta, finer }: { cell: CellProps; meta: CellMeta; finer: boolean }) {
   const span = meta.years[1] - meta.years[0] + 1
   const isUS = cell.grid === 'us'
   const unit = isUS ? 'flood reports' : 'floods'
@@ -139,6 +139,7 @@ function CellRecord({ cell, meta }: { cell: CellProps; meta: CellMeta }) {
       <p className="map-meta">
         A {meta.size}° square (about {Math.round(meta.size * 111 * Math.cos(((s0 + meta.size / 2) * Math.PI) / 180))} km across).
         Counts {isUS ? 'NOAA Storm Events flood reports' : 'GDACS flood events'} by where they were reported to start, {meta.years[0]} to {meta.years[1]}.
+        {finer ? ' The smaller block on the map is only the spot being inspected. These counts still belong to the whole square.' : ''}
       </p>
     </section>
   )
@@ -174,9 +175,9 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
 
   return (
     <RetryContext.Provider value={onRetry}>
-      {selection.cell && cellMeta ? <CellRecord cell={selection.cell} meta={cellMeta} /> : null}
+      {selection.cell && cellMeta ? <CellRecord cell={selection.cell} meta={cellMeta} finer={radiusKm * 2 < cellWidthKm(selection.cell.bounds) * 0.75} /> : null}
       <p className="map-meta report-where">
-        {selection.cell ? 'Forecasts and history at the middle of the square' : <>{center[1].toFixed(4)}, {center[0].toFixed(4)} · circle of {fmtRadius(radiusKm, UNITS)} radius</>}
+        {selection.cell ? 'Forecasts and history at the middle of the block you picked' : <>{center[1].toFixed(4)}, {center[0].toFixed(4)} · circle of {fmtRadius(radiusKm, UNITS)} radius</>}
         {ready(s.elevation) && s.elevation != null ? <> · {height(s.elevation)} above sea level</> : null}
       </p>
 

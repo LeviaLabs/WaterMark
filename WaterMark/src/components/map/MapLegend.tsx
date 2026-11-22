@@ -18,7 +18,8 @@ export function MapLegend({ grid, index }: Props) {
   const meta = index.cells[grid]
   const rows = cellLegend(meta.breaks)
   const what = grid === 'us' ? 'Flood reports per square' : 'Floods per square'
-  const sub = `${meta.size}° squares · ${grid === 'us' ? 'NOAA' : 'GDACS'}, ${meta.years[0]}–${meta.years[1]}`
+  const km = Math.round(meta.size * 111)
+  const sub = `${meta.size}° squares, about ${km} km north to south · native size of this count · ${grid === 'us' ? 'NOAA' : 'GDACS'}, ${meta.years[0]}–${meta.years[1]}`
   return (
     <section className={isOpen ? 'map-card map-legend is-open' : 'map-card map-legend'} aria-label={`${what}, ${sub}`}>
       <button type="button" className="map-legend-toggle" aria-expanded={isOpen} aria-controls={id} onClick={() => setIsOpen(!isOpen)}>

@@ -3,9 +3,11 @@
 // camera glides in, the rest of the world goes dark and its provinces (in the US, states and then
 // counties) take the color, clickable straight away. Clicking inside a province or county selects
 // that spot and zooms in; the area data loads for it. Search and the circle tool select a spot directly.
+// Back, the breadcrumb, and Escape each step up one level and clear the spot.
 // Open a place directly with /map?lat=40.68&lon=-74.01&z=14&label=Red%20Hook
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
+import type { FeatureCollection } from 'geojson'
 import { FloodMap, type FlyTarget } from './FloodMap'
 import { TopBar } from './TopBar'
 import { LayersCard } from './LayersCard'
@@ -23,9 +25,9 @@ import { useFloodHistory } from '../../hooks/useFloodHistory'
 import { useDraggablePanel } from '../../hooks/useDraggablePanel'
 import { usePresence } from '../../hooks/usePresence'
 import { distanceKm, makeCircle } from '../../scripting/geo'
-import { bboxesOverlap, NYC_BOUNDS, touchesNYC, type BBox } from '../../scripting/region'
-import { DETAIL_ZOOM, pathTo } from '../../scripting/choropleth'
-import { cellAt, cellWidthKm, squareOf } from '../../scripting/cells'
+import { bboxesOverlap, mayBeUS, NYC_BOUNDS, touchesNYC, type BBox } from '../../scripting/region'
+import { DETAIL_ZOOM, focusAtDepth, pathTo, stepUpFocus } from '../../scripting/choropleth'
+import { cellAt, cellWidthKm, selectionBounds, selectionStep, squareOf } from '../../scripting/cells'
 import { gridAt, regionPathAt } from './regionLayers'
 import { contextText } from '../../scripting/assistant'
 import { UNITS } from '../../scripting/format'
@@ -34,8 +36,22 @@ import type { LayerId, LayerVisibility, LngLat, RegionLevel, RegionPick, Selecti
 import '@fontsource-variable/bricolage-grotesque/index.css'
 import '@fontsource-variable/instrument-sans/index.css'
 import '@fontsource-variable/jetbrains-mono/index.css'
+import { parseRole, type AudienceRole } from '../../scripting/audiences/role'
+import { CAR_RINGS_KM, SCHOOL_SAMPLE_KM } from '../../scripting/audiences/compass'
+import { audienceMarks } from '../../scripting/audiences/marks'
+import { estimateApproach, firstFloodAlert, nextRainDay } from '../../scripting/audiences/approach'
+import { rankParking } from '../../scripting/audiences/parking'
+import { todayIndex } from '../../scripting/climate'
+import { usePlaceSamples } from '../../hooks/usePlaceSamples'
+import { RolePicker } from './audiences/RolePicker'
+import { SchoolView } from './audiences/SchoolView'
+import { HomeownerView } from './audiences/HomeownerView'
+import { ResponderView } from './audiences/ResponderView'
+import { useResponderModel } from '../../hooks/useResponderModel'
+import { MoveCar } from './audiences/MoveCar'
 import '../../styling/map-page.css'
 import '../../styling/map-premium.css'
+import '../../styling/audiences.css'
 import '../../styling/assistant.css'
 
 const HINT_MS = 4000
@@ -57,8 +73,20 @@ function select(center: LngLat, radiusKm: number, label: string): Selection {
   return { center, radiusKm, label, circle: makeCircle(center, radiusKm) }
 }
 
+const EMPTY_MARKS: FeatureCollection = { type: 'FeatureCollection', features: [] }
+
 export default function MapPage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
+  const role = parseRole(params.get('role'))
+  const carOn = params.get('car') === '1'
+  const setQuery = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params)
+    for (const [key, value] of Object.entries(patch)) {
+      if (value == null) next.delete(key)
+      else next.set(key, value)
+    }
+    setParams(next, { replace: true })
+  }
   // A shared link with lat and lon opens on that spot with it selected; otherwise the world.
   const start = useMemo(() => {
     const lat = Number(params.get('lat'))
@@ -84,6 +112,14 @@ export default function MapPage() {
   }, [])
   const { sensors, floods } = useGlobalLayers(view.isNyc || (selection ? touchesNYC(selection.circle) : false))
   const { report, retry } = useAreaReport(selection)
+  const schoolSamples = usePlaceSamples(selection?.center ?? null, [SCHOOL_SAMPLE_KM], role === 'school' && selection != null)
+  const carSamples = usePlaceSamples(selection?.center ?? null, CAR_RINGS_KM, carOn && selection != null)
+  const gridKind = path[0]?.props.k === 'USA' || (selection != null && mayBeUS(selection.center)) ? 'us' : 'world'
+  const responder = useResponderModel(
+    history.grids[gridKind], history.index?.cells[gridKind] ?? null, region, selection, report,
+    sensors && sensors !== 'error' ? sensors : null,
+    floods && floods !== 'error' ? floods : null,
+  )
 
   // A clicked spot or a drawn circle has no name of its own: name it from the reverse lookup.
   const [placeName, setPlaceName] = useState<{ for: Selection; name: string } | null>(null)
@@ -96,6 +132,11 @@ export default function MapPage() {
     return () => ctl.abort()
   }, [selection])
   const panel = useDraggablePanel()
+  useEffect(() => {
+    if (role !== 'explore' || carOn) panel.setMode('open')
+    // Only when the audience or the car tool changes. Collapsing the panel must stick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, carOn])
   const isPanelOpen = panel.mode === 'open'
   const panelPresence = usePresence(isPanelOpen)
   const cardPresence = usePresence(!isPanelOpen)
@@ -178,10 +219,10 @@ export default function MapPage() {
     return props ? { level, props } : null
   }, [history.countries, history.states])
 
-  const flyToRegion = (pick: RegionPick) => {
+  const flyToRegion = useCallback((pick: RegionPick) => {
     const bounds = pick.level === 'country' && pick.props.k === 'USA' ? US_FOCUS : pick.props.b
     setFlyTo({ bounds, maxZoom: MAX_ZOOM[pick.level] })
-  }
+  }, [])
 
   // Focus a region: fly there, dim the rest and show its record. A new region clears the spot,
   // whose data belonged to the place you just left.
@@ -191,25 +232,35 @@ export default function MapPage() {
     flyToRegion(pick)
     if (panel.mode !== 'open' && !isPhone()) openPanel()
   }
-  const goTo = (depth: number) => {
-    const next = path.slice(0, depth)
-    setPath(next)
+  // Breadcrumb jumps and Back both drop the selected square. Depth 0 is the world, which also
+  // drops the region veil. Back steps one level: square to its region, then region to its parent.
+  const showFocus = useCallback((nextPath: readonly RegionPick[]) => {
+    setPath(nextPath.slice())
     setSelection(null)
-    const last = next.at(-1)
+    const last = nextPath.at(-1)
     if (last) flyToRegion(last)
     else setFlyTo({ center: WORLD.center, zoom: WORLD.zoom() })
-  }
+  }, [flyToRegion])
+  const goTo = useCallback((depth: number) => showFocus(focusAtDepth(path, depth).path), [path, showFocus])
+  const stepBack = useCallback(() => {
+    if (!path.length && !selection) return
+    showFocus(stepUpFocus(path, selection != null).path)
+  }, [path, selection, showFocus])
   // A click inside a province or county (or anywhere at street zoom) picks the grid square there:
   // its flood record, plus the forecasts and history at its middle.
   const onSpotClick = (at: LngLat, shouldZoom: boolean) => {
     const grid = gridAt(at, history)
     if (!grid) return choose(select(at, 5, SPOT_LABEL))
     const cell = cellAt(at, grid)
-    const [w, s0, e, n] = cell.bounds
+    // Close up, pick a smaller block for the live lookups. The historical count stays on `cell`,
+    // which is still the native 0.5° or 1° square.
+    const step = selectionStep(grid.size, view.zoom)
+    const bounds = step < grid.size ? selectionBounds(at, step) : cell.bounds
+    const [w, s0, e, n] = bounds
     const center: LngLat = [(w + e) / 2, (s0 + n) / 2]
-    if (shouldZoom) setFlyTo({ bounds: cell.bounds, maxZoom: SQUARE_MAX_ZOOM })
-    choose({ center, radiusKm: cellWidthKm(cell.bounds) / 2, label: SPOT_LABEL, cell,
-      circle: { type: 'Feature', properties: {}, geometry: squareOf(cell.bounds) } })
+    if (shouldZoom) setFlyTo({ bounds, maxZoom: step < grid.size ? 13 : SQUARE_MAX_ZOOM })
+    choose({ center, radiusKm: cellWidthKm(bounds) / 2, label: SPOT_LABEL, cell,
+      circle: { type: 'Feature', properties: {}, geometry: squareOf(bounds) } })
   }
 
   // The assistant opened a place: focus its country (and US state) so the veil never hides it, fly
@@ -231,11 +282,17 @@ export default function MapPage() {
   }
 
   useEffect(() => {
-    if (!path.length || isDrawing) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) goTo(path.length - 1) }
+    if ((!path.length && !selection) || isDrawing) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.altKey || e.ctrlKey || e.metaKey) return
+      const target = e.target
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return
+      if (target instanceof HTMLElement && target.isContentEditable) return
+      stepBack()
+    }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  })
+  }, [path.length, selection, isDrawing, stepBack])
 
   const alertCount = Array.isArray(report.alerts) ? report.alerts.length : 0
   const isReportLoading = selection ? Object.values(report).some((v) => v === null) : false
@@ -245,6 +302,59 @@ export default function MapPage() {
     ? named ?? (selection.label === SPOT_LABEL && region ? `Square in ${crumbName(region)}` : selection.label)
     : region ? (region.level === 'county' && region.props.s ? `${crumbName(region)}, ${region.props.s}` : crumbName(region)) : 'Floods around the world'
   const zoomHint = !selection && view.zoom >= DETAIL_ZOOM ? 'Click a spot on the map to see the data there.' : null
+  const selectionCrumb = !selection ? null : selection.label === SPOT_LABEL ? 'Square' : selection.label === AREA_LABEL ? 'Area' : selection.label
+  const backTarget = selection
+    ? (region ? crumbName(region) : 'the world')
+    : path.length > 1 ? crumbName(path[path.length - 2]) : 'the world'
+  const backLabel = `Back to ${backTarget}`
+  const onRole = (next: AudienceRole) => {
+    setQuery({ role: next === 'explore' ? null : next })
+    if (next !== 'explore') openPanel()
+  }
+  const onToggleCar = () => {
+    setQuery({ car: carOn ? null : '1' })
+    if (!carOn) openPanel()
+  }
+  const onLocate = (at: LngLat) => {
+    setFlyTo({ center: at, zoom: 15 })
+    choose(select(at, 0.4, 'Parked car'))
+  }
+  const marks = useMemo(() => {
+    let approach: { origin: LngLat; compass: NonNullable<ReturnType<typeof estimateApproach>['compass']> } | null = null
+    if (role === 'school' && selection && schoolSamples.status === 'ready') {
+      const alert = firstFloodAlert(report.alerts)
+      const rain = report.rain && report.rain !== 'error' ? nextRainDay(report.rain.time, report.rain.mm, todayIndex(report.rain.time)) : null
+      const estimate = estimateApproach({
+        centerElevationM: schoolSamples.centerElevationM,
+        samples: schoolSamples.samples.filter((sample) => sample.distanceKm === SCHOOL_SAMPLE_KM),
+        water: schoolSamples.water,
+        alert: alert ? { event: alert.event, severity: alert.severity, onset: alert.onset, ends: alert.ends, expires: alert.expires } : null,
+        rain,
+      })
+      if (estimate.compass) approach = { origin: selection.center, compass: estimate.compass }
+    }
+    const parking = carOn && selection && carSamples.status === 'ready'
+      ? rankParking(carSamples.centerElevationM, carSamples.samples).suggestions.map((spot) => spot.point)
+      : []
+    const areas = role === 'responder' && responder
+      ? [
+        ...responder.response.map((area) => ({ bounds: area.bounds, role: 'response' as const })),
+        ...responder.staging.map((area) => ({ bounds: area.bounds, role: 'staging' as const })),
+      ]
+      : []
+    const sensorMarks = role === 'responder' && responder
+      ? [
+        ...responder.sensors.recorded.map((sensor) => ({ point: sensor.point, role: 'recorded' as const })),
+        ...responder.sensors.quiet.map((sensor) => ({ point: sensor.point, role: 'quiet' as const })),
+      ]
+      : []
+    return audienceMarks({
+      approach,
+      parking: parking.length && selection ? { origin: selection.center, points: parking } : null,
+      areas,
+      sensors: sensorMarks,
+    })
+  }, [role, carOn, selection, schoolSamples.status, schoolSamples.centerElevationM, schoolSamples.samples, schoolSamples.water, carSamples.status, carSamples.centerElevationM, carSamples.samples, report.alerts, report.rain, responder])
 
   return (
     <main className="map-page">
@@ -256,6 +366,7 @@ export default function MapPage() {
         sensors={sensors}
         floods={floods}
         circle={preview ?? selection?.circle ?? null}
+        marks={marks.features.length ? marks : EMPTY_MARKS}
         isDrawing={isDrawing}
         flyTo={flyTo}
         regions={history}
@@ -272,20 +383,26 @@ export default function MapPage() {
         onToggleDraw={isDrawing ? stopDrawing : startDrawing}
         searchNear={selection?.center ?? null}
         onPick={onPick}
+        carOn={carOn}
+        onToggleCar={onToggleCar}
       />
+      <RolePicker role={role} onChange={onRole} />
       <LayersCard layers={layers} onToggle={showOverlay}
         floods={floods} stormNote={stormNote} isOpen={isLayersOpen} onOpenChange={onLayersOpenChange}
-        legend={isLayersOpen || view.zoom >= 12 ? null : <MapLegend grid={path[0]?.props.k === 'USA' ? 'us' : 'world'} index={history.index} />} />
-      {path.length ? (
+        legend={isLayersOpen || view.zoom >= 12 ? null : <MapLegend grid={gridKind} index={history.index} />} />
+      {path.length || selection ? (
         <nav className="map-crumbs" aria-label="Map focus">
-          <button type="button" className="map-crumb map-crumb--back" onClick={() => goTo(path.length - 1)} aria-label="Back out one level">
+          <button type="button" className="map-crumb map-crumb--back" onClick={stepBack} aria-label={backLabel} aria-keyshortcuts="Escape">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg>
+            Back
           </button>
           <button type="button" className="map-crumb" onClick={() => goTo(0)}>World</button>
           {path.map((p, i) => (
-            <button key={p.level + p.props.k} type="button" className="map-crumb" aria-current={i === path.length - 1 ? 'location' : undefined}
+            <button key={p.level + p.props.k} type="button" className="map-crumb"
+              aria-current={!selection && i === path.length - 1 ? 'location' : undefined}
               onClick={() => goTo(i + 1)}>{crumbName(p)}</button>
           ))}
+          {selectionCrumb ? <span className="map-crumb map-crumb--here" aria-current="location" title={title}>{selectionCrumb}</span> : null}
         </nav>
       ) : null}
       {panelPresence.isMounted ? (
@@ -301,6 +418,12 @@ export default function MapPage() {
           presence={panelPresence.bind}
           area={
             <>
+              {carOn ? <MoveCar place={title} origin={selection?.center ?? null} samples={carSamples} report={report}
+                floods={floods && floods !== 'error' ? floods : null} onLocate={onLocate} /> : null}
+              {role === 'school' ? <SchoolView place={selection ? title : ''} samples={schoolSamples} report={report} /> : null}
+              {role === 'home' ? <HomeownerView selection={selection} place={title} report={report}
+                cellMeta={selection?.cell ? history.index?.cells[selection.cell.grid] : null} /> : null}
+              {role === 'responder' ? <ResponderView model={responder} onFocus={(bounds) => setFlyTo({ bounds, maxZoom: 11 })} /> : null}
               {selection ? null : <RegionSummary region={region} index={history.index} status={history.status} />}
               {selection ? <AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods}
                 cellMeta={selection.cell ? history.index?.cells[selection.cell.grid] : null} /> : null}

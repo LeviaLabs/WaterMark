@@ -24,6 +24,7 @@ import { markFetched } from '../../scripting/freshness'
 import { MAP_PALETTES } from '../../scripting/mapTheme'
 import { fmtDate, fmtDepthIn, UNITS } from '../../scripting/format'
 import { bboxesOverlap, NYC_BOUNDS, type BBox } from '../../scripting/region'
+import { selectionGrid, selectionStepForView } from '../../scripting/cells'
 import { DETAIL_ZOOM } from '../../scripting/choropleth'
 import { addFocusLayers, addRegionLayers, clearHover, hoverRegion, pickAt, syncRegionLayers, type RegionData } from './regionLayers'
 import type { MapPalette } from '../../scripting/mapTheme'
@@ -48,11 +49,11 @@ const FEMA_BOUNDS: BBox = [-180, -15, -64, 72]
 // while the parent zoom levels stay so zooming out shows the coarser map instantly.
 const TILE_CACHE = 96
 
-// NASA IMERG on GIBS goes up to zoom 6 (its finest tiles); closer zooms stretch those tiles with
-// linear smoothing, so the rain stays visible as a soft field instead of blocky pixels.
+// NASA IMERG on GIBS is published through zoom 6 (about 0.1°, roughly 10 km). Closer zooms used to
+// stretch those tiles with linear smoothing, which looked like detail the satellite does not have.
+// Nearest-neighbor keeps the real pixels, and the layer fades out just past its native zoom.
 const RAIN_MAX_ZOOM = 6
-// Visible at every zoom, a little stronger up close where it is the only color on the map.
-const RAIN_OPACITY: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 1, 0.55, 6, 0.65, 12, 0.7]
+const RAIN_OPACITY: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 1, 0.5, 6, 0.62, 8, 0]
 
 /** Points within the view plus half a screen on every side; the rest are dropped from the map. */
 function nearView<T extends FeatureCollection>(fc: T, map: maplibregl.Map): T {
@@ -99,18 +100,27 @@ function retouchBasemap(map: maplibregl.Map, t: MapPalette) {
     const src = ('source-layer' in layer ? layer['source-layer'] : '') ?? ''
     if (layer.type === 'background') map.setPaintProperty(id, 'background-color', b.background)
     else if (layer.type === 'fill' && src === 'water') map.setPaintProperty(id, 'fill-color', b.water)
-    else if (layer.type === 'fill' && /landcover|landuse|park/.test(src)) map.setLayoutProperty(id, 'visibility', 'none')
+    else if (layer.type === 'fill' && /landcover|landuse|park/.test(src)) {
+      // Kept off the world view. From street zoom they are real OpenStreetMap polygons, not an upscale.
+      from(id, 14, layer.minzoom)
+      map.setPaintProperty(id, 'fill-opacity', 0.45)
+    }
     else if (layer.type === 'fill' && src === 'building') from(id, 14, layer.minzoom)
     else if (layer.type === 'line' && (src === 'waterway' || src === 'transportation' || src === 'aeroway')) {
       map.setPaintProperty(id, 'line-color', src === 'waterway' ? b.water : b.road)
-      map.setPaintProperty(id, 'line-opacity', 0.6)
+      map.setPaintProperty(id, 'line-opacity', ['interpolate', ['linear'], ['zoom'], 10, 0.45, 14, 0.95])
       from(id, 10, layer.minzoom)
     } else if (layer.type === 'line' && src === 'boundary') {
       map.setPaintProperty(id, 'line-color', b.border)
       map.setPaintProperty(id, 'line-opacity', 0.5)
     } else if (layer.type === 'fill' && src === 'transportation') from(id, 12, layer.minzoom)
     else if (layer.type === 'symbol') {
-      if (/poi|housenumber|aerialway|airport|aerodrome|oneway|shield/.test(id) || src === 'aerodrome_label') {
+      if (/housenumber/.test(id)) {
+        from(id, 16, layer.minzoom)
+        map.setPaintProperty(id, 'text-color', b.label)
+        map.setPaintProperty(id, 'text-halo-color', b.labelHalo)
+        continue
+      } else if (/poi|aerialway|airport|aerodrome|oneway|shield/.test(id) || src === 'aerodrome_label') {
         map.setLayoutProperty(id, 'visibility', 'none')
         continue
       }
@@ -186,6 +196,8 @@ interface Props {
   floods: Loadable<GlobalFloodCollection>
   /** The selected circle, or the live preview while drawing. */
   circle: Feature<Polygon> | null
+  /** Approach arrow, car suggestions, and ranked squares. Empty when no audience tool is showing them. */
+  marks: FeatureCollection
   isDrawing: boolean
   flyTo: FlyTarget | null
   onDrawClick: (at: LngLat) => void
@@ -256,6 +268,9 @@ export function FloodMap(props: Props) {
       refreshExpiredTiles: false,
       // Sharp enough on high-density screens without drawing 9x the pixels on a 3x phone.
       pixelRatio: Math.min(devicePixelRatio, 2),
+      // OpenFreeMap's vector tiles stop at 14 and stay sharp a few levels past that. Further zoom
+      // only enlarges them, and the coarse rasters have already faded, so the camera stops here.
+      maxZoom: 18,
       fadeDuration: 200,
     })
     mapRef.current = map
@@ -276,7 +291,7 @@ export function FloodMap(props: Props) {
         attribution: 'Rain: NASA GPM IMERG via GIBS' })
       // Starts invisible; fades in once (see onSourceData) so the rain appears as one image.
       map.addLayer({ id: 'rain', type: 'raster', source: 'rain', layout: { visibility: vis('rain') },
-        paint: { 'raster-opacity': 0, 'raster-resampling': 'linear', 'raster-fade-duration': 0 } })
+        paint: { 'raster-opacity': 0, 'raster-resampling': 'nearest', 'raster-fade-duration': 0 } })
       map.setPaintProperty('rain', 'raster-opacity-transition', { duration: 600, delay: 0 })
       rainShown = false
 
@@ -297,6 +312,11 @@ export function FloodMap(props: Props) {
           ['match', ['get', 'Flooding_Category'], 2, t.stormOpacity[1], t.stormOpacity[0]]],
       } })
 
+      map.addSource('pick-grid', { type: 'geojson', data: EMPTY })
+      map.addLayer({ id: 'pick-grid', type: 'line', source: 'pick-grid', paint: {
+        'line-color': t.regionLine, 'line-width': 1, 'line-opacity': 0.45,
+      } })
+
       map.addSource('sel', { type: 'geojson', data: p.circle ?? EMPTY })
       map.addLayer({ id: 'sel-fill', type: 'fill', source: 'sel', minzoom: SELECTION_MIN_ZOOM, paint: { 'fill-color': t.selectionFill, 'fill-opacity': t.selectionFillOpacity } })
       map.addLayer({ id: 'sel-line', type: 'line', source: 'sel', minzoom: SELECTION_MIN_ZOOM,
@@ -315,9 +335,29 @@ export function FloodMap(props: Props) {
         'circle-color': ['case', ['get', 'active'], ['get', 'color'], t.hollow],
         'circle-stroke-color': ['get', 'color'], 'circle-stroke-width': 2.5,
       } })
+
+      map.addSource('aud', { type: 'geojson', data: p.marks })
+      map.addLayer({ id: 'aud-fill', type: 'fill', source: 'aud', filter: ['==', ['geometry-type'], 'Polygon'], paint: {
+        'fill-color': ['match', ['get', 'kind'], 'response', t.flood[5], 'staging', t.flood[2], t.glow],
+        'fill-opacity': 0.12,
+      } })
+      map.addLayer({ id: 'aud-outline', type: 'line', source: 'aud', filter: ['==', ['geometry-type'], 'Polygon'], paint: {
+        'line-color': ['match', ['get', 'kind'], 'response', t.flood[6], 'staging', t.flood[3], t.glow],
+        'line-width': 2.5,
+      } })
+      map.addLayer({ id: 'aud-line', type: 'line', source: 'aud', filter: ['in', ['geometry-type'], ['literal', ['LineString', 'MultiLineString']]], paint: {
+        'line-color': ['match', ['get', 'kind'], 'suggestion', t.sensorFlooded, 'approach', t.glow, t.selectionLine],
+        'line-width': 3,
+      } })
+      map.addLayer({ id: 'aud-point', type: 'circle', source: 'aud', filter: ['==', ['geometry-type'], 'Point'], paint: {
+        'circle-radius': 7,
+        'circle-color': ['match', ['get', 'kind'], 'suggestion', t.sensorFlooded, 'car', t.selectionLine, 'sensor', t.sensorFlooded, t.hollow],
+        'circle-stroke-color': t.sensorStroke, 'circle-stroke-width': 2,
+      } })
       // The dark veil over everything outside the focused region sits above the data overlays
       // and under the selection and the points.
       addFocusLayers(map, t, p.regions, 'sel-fill')
+      refreshNote.current()
     }
     let rainShown = false
     map.on('style.load', addOverlays)
@@ -342,6 +382,13 @@ export function FloodMap(props: Props) {
       if (!bboxesOverlap(view, NYC_BOUNDS)) notes.push('The heavy-rain model and FloodNet sensors cover New York City only.')
       else if (z < DETAIL_ZOOM) notes.push('Zoom in to New York City to see the heavy-rain model and street sensors.')
       if (latest.current.layers.fema && z < FEMA_MIN_ZOOM) notes.push('Zoom in to a US city to see FEMA flood zones.')
+      if (latest.current.layers.rain && z > RAIN_MAX_ZOOM) notes.push('Rain is hidden this close. NASA IMERG is about 0.1° (zoom 6) and is not stretched over the streets.')
+      const step = selectionStepForView(view, z)
+      const lines = step ? selectionGrid(view, step) : null
+      const gridSource = map.getSource('pick-grid') as GeoJSONSource | undefined
+      gridSource?.setData(lines
+        ? { type: 'Feature', properties: { kind: 'selection-grid' }, geometry: { type: 'MultiLineString', coordinates: lines } }
+        : EMPTY)
       latest.current.onStormNote(notes.length ? notes.join(' ') : null)
       latest.current.onViewChange(view, z)
     }
@@ -435,16 +482,21 @@ export function FloodMap(props: Props) {
   }, [props.scheme])
 
   // Flood-history data, class breaks and the opened state.
+  // Remember the snapshot that was actually drawn. Checking for a countries-fill layer left this
+  // stuck on the first world view (that layer is countries-line), so stepping back to World
+  // compared equal and the veil never cleared.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    syncRegionLayers(map, MAP_PALETTES[shownScheme.current], props.regions, shownRegions.current)
-    if (map.getLayer('countries-fill')) shownRegions.current = props.regions
+    if (syncRegionLayers(map, MAP_PALETTES[shownScheme.current], props.regions, shownRegions.current)) {
+      shownRegions.current = props.regions
+    }
   }, [props.regions])
 
   // Data and selection.
   useEffect(() => { if (mapRef.current) syncPoints(mapRef.current) }, [props.sensors, props.floods])
   useEffect(() => { (mapRef.current?.getSource('sel') as GeoJSONSource | undefined)?.setData(props.circle ?? EMPTY) }, [props.circle])
+  useEffect(() => { (mapRef.current?.getSource('aud') as GeoJSONSource | undefined)?.setData(props.marks) }, [props.marks])
 
   // Layer toggles.
   useEffect(() => {

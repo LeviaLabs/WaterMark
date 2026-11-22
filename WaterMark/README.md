@@ -1,78 +1,38 @@
-# React + TypeScript + Vite
+# WaterMark web app
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Vite + React 19 + TypeScript frontend for WaterMark. The project brief is in the [root README](../README.md); the rules for working in this folder are in [AGENTS.md](./AGENTS.md) (Frontend conventions).
 
-Currently, two official plugins are available:
+## Commands
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm ci          # install the locked dependencies
+npm run dev     # local dev server
+npm test        # Vitest unit tests in tests/
+npm run lint    # ESLint
+npm run build   # typecheck + production build into dist/
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+## What is here
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **Landing page** (`/`): the hero is the WaterMark droplet as a large glass drop of water over a slow aurora. The water inside sloshes as the pointer moves, a thin waterline runs from its surface across the page, and scrolling down fills the drop on the way into the city. The title's second line decrypts on load and each word re-decrypts on hover. Then a scroll story ("How it works"): a 2D SVG city (lit windows at night, sun and clouds by day) whose curved water rises continuously with the scroll, while each step shows a working feature panel (place search, NWS alerts, rainfall chart, stormwater scenarios, sensor and tide readings, circle-an-area, assistant, alert digest). Every panel uses clearly labeled example data until it is wired to the data API. Then the page sinks under the sea: each kind of evidence is a fish of its own color swimming left to right or right to left (click one to open its card), with the data principles on the seabed, then the source list, who it is for, team credits with build status, and a footer thanking EvoHacks II and its sponsors. Smooth scrolling (Lenis), view-transition theme and page changes, and sections below the first screen (and each story panel) load only as they come on screen, with skeletons until they arrive. No WebGL, so it works without hardware graphics.
+- **Light and dark mode**: `src/context/ThemeProvider.tsx`, remembered in `localStorage`, defaulting to the system setting.
+- **Routing**: React Router in `src/App.tsx`. `/map` is reserved for the map page (Ryan Lin); `/login` and `/signup` are a shell until MojoAuth sign-in (Decong Huang) is connected.
+- **Astryx design system**: the custom `watermark` theme (`themes/watermark/`, generated into `src/themes/`) styles Astryx controls such as `Button`, `TextInput` and `Avatar`. Page layout and visuals are plain CSS in `src/styling/`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Folder map
 
+```text
+public/            icons and web manifest only
+src/
+  App.tsx          providers + routes
+  components/      layout/, hero/, landing/, common/, pages/, city/ (SVG city), features/ (evidence panels)
+  styling/         CSS files (tokens.css holds the theme colors)
+  scripting/       pure logic: theme rules, city/ geometry, evidence/ API contract mirror + formatting, text/, content/
+  context/         React contexts and providers
+  hooks/           custom hooks
+  services/        integrations with outside tools: geocoding/photon.ts (place search through Photon,
+                   keyless, OpenStreetMap data, credited in the panel)
+  assets/          images imported by code
+  themes/          generated Astryx theme (do not edit by hand)
+tests/             Vitest tests
 ```

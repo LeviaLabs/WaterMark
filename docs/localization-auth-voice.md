@@ -117,8 +117,8 @@ Ryan Bergman owns the ElevenLabs integration. His steps:
   - Astryx components already installed on `main`: `Selector`, `SelectorOption`, `HStack`,
     `VStack`, `Text`, `Button`, `Blockquote`, `Link`, `Divider`, `Heading`.
   - Browser `Intl` APIs.
-  - Node's built-in test runner (`node --test`).
-- **Shared file changed:** one `test` script line in `WaterMark/package.json`.
+  - Vitest, already on `main` (`npm test` runs `vitest run`); assertions use `node:assert`.
+- **Shared files changed:** none. `WaterMark/package.json` and the lockfile match `main`.
 - **External HTTP calls: none.**
 - **Browser storage:** one `localStorage` key, `wm-locale`, holding only the language code.
 - **Credentials:** none used. Proposed names for later: `VITE_MOJOAUTH_PUBLIC_KEY` (only if
@@ -172,7 +172,7 @@ To roll back, revert the mount commit.
 ## 8. Tests
 
 ```text
-cd WaterMark && npm test     # node --test "tests/**/*.test.ts", 40 tests
+cd WaterMark && npm test     # vitest run, tests/**/*.test.ts (this PR adds auth + localization tests)
 ```
 
 The tests cover:
@@ -191,10 +191,9 @@ at 1280 px and 375 px. There is no DOM test runner in the repo.
 - **Styling.** The PROMPTING tab and PR #5 put custom visuals in `src/styling/*.css`. These
   components are standard controls, which PR #5 says should use Astryx components and tokens.
   So they have no CSS file and no `styling/` entry. Both rules agree here.
-- **Test runner.** PR #5 uses Vitest (`vitest run`, `tests/**/*.test.ts`). `main` has no Vitest
-  yet, and adding it here would touch `vite.config.ts` and the lockfile that PR #5 also changes.
-  These tests already live in `WaterMark/tests/`. After PR #5 merges, switch the two
-  `node:test` imports to `vitest` and keep its `test` script. `node:assert` works under Vitest.
+- **Test runner.** `main` uses Vitest (`vitest run`, `tests/**/*.test.ts`, added with the landing
+  page in PR #8). This PR's tests import `describe`/`it` from `vitest` and keep `node:assert`, so
+  they run with the rest of the suite and need no script of their own.
 
 ## 10. Translation rules
 

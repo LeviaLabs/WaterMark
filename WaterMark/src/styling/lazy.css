@@ -1,0 +1,133 @@
+/*
+ * Lazy landing sections (components/common/LazySection.tsx): a shimmering
+ * skeleton holds the space while a section's code loads, then the section
+ * fades and lifts in over it. Also a small stagger helper for lists.
+ */
+
+.lazy-slot {
+  position: relative;
+}
+
+.lazy-content {
+  animation: lazy-in 0.9s var(--ease-out) backwards;
+}
+
+@keyframes lazy-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+.skeleton {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--section-space) var(--gutter) 0;
+  animation: fade-in 0.6s var(--ease-out) both;
+}
+
+.skeleton-line,
+.skeleton-block {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+/* One bright band sweeps across every bone. */
+.skeleton-line::after,
+.skeleton-block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--accent) 16%, transparent) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: shimmer 1.5s var(--ease-in-out) infinite;
+  animation-delay: inherit;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-line--eyebrow {
+  width: 8rem;
+  height: 0.8rem;
+  margin-bottom: 6px;
+}
+
+.skeleton-line--title {
+  width: min(32rem, 80%);
+  height: clamp(2rem, 1.4rem + 2vw, 3rem);
+}
+
+.skeleton-line--short {
+  width: min(20rem, 55%);
+}
+
+.skeleton-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.skeleton-block {
+  height: 3.2rem;
+  border-radius: var(--radius-md, 14px);
+}
+
+.skeleton--cards .skeleton-body {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 18px;
+}
+
+.skeleton--cards .skeleton-block {
+  height: 15rem;
+  border-radius: var(--radius-lg);
+}
+
+.skeleton--stage .skeleton-body {
+  grid-template-columns: 1fr 1.2fr;
+}
+
+.skeleton--stage .skeleton-block {
+  height: 18rem;
+  border-radius: var(--radius-lg);
+}
+
+.skeleton--stage .skeleton-block:nth-child(n + 3) {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .skeleton--stage .skeleton-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Children of a revealed block rise in one after another (set --i on each). */
+.stagger-item {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.6s var(--ease-out),
+    transform 0.75s var(--ease-spring);
+  transition-delay: calc(var(--stagger-base, 0.1s) + var(--i, 0) * var(--stagger-step, 70ms));
+}
+
+.is-visible .stagger-item {
+  opacity: 1;
+  transform: none;
+}
+
+/* Team cards: work items follow the card in. */
+.member-work .stagger-item {
+  --stagger-base: 0.35s;
+  --stagger-step: 80ms;
+}

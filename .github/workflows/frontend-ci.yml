@@ -1,0 +1,322 @@
+# Frontend quality gates for the Vite app in WaterMark/.
+# A missing npm test script does not run tests and is not a pass.
+# That step stays skipped. The job summary marks Tests as NOT RUN.
+
+name: Frontend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: WaterMark frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: WaterMark
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          # No .nvmrc and no engines field on the app package.
+          # WaterMark/package-lock.json requires Node >=22.13.0
+          # (@astryxdesign/cli) and ESLint 10 accepts ^22.13.0 or >=24.
+          # Node 20 does not meet that floor. Major 22 resolves to a
+          # current 22.x release, which is past 22.13.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: WaterMark/package-lock.json
+
+      - name: Install
+        id: install
+        run: |
+          set -euo pipefail
+          npm ci
+          echo "PASS: install (npm ci)" >> "${GITHUB_STEP_SUMMARY:?}"
+
+      - name: Typecheck
+        id: typecheck
+        run: |
+          set -euo pipefail
+          summary="${GITHUB_STEP_SUMMARY:?}"
+          plan="$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const scripts = pkg.scripts || {};
+            const typecheck = typeof scripts.typecheck === "string" ? scripts.typecheck.trim() : "";
+            if (typecheck) {
+              console.log("script");
+              process.exit(0);
+            }
+            const names = fs.readdirSync(".").filter((name) => /^tsconfig.*\.json$/.test(name)).sort();
+            const projects = [];
+            let solution = false;
+            for (const name of names) {
+              const text = fs.readFileSync(name, "utf8");
+              let cfg = null;
+              try {
+                cfg = JSON.parse(text);
+              } catch {
+                projects.push(name);
+                continue;
+              }
+              const references = Array.isArray(cfg.references) ? cfg.references : [];
+              const files = Array.isArray(cfg.files) ? cfg.files : null;
+              const include = cfg.include;
+              const emptySolution = references.length > 0 && files && files.length === 0 && include == null;
+              if (emptySolution) {
+                solution = true;
+                continue;
+              }
+              projects.push(name);
+            }
+            if (projects.length > 0) {
+              console.log("projects");
+              for (const name of projects) console.log(name);
+              process.exit(0);
+            }
+            if (solution) {
+              console.log("build");
+              process.exit(0);
+            }
+            console.log("skip");
+          ')"
+          mode="$(printf '%s\n' "${plan}" | head -n 1)"
+          if [[ "${mode}" == "skip" ]]; then
+            reason="no typecheck script and no tsconfig"
+            echo "::warning::SKIPPED: ${reason}"
+            echo "SKIPPED: ${reason}" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" == "script" ]]; then
+            npm run typecheck
+            echo "PASS: typecheck (npm run typecheck)" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" == "build" ]]; then
+            # A solution tsconfig with "files": [] does not check referenced
+            # projects under `tsc --noEmit -p`. Use the build-mode compiler.
+            npx tsc -b --pretty false
+            echo "PASS: typecheck (npx tsc -b --pretty false)" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" != "projects" ]]; then
+            echo "::error::unrecognized typecheck plan: ${mode}"
+            exit 1
+          fi
+          mapfile -t projects < <(printf '%s\n' "${plan}" | tail -n +2)
+          if [[ "${#projects[@]}" -eq 0 ]]; then
+            echo "::error::typecheck project list was empty"
+            exit 1
+          fi
+          for project in "${projects[@]}"; do
+            npx tsc --noEmit -p "${project}"
+          done
+          echo "PASS: typecheck (npx tsc --noEmit -p ${projects[*]})" >> "${summary}"
+
+      - name: Lint
+        id: lint
+        run: |
+          set -euo pipefail
+          summary="${GITHUB_STEP_SUMMARY:?}"
+          mode="$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const scripts = pkg.scripts || {};
+            const lint = typeof scripts.lint === "string" ? scripts.lint.trim() : "";
+            if (lint) {
+              console.log("script");
+              process.exit(0);
+            }
+            const configs = [
+              "eslint.config.js",
+              "eslint.config.mjs",
+              "eslint.config.cjs",
+              "eslint.config.ts",
+              ".eslintrc",
+              ".eslintrc.js",
+              ".eslintrc.cjs",
+              ".eslintrc.json",
+              ".eslintrc.yml",
+              ".eslintrc.yaml"
+            ];
+            if (configs.some((file) => fs.existsSync(file))) {
+              console.log("config");
+              process.exit(0);
+            }
+            console.log("skip");
+          ')"
+          if [[ "${mode}" == "skip" ]]; then
+            reason="no lint script and no eslint config"
+            echo "::warning::SKIPPED: ${reason}"
+            echo "SKIPPED: ${reason}" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" == "script" ]]; then
+            npm run lint
+            echo "PASS: lint (npm run lint)" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" != "config" ]]; then
+            echo "::error::unrecognized lint plan: ${mode}"
+            exit 1
+          fi
+          npx eslint .
+          echo "PASS: lint (npx eslint .)" >> "${summary}"
+
+      - name: Build
+        id: build
+        # No VITE_* variables are read by the app, and there is no .env.example.
+        # Do not put real secrets here. If a later build requires VITE_* names,
+        # set obviously fake placeholders (for example VITE_EXAMPLE=placeholder).
+        run: |
+          set -euo pipefail
+          summary="${GITHUB_STEP_SUMMARY:?}"
+          mode="$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const scripts = pkg.scripts || {};
+            const build = typeof scripts.build === "string" ? scripts.build.trim() : "";
+            console.log(build ? "script" : "skip");
+          ')"
+          if [[ "${mode}" == "skip" ]]; then
+            reason="no build script in package.json"
+            echo "::warning::SKIPPED: ${reason}"
+            echo "SKIPPED: ${reason}" >> "${summary}"
+            exit 0
+          fi
+          if [[ "${mode}" != "script" ]]; then
+            echo "::error::unrecognized build plan: ${mode}"
+            exit 1
+          fi
+          npm run build
+          echo "PASS: build (npm run build)" >> "${summary}"
+
+      - name: Detect npm test script
+        id: detect-test
+        run: |
+          set -euo pipefail
+          has_test="$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const scripts = pkg.scripts || {};
+            const test = typeof scripts.test === "string" ? scripts.test.trim() : "";
+            process.stdout.write(test ? "true" : "false");
+          ')"
+          if [[ "${has_test}" != "true" && "${has_test}" != "false" ]]; then
+            echo "::error::unrecognized test detection result"
+            exit 1
+          fi
+          echo "has_test=${has_test}" >> "${GITHUB_OUTPUT:?}"
+
+      - name: Run npm test
+        id: test
+        if: steps.detect-test.outputs.has_test == 'true'
+        run: |
+          set -euo pipefail
+          npm test
+
+      - name: "Tests: NOT RUN (no npm test script on main)"
+        id: tests-not-run
+        if: steps.detect-test.outputs.has_test == 'false'
+        run: |
+          set -euo pipefail
+          echo "::warning::Test suite: NOT RUN, because the current main branch has no npm test script. This is not a pass."
+
+      - name: Quality gate summary
+        if: always()
+        working-directory: ${{ github.workspace }}
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          HAS_TEST: ${{ steps.detect-test.outputs.has_test }}
+        run: |
+          set -euo pipefail
+          summary_file="${GITHUB_STEP_SUMMARY:?}"
+
+          result_for() {
+            case "$1" in
+              success) printf '%s' "PASSED" ;;
+              failure) printf '%s' "FAILED" ;;
+              *) printf '%s' "NOT RUN" ;;
+            esac
+          }
+
+          reason_for() {
+            local outcome="$1"
+            local result="$2"
+            if [[ "${result}" == "PASSED" ]]; then
+              printf '%s' ""
+              return
+            fi
+            if [[ "${result}" == "FAILED" ]]; then
+              printf '%s' "command failed"
+              return
+            fi
+            case "${outcome}" in
+              skipped) printf '%s' "step was skipped" ;;
+              cancelled) printf '%s' "step was cancelled" ;;
+              "") printf '%s' "step did not run" ;;
+              *) printf '%s' "outcome: ${outcome}" ;;
+            esac
+          }
+
+          install_outcome="${INSTALL_OUTCOME-}"
+          typecheck_outcome="${TYPECHECK_OUTCOME-}"
+          lint_outcome="${LINT_OUTCOME-}"
+          build_outcome="${BUILD_OUTCOME-}"
+          test_outcome="${TEST_OUTCOME-}"
+          has_test="${HAS_TEST-}"
+
+          install_result="$(result_for "${install_outcome}")"
+          typecheck_result="$(result_for "${typecheck_outcome}")"
+          lint_result="$(result_for "${lint_outcome}")"
+          build_result="$(result_for "${build_outcome}")"
+          install_reason="$(reason_for "${install_outcome}" "${install_result}")"
+          typecheck_reason="$(reason_for "${typecheck_outcome}" "${typecheck_result}")"
+          lint_reason="$(reason_for "${lint_outcome}" "${lint_result}")"
+          build_reason="$(reason_for "${build_outcome}" "${build_result}")"
+
+          if [[ "${has_test}" == "true" && "${test_outcome}" == "success" ]]; then
+            tests_result="PASSED"
+            tests_reason=""
+          elif [[ "${has_test}" == "true" && "${test_outcome}" == "failure" ]]; then
+            tests_result="FAILED"
+            tests_reason="npm test failed"
+          elif [[ "${has_test}" == "false" ]]; then
+            tests_result="NOT RUN"
+            tests_reason="Test suite: NOT RUN, because the current main branch has no npm test script. This is not a pass."
+          else
+            tests_result="NOT RUN"
+            tests_reason="npm test did not run"
+          fi
+
+          {
+            echo "### Quality gates"
+            echo ""
+            echo "| Check | Result | Reason |"
+            echo "| --- | --- | --- |"
+            echo "| Install | ${install_result} | ${install_reason} |"
+            echo "| Typecheck | ${typecheck_result} | ${typecheck_reason} |"
+            echo "| ESLint | ${lint_result} | ${lint_reason} |"
+            echo "| Build | ${build_result} | ${build_reason} |"
+            echo "| Tests | ${tests_result} | ${tests_reason} |"
+          } >> "${summary_file}"

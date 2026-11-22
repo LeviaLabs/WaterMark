@@ -94,13 +94,63 @@ Use source adapters to normalize provider payloads. Keep `observedAt`, `forecast
 
 **Proposed repository paths. Team ownership is confirmed by highlights; actual paths are unverified:**
 
-- `apps/web/`: UI, map, charts, controls, responsive and accessible behavior.
+- `apps/web/`: UI, map, charts, controls, responsive and accessible behavior. **Actual location: `WaterMark/`** (see Frontend conventions below).
 - `supabase/functions/`: external API adapters, request validation, CORS, upstream data quality.
 - `supabase/migrations/`: schema, PostGIS, indexes, RLS.
 - `packages/shared/`: API types, data-status enums, units, and severity provenance.
 - `docs/`: verified data-source catalog, contracts, and demo evidence.
 
 Adapt paths to the existing repository. Do not create this speculative tree unless authorized.
+
+## Frontend conventions (set by Ryan B, landing page and frontend owner)
+
+The web app is the Vite + React + TypeScript project in **`WaterMark/`**. Every path below is relative to that folder. Follow these rules for all frontend work.
+
+### File structure
+
+| Path | Holds |
+| --- | --- |
+| `public/` | Only files served as-is: the browser icons (`favicon.svg`, `icon-maskable.svg`) and `site.webmanifest`. No Vite or React template assets. |
+| `index.html` | Page metadata and the tiny pre-paint script that sets `data-theme` (keep it in sync with `src/scripting/theme/themeStorage.ts`). |
+| `src/main.tsx` | Renders `<App />` and nothing else. |
+| `src/App.tsx` | Providers, global stylesheet imports and **every React Router route**. A new page is a new `<Route>` here; secondary pages are `lazy()`-loaded. |
+| `src/components/` | React components, grouped as `layout/`, `hero/`, `landing/`, `common/` (incl. `SplitText` title animation with decrypt, `RollText` hover text, `LazySection` and `ScrollArea`, an inner scroll area with a custom thumb), `pages/`, `city/` (the SVG flooding city in "How it works"), `hero/` (the glass droplet, `Droplet`) and `features/` (reusable evidence panels typed against the backend contract). |
+| `src/styling/` | All CSS. Imported once in `App.tsx`, applied with `className`. Design tokens (colors per theme, spacing, fonts) live in `tokens.css`. |
+| `src/scripting/` | Pure logic with no React and no network: theme rules, city geometry (`city/`), custom scrollbar math (`scroll/`), frontend mirror of the API contract plus formatting (`evidence/`), title splitting and the decrypt effect (`text/`), landing-page content and clearly labeled example data (`content/`), fish and bubble layout for the underwater evidence section (`sea/`) and lazy loading (`lazy/`). |
+| `src/context/` | React contexts and their providers (e.g. `ThemeContext` + `ThemeProvider`). Keep the context object in a `.ts` file and the provider in a `.tsx` file. |
+| `src/hooks/` | Custom hooks (`useTheme`, `useInView`, `useScrollProgress`, `usePointerTilt`, `usePointerParallax`, `useMediaQuery`, `useSmoothScroll` (Lenis)). |
+| `src/services/` | Code that integrates outside tools and providers (Supabase, ElevenLabs, LLMs), one folder per integration. |
+| `src/assets/` | Images and SVGs imported by code. |
+| `src/themes/` | **Generated** Astryx theme. Do not edit; change it with `npx astryx experimental theme editor set watermark …` (source in `themes/watermark/`). |
+| `tests/` | Vitest tests (`npm test`). Experiments and checks go here, not into app code. |
+
+### Styling
+
+- **No Tailwind or other utility-class frameworks.** Write CSS files in `src/styling/` and use class names. Ryan B reviews this code and does not use Tailwind.
+- Use the tokens in `tokens.css`; do not hardcode theme colors elsewhere. City colors (sky, buildings, lit windows, water) are tokens too and crossfade between day and night.
+- This team rule overrides Astryx's generic agent advice ("no `<div>`, no imported CSS"). Astryx provides the theme and controls (`Button`, `TextInput`, `Avatar`); page layout and the visual design are our own CSS.
+- Light and dark mode come from `ThemeProvider`: it sets `data-theme` on `<html>` for our CSS and passes the same `mode` to Astryx's `<Theme>`. Style both modes for anything you add.
+- Glass surfaces: `.glass-panel` (real `backdrop-filter` blur, use sparingly) and `.glass-card` (cheap translucent gradient, fine in grids). 3D hover tilt: wrap content in `TiltCard`.
+
+### Performance (desktop and mobile)
+
+- No `console.log` left in code, no `setInterval`, no artificial waits or timeouts, and no listeners that are not needed.
+- Prefer `IntersectionObserver` to scroll listeners. When scroll position is truly needed, attach a **passive** listener only while the element is on screen and throttle work to `requestAnimationFrame` (see `useScrollProgress`).
+- Animate only `transform` and `opacity`. Keep `backdrop-filter` to a handful of elements.
+- Graphics are plain SVG and CSS, no WebGL or canvas, so they render without hardware acceleration. The city is generated once from seeded geometry (`scripting/city/`); windows are one SVG `<pattern>` per layer; waves are periodic paths slid with `transform`; the water level is one `--level` CSS variable. In "How it works" the water level follows the scroll through `--progress`. The hero droplet is pure CSS: its glass and water are cut to the logo's outline with one mask, the waves, light and bubbles are transform loops, and it tips and fills from two variables the hero already writes (`--px` from the pointer, `--progress` from the scroll). The underwater fish, bubbles and seaweed are CSS loops. Animations pause off screen (`.city--paused`, `.hero--still`). Keep new graphics to the same rules.
+- Smooth scrolling is Lenis (`useSmoothScroll`); its frame loop runs only while scrolling. Inner scroll areas use `ScrollArea` (no native scrollbar, a slim custom thumb) or at least `data-lenis-prevent`. Theme switches and page changes use View Transitions (`transitions.css`).
+- Landing sections below the first screen, and each "How it works" panel, are code-split with `chunk()` and load only as they come on screen, with a skeleton until they arrive (`LazySection`, `FeaturePreview`). Anchor ids live on the `LazySection`, not inside the section; anchor clicks load every section first so the jump lands exactly.
+- Animations always run, even when the operating system asks for reduced motion (team decision by Ryan B): do not add `prefers-reduced-motion` overrides. Check every change at a phone width (375 px) as well as desktop.
+- Keep state local. Use context only for app-wide state (theme now; auth and locale when they are integrated).
+
+### Calling backends and AI models
+
+These are the baseline rules; Ryan B will extend them when backend work starts.
+
+- Keep fetch requests simple: one small typed function per endpoint in `src/services/<integration>/`, plain `fetch`, an `AbortController` for cancellation, and validation of the response shape before use. No polling loops.
+- Never put API keys in frontend code. Call LLM and voice providers through Supabase Edge Functions; document environment-variable **names** only.
+- When calling a **chat-completions model that is used for logic** (routing, classification, extraction, choosing data to fetch) rather than replying directly to a user, always give it **function tools** (tool/function calling with a JSON schema) and require it to answer through a tool call. Parse and validate the tool-call arguments, then pass them into our own typed functions, and feed those functions' results back into the app or the conversation. Do not parse free text for program logic.
+- A model that replies to users may answer in text, but only to summarize cited, structured data it was given (see Safety-sensitive capabilities).
 
 ## Git and parallel-agent collaboration
 

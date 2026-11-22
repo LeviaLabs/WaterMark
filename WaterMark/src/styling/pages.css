@@ -1,0 +1,124 @@
+/* Log in / sign up, the map placeholder and 404. */
+
+.auth {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: max(100svh, 42rem);
+  padding: 7rem var(--gutter) 4rem;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--sky-top);
+}
+
+.city.auth-city {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.auth-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(0deg, var(--bg) 0%, transparent 30%);
+  pointer-events: none;
+}
+
+.auth-card {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 420px);
+  padding: clamp(28px, 5vw, 40px);
+  border-radius: var(--radius-xl);
+  animation: hero-rise 0.8s var(--ease-out) both;
+}
+
+.auth-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.auth-lede {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-notice {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--kind-historical) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--kind-historical) 12%, transparent);
+  font-size: 0.92rem;
+}
+
+.auth-switch {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.auth-switch a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.placeholder-page {
+  display: grid;
+  place-items: center;
+  min-height: 90svh;
+  padding: 120px var(--gutter) 40px;
+  background:
+    radial-gradient(60% 50% at 70% 20%, var(--orb-a), transparent 70%),
+    radial-gradient(50% 40% at 20% 80%, var(--orb-b), transparent 70%);
+}
+
+.placeholder-card {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  max-width: 520px;
+  padding: clamp(32px, 6vw, 52px);
+  text-align: center;
+  border-radius: var(--radius-xl);
+}
+
+.placeholder-card h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  font-weight: 500;
+}
+
+.placeholder-card p {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+}
+
+.placeholder-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.placeholder-card .placeholder-code {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 4.5rem;
+  line-height: 1;
+  color: var(--accent);
+}

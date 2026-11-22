@@ -1,0 +1,226 @@
+/*
+ * Hero: the headline on the left and the glass droplet on the right
+ * (Droplet.tsx, droplet.css) over an aurora.
+ */
+
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: max(100svh, 38rem);
+  padding: clamp(6.5rem, 4rem + 8svh, 10rem) var(--gutter) clamp(9rem, 6rem + 10svh, 12rem);
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--bg);
+}
+
+/* A soft wash behind the words so they stay readable over the chart. */
+.hero-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 60% at 16% 40%, color-mix(in srgb, var(--bg) 75%, transparent), transparent 72%),
+    linear-gradient(0deg, var(--bg) 0%, transparent 16%);
+}
+
+/* The map behind the words is interactive: let the pointer through except on text and controls. */
+.hero-content {
+  pointer-events: none;
+}
+
+.hero-eyebrow,
+.hero-title .split-word,
+.hero-lede,
+.hero-actions > * {
+  pointer-events: auto;
+}
+
+.hero-content {
+  position: relative;
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: auto;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 1.5rem;
+  padding: 6px 14px 6px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-fill);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  animation: pop-in 0.9s var(--ease-spring) both;
+}
+
+.hero-eyebrow-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.hero-eyebrow-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: ping 2.4s var(--ease-out) infinite;
+}
+
+.hero-title {
+  margin: 0 0 1.5rem;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 1.6rem + 6vw, 7.4rem);
+  font-weight: 500;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-shadow: 0 2px 40px color-mix(in srgb, var(--bg) 80%, transparent);
+}
+
+.hero-lede {
+  max-width: 40rem;
+  margin: 0 0 2.25rem;
+  color: var(--text);
+  opacity: 0.9;
+  font-size: clamp(1.02rem, 0.9rem + 0.45vw, 1.25rem);
+  animation: rise-in 1s 1.1s var(--ease-out) both;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 26px;
+  animation: rise-in 1s 1.3s var(--ease-out) both;
+}
+
+.hero-secondary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hero-secondary svg {
+  transition: transform 0.4s var(--ease-spring);
+}
+
+.hero-secondary:hover svg,
+.hero-secondary:focus-visible svg {
+  transform: translateY(4px);
+}
+
+/* ---- Data providers: an endless marquee ---- */
+
+.hero-providers {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(1.25rem, 0.5rem + 2svh, 2rem);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: min(calc(100% - 2 * var(--gutter)), var(--page-max));
+  padding: 12px 8px 12px 22px;
+  overflow: hidden;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  animation: rise-in-centered 1s 1.5s var(--ease-out) both;
+}
+
+.hero-providers-label {
+  flex: none;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.marquee {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.marquee-track {
+  display: flex;
+  flex: none;
+  gap: 34px;
+  padding-right: 34px;
+  animation: marquee 32s linear infinite;
+}
+
+.hero-providers:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.marquee-track li {
+  font-weight: 600;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.marquee-track li::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 0.15em;
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (max-width: 720px) {
+  .hero {
+    padding-bottom: clamp(9rem, 6rem + 10svh, 12rem);
+  }
+
+  .hero-providers {
+    border-radius: var(--radius-lg);
+    padding: 12px 6px 12px 16px;
+  }
+
+  .hero-providers-label {
+    display: none;
+  }
+}
+
+/* Short windows (phones sideways, desktops zoomed far in): let the hero grow with its content. */
+@media (max-height: 560px) {
+  .hero {
+    min-height: 0;
+    padding-top: 6rem;
+    padding-bottom: 8.5rem;
+  }
+
+  .hero-title {
+    font-size: clamp(2.4rem, 1.6rem + 4vw, 4.4rem);
+  }
+}

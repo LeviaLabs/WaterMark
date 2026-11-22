@@ -1,5 +1,5 @@
 // MojoAuth email-code client and adapter (WM-CLAUDE-002). Fake fetch only: no network.
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import {
   createMojoAuthAdapter,

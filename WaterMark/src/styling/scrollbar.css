@@ -1,0 +1,164 @@
+/*
+ * The browser's page scrollbar is hidden; ScrollGlow draws a glowing one on
+ * the right edge instead. Scrolling itself (wheel, keys, touch) is untouched.
+ * Inner scroll areas keep their own thin scrollbars.
+ */
+
+html {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-glow {
+  position: fixed;
+  top: 10px;
+  right: 3px;
+  bottom: 10px;
+  z-index: 80;
+  width: 14px;
+  cursor: pointer;
+  transition: opacity 0.4s var(--ease-out);
+  animation: fade-in 1s 0.8s var(--ease-out) both;
+}
+
+/* The faint rail. */
+.scroll-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 999px;
+  background: var(--scroll-track);
+}
+
+.scroll-glow--idle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scroll-glow-thumb {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 6px;
+  height: 44px;
+  margin-left: -3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--scroll-thumb);
+  box-shadow:
+    0 0 8px var(--scroll-glow),
+    0 0 22px var(--scroll-glow);
+  cursor: grab;
+  will-change: transform;
+}
+
+/* A bright glint that keeps running down the thumb. */
+.scroll-glow-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0 35%, rgba(255, 255, 255, 0.85) 50%, transparent 65% 100%);
+  transform: translateY(-100%);
+  animation: scroll-glint 2.8s ease-in-out infinite;
+}
+
+/* Widen on hover and while dragging; scale keeps it a transform. */
+.scroll-glow:hover .scroll-glow-thumb,
+.scroll-glow.is-dragging .scroll-glow-thumb {
+  cursor: grabbing;
+  box-shadow:
+    0 0 10px var(--scroll-glow),
+    0 0 32px var(--scroll-glow);
+}
+
+.scroll-glow-thumb {
+  scale: 1 1;
+  transition: scale 0.35s var(--ease-spring);
+}
+
+.scroll-glow:hover .scroll-glow-thumb,
+.scroll-glow.is-dragging .scroll-glow-thumb {
+  scale: 1.6 1;
+}
+
+@keyframes scroll-glint {
+  0% {
+    transform: translateY(-100%);
+  }
+  60%,
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+/* Touch screens scroll by swiping; the bar is just an indicator there. */
+@media (pointer: coarse) {
+  .scroll-glow {
+    pointer-events: none;
+    width: 8px;
+    right: 1px;
+  }
+
+  .scroll-glow-thumb {
+    width: 4px;
+    margin-left: -2px;
+  }
+}
+
+/* ---- Inner scroll areas (components/common/ScrollArea.tsx) ---- */
+
+.scroll-area {
+  position: relative;
+  min-height: 0;
+}
+
+.scroll-area-viewport {
+  height: 100%;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.scroll-area-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-area-thumb {
+  position: absolute;
+  top: 8px;
+  right: 4px;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), var(--kind-forecast));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  opacity: 0.35;
+  cursor: grab;
+  touch-action: none;
+  transition:
+    opacity 0.3s var(--ease-out),
+    width 0.25s var(--ease-out),
+    right 0.25s var(--ease-out);
+}
+
+.scroll-area:hover .scroll-area-thumb,
+.scroll-area-thumb:active {
+  opacity: 0.9;
+  width: 6px;
+  right: 3px;
+}
+
+.scroll-area-thumb:active {
+  cursor: grabbing;
+}
+
+.scroll-area-thumb[data-hidden] {
+  opacity: 0;
+  pointer-events: none;
+}

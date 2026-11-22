@@ -1,0 +1,224 @@
+/* "Accurate data": principles and the source list (the raindrops live in rain.css). */
+
+.principles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 36px;
+}
+
+.principle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.principle {
+  transition:
+    transform 0.45s var(--ease-spring),
+    border-color 0.25s;
+}
+
+.principle svg {
+  color: var(--accent);
+  transition: transform 0.6s var(--ease-spring);
+}
+
+.principle:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+.principle:hover svg {
+  transform: rotate(-14deg) scale(1.2);
+}
+
+/* The sea itself is the section, so it does not slide in; its contents arrive in turn. */
+.reveal.data-sea {
+  opacity: 1;
+  transform: none;
+}
+
+.data-sea .sea-content > *,
+.data-sea .principle {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.8s var(--ease-out),
+    transform 0.9s var(--ease-spring);
+}
+
+.data-sea.is-visible .sea-content > *,
+.data-sea.is-visible .principle {
+  opacity: 1;
+  transform: none;
+}
+
+.data-sea .sea-content > :nth-child(2) {
+  transition-delay: 0.1s;
+}
+
+.data-sea .sea-content > :nth-child(3) {
+  transition-delay: 0.22s;
+}
+
+.data-sea .sea-content > :nth-child(4) {
+  transition-delay: 0.4s;
+}
+
+.data-sea .principle {
+  transition-delay: calc(0.5s + var(--i, 0) * 80ms);
+}
+
+.data-sea .principle:hover {
+  transform: translateY(-3px);
+  transition-delay: 0s;
+}
+
+/* The fish swim in from the edges once the section is on screen. */
+.data-sea .sea-fish-lanes {
+  opacity: 0;
+  transition: opacity 1.2s 0.3s var(--ease-out);
+}
+
+.data-sea.is-visible .sea-fish-lanes {
+  opacity: 1;
+}
+
+.data-sources {
+  display: block;
+  padding-top: 0;
+}
+
+/* Source rows slide in one after another. */
+.sources-list li {
+  opacity: 0;
+  transform: translateX(-18px);
+  transition:
+    opacity 0.6s var(--ease-out),
+    transform 0.7s var(--ease-spring);
+  transition-delay: calc(0.15s + var(--i, 0) * 55ms);
+}
+
+.sources.is-visible .sources-list li {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---- Sources ---- */
+
+.sources {
+  margin-top: clamp(48px, 7vw, 80px);
+}
+
+.sources-title {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  font-weight: 500;
+}
+
+.sources-list {
+  border-top: 1px solid var(--line);
+}
+
+.source-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) 140px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 8px;
+  position: relative;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+}
+
+/* A waterline slides under the row on hover; the name rolls (RollText). */
+.source-row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--kind-forecast));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s var(--ease-out);
+}
+
+.source-row:hover::after,
+.source-row:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.source-row > * {
+  transition: transform 0.5s var(--ease-spring);
+}
+
+.source-row:hover .source-provider {
+  transform: translateX(6px);
+}
+
+.source-row:hover .source-coverage {
+  transform: translateX(10px);
+}
+
+.source-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.source-name svg {
+  opacity: 0.4;
+  transition:
+    opacity 0.2s,
+    transform 0.45s var(--ease-spring);
+}
+
+.source-row:hover .source-name svg {
+  opacity: 1;
+  transform: translate(3px, -3px);
+}
+
+.source-provider,
+.source-coverage {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.source-row .evidence-tag {
+  justify-self: end;
+}
+
+@media (max-width: 640px) {
+  .source-row {
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+  }
+
+  .source-name {
+    grid-column: 1;
+  }
+
+  .source-provider {
+    grid-column: 1;
+    font-size: 0.84rem;
+  }
+
+  .source-coverage {
+    display: none;
+  }
+
+  .source-row .evidence-tag {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}

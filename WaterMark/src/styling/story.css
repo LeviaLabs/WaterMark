@@ -1,0 +1,578 @@
+/*
+ * The flood story (#how): a sticky city that floods one step at a time while
+ * each step shows a working feature panel. Phones and short windows get the
+ * compact layout: the city is a sticky backdrop and the steps scroll over it.
+ */
+
+.story {
+  position: relative;
+  /* One screen to sit in, plus 80% of a screen of scrolling per step. */
+  height: calc(var(--steps, 8) * 80svh + 100svh);
+  /* The water follows the scroll (--progress from useScrollProgress), with no steps. */
+  --level: calc(0.1 + var(--progress, 0) * 0.36);
+}
+
+.story--compact {
+  --level: calc(0.08 + var(--progress, 0) * 0.34);
+}
+
+/* A short glide smooths out wheel notches without lagging behind the scroll. */
+.city.story-city .flood-surface {
+  transition: transform 0.6s var(--ease-out);
+}
+
+.story-sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.city.story-city {
+  position: absolute;
+  inset: 0;
+}
+
+.story-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--story-scrim);
+}
+
+.story-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 28rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'intro panel'
+    'copy panel'
+    'steps steps';
+  gap: 1rem clamp(2rem, 1rem + 4vw, 5rem);
+  height: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: clamp(5.5rem, 4rem + 5svh, 7.5rem) var(--gutter) clamp(1.25rem, 0.5rem + 2svh, 2rem);
+}
+
+.story-intro {
+  grid-area: intro;
+}
+
+.story-intro .section-eyebrow {
+  margin-bottom: 10px;
+}
+
+.story-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 1rem + 1.8vw, 2.6rem);
+  font-weight: 500;
+  font-variation-settings: 'opsz' 96, 'SOFT' 60;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * Steps swap inside a "stage": the old step and the new one share one grid
+ * cell, so the old one can animate out while the new one animates in. --dir
+ * is 1 scrolling down (new content rises from below) and -1 scrolling up.
+ */
+.story-stage {
+  display: grid;
+  min-width: 0;
+}
+
+.story-stage > * {
+  grid-area: 1 / 1;
+}
+
+.story-stage--copy {
+  grid-area: copy;
+  align-self: center;
+}
+
+.story-stage--panel {
+  grid-area: panel;
+  align-self: center;
+}
+
+.story-copy {
+  max-width: 34rem;
+}
+
+.story-copy.is-entering {
+  animation: copy-in 0.75s 0.12s var(--ease-out) both;
+}
+
+.story-copy.is-leaving,
+.story-panel.is-leaving {
+  pointer-events: none;
+}
+
+.story-copy.is-leaving {
+  animation: copy-out 0.38s var(--ease-in-out, ease-in) both;
+}
+
+.story-copy.is-entering .story-count,
+.story-copy.is-entering .story-body,
+.story-copy.is-entering .story-meta,
+.story-copy.is-entering .story-owner {
+  animation: step-rise 0.75s var(--ease-out) both;
+}
+
+.story-copy.is-entering .story-body {
+  animation-delay: 0.18s;
+}
+
+.story-copy.is-entering .story-meta {
+  animation-delay: 0.28s;
+}
+
+.story-copy.is-entering .story-owner {
+  animation-delay: 0.36s;
+}
+
+.story-count {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.story-count span {
+  display: inline-block;
+  color: var(--accent);
+}
+
+.story-copy.is-entering .story-count span {
+  animation: count-flip 0.7s var(--ease-spring) both;
+}
+
+.story-title {
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 1.1rem + 2.6vw, 3.4rem);
+  font-weight: 500;
+  font-variation-settings: 'opsz' 144, 'SOFT' 80;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.story-body {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+  font-size: clamp(1rem, 0.92rem + 0.3vw, 1.12rem);
+}
+
+.story-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+/* Tags pop in one after another. */
+.story-copy.is-entering .story-meta > * {
+  animation: pop-in 0.6s var(--ease-spring) both;
+}
+
+.story-copy.is-entering .story-meta > :nth-child(2) {
+  animation-delay: 0.36s;
+}
+
+.story-copy.is-entering .story-meta > :nth-child(3) {
+  animation-delay: 0.42s;
+}
+
+.story-copy.is-entering .story-meta > :nth-child(n + 4) {
+  animation-delay: 0.48s;
+}
+
+.story-owner {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.story-owner span {
+  font-weight: 500;
+}
+
+.story-panel {
+  min-width: 0;
+  transform-origin: 50% 0;
+}
+
+/*
+ * The panel frame: one glass card that stays on screen for every step. Its
+ * height eases to fit each new panel (--frame-h, measured in FloodStory)
+ * while the old contents blur away and the new ones blur in, a light sweeps
+ * across it, and a thin bar along the top fills step by step.
+ */
+.story-frame {
+  position: relative;
+  height: var(--frame-h, auto);
+  max-height: calc(100svh - 13.5rem);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-edge);
+  transition: height 0.7s var(--ease-in-out);
+  animation: frame-in 1s var(--ease-spring) both;
+}
+
+@keyframes frame-in {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.96);
+  }
+}
+
+.story-frame-scroll {
+  height: 100%;
+}
+
+/* Nothing inside the panels shows a native scrollbar; the frame has its own slim thumb (ScrollArea). */
+.story-frame *,
+.story--compact .story-panel * {
+  scrollbar-width: none;
+}
+
+.story-frame *::-webkit-scrollbar,
+.story--compact .story-panel *::-webkit-scrollbar {
+  display: none;
+}
+
+.story-frame .story-stage {
+  position: relative;
+  display: block;
+}
+
+/* Inside the frame the panels drop their own card look; the frame is the card. */
+.story-frame .evidence-panel {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.story-frame .story-panel.is-entering {
+  animation: panel-in 0.7s 0.14s var(--ease-out) both;
+}
+
+.story-frame .story-panel.is-leaving {
+  position: absolute;
+  inset: 0 0 auto;
+  animation: panel-out 0.36s var(--ease-in-out) both;
+}
+
+.story-frame-sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--accent) 16%, transparent) 48%, transparent 66%);
+  transform: translateX(-100%);
+  animation: frame-sweep 1.1s 0.05s var(--ease-in-out) both;
+}
+
+@keyframes frame-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.story-frame-progress {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--kind-forecast));
+  transform: scaleX(var(--step, 0));
+  transform-origin: left;
+  transition: transform 0.7s var(--ease-in-out);
+}
+
+/* Panels fade in as their code arrives. */
+.preview-arrive {
+  animation: fade-in 0.5s var(--ease-out) both;
+}
+
+.panel-skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.panel-skeleton-title {
+  width: 45%;
+  height: 1.1rem;
+}
+
+.panel-skeleton-chart {
+  height: 9rem;
+}
+
+.panel-skeleton .skeleton-line:not(.panel-skeleton-title) {
+  height: 0.8rem;
+}
+
+.panel-skeleton-short {
+  width: 60%;
+}
+
+/* ---- Step navigation ---- */
+
+.story-steps {
+  grid-area: steps;
+}
+
+.story-steps ol {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-solid);
+}
+
+.story-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.3s,
+    background-color 0.3s;
+}
+
+.story-step:hover {
+  color: var(--text);
+}
+
+.story-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  transition: transform 0.4s var(--ease-spring);
+}
+
+.story-step.is-past .story-step-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The highlight is one pill that slides under the current step. */
+.story-step-pill {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition:
+    transform 0.6s var(--ease-spring),
+    width 0.6s var(--ease-spring);
+}
+
+.story-step {
+  position: relative;
+}
+
+.story-step.is-active {
+  color: var(--bg);
+}
+
+.story-step.is-active .story-step-dot {
+  border-color: currentColor;
+  background: currentColor;
+  transform: scale(1.3);
+}
+
+.story-step:hover .story-step-dot {
+  transform: scale(1.4);
+}
+
+/* Labels collapse to dots on mid-width screens, except the current one. */
+@media (max-width: 1520px) {
+  .story-step:not(.is-active) .story-step-label {
+    display: none;
+  }
+}
+
+/* ---- Compact layout (phones, short windows) ---- */
+
+.story--compact {
+  height: auto;
+  /* Keep the sticky city (negative bottom margin) from spilling past the section. */
+  overflow: clip;
+  padding-bottom: clamp(3rem, 2rem + 4svh, 6rem);
+}
+
+.story-backdrop {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  margin-bottom: -100svh;
+  overflow: hidden;
+}
+
+.story--compact .story-scrim {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent), transparent 40%);
+}
+
+.story-intro--compact {
+  position: relative;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 6rem var(--gutter) 2rem;
+}
+
+.story-list {
+  position: relative;
+  display: grid;
+  gap: clamp(4rem, 2rem + 14svh, 10rem);
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0 var(--gutter) 30svh;
+}
+
+.story-item {
+  display: grid;
+  gap: 14px;
+}
+
+.story--compact .story-copy,
+.story--compact .story-panel {
+  grid-area: auto;
+  max-width: none;
+}
+
+/* Many panels on screen at once here, so no backdrop blur: just a denser fill. */
+.story--compact .evidence-panel {
+  background: color-mix(in srgb, var(--bg-raised) 90%, transparent);
+}
+
+.story-copy--card {
+  padding: 22px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-raised) 90%, transparent);
+  box-shadow: var(--glass-shadow);
+  animation: none;
+}
+
+.story-copy--card.is-visible .story-count,
+.story-copy--card.is-visible .story-body,
+.story-copy--card.is-visible .story-meta,
+.story-copy--card.is-visible .story-owner {
+  animation: rise-in 0.7s var(--ease-out) both;
+}
+
+.story-copy--card.is-visible .story-body {
+  animation-delay: 0.15s;
+}
+
+.story-copy--card.is-visible .story-meta {
+  animation-delay: 0.25s;
+}
+
+.story-copy--card.is-visible .story-owner {
+  animation-delay: 0.32s;
+}
+
+.story-copy--card .story-title {
+  font-size: clamp(1.7rem, 1.2rem + 2.4vw, 2.4rem);
+}
+
+.story--compact .story-panel {
+  max-height: none;
+  overflow: visible;
+  animation: none;
+}
+
+/* Short but wide windows (desktop zoomed in): two columns per step. */
+@media (min-width: 861px) {
+  .story-list {
+    max-width: var(--page-max);
+  }
+
+  .story-item {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+    align-items: start;
+    gap: 2rem;
+  }
+}
+
+@keyframes copy-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(calc(var(--dir, 1) * 30px));
+  }
+}
+
+@keyframes copy-out {
+  to {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(calc(var(--dir, 1) * -30px));
+  }
+}
+
+@keyframes step-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--dir, 1) * 22px));
+  }
+}
+
+@keyframes count-flip {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--dir, 1) * 0.9em)) rotateX(80deg);
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(calc(var(--dir, 1) * 24px)) scale(0.98);
+  }
+}
+
+@keyframes panel-out {
+  to {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(calc(var(--dir, 1) * -18px)) scale(0.98);
+  }
+}

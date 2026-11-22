@@ -1,0 +1,195 @@
+/*
+ * Motion shared across the site: rolling hover text (RollText), titles that
+ * rise in letter by letter (SplitText), and the common entrance keyframes.
+ * Everything animates transform and opacity only.
+ */
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- RollText: letters roll up on hover / keyboard focus ---- */
+
+.roll {
+  display: inline-flex;
+  vertical-align: bottom;
+}
+
+.roll-track {
+  display: inline-flex;
+  height: 1.25em;
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+.roll-char {
+  position: relative;
+  display: inline-block;
+  white-space: pre;
+  transition: transform 0.5s var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 16ms);
+}
+
+.roll-char::after {
+  content: attr(data-char);
+  position: absolute;
+  left: 0;
+  top: 100%;
+}
+
+:where(a, button, .roll-host):is(:hover, :focus-visible) .roll-char {
+  transform: translateY(-100%);
+}
+
+/* Links in running chrome get an accent-colored second copy. */
+:where(.nav-link, .footer-bottom-links a, .hero-secondary, .source-name) .roll-char::after {
+  color: var(--accent);
+}
+
+/* ---- SplitText: titles rise in, letter by letter ---- */
+
+.split-letters {
+  display: inline;
+}
+
+.split-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.split-char {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.6em) rotate(7deg) scale(0.94);
+  transform-origin: 50% 100%;
+}
+
+.split--play .split-char,
+.is-visible .split-char {
+  animation: char-rise 0.95s var(--ease-spring) both;
+  animation-delay: calc(var(--split-delay, 0ms) + var(--i, 0) * 30ms);
+}
+
+.split-word--accent .split-char {
+  margin-right: -0.06em;
+  padding-right: 0.06em;
+  font-style: italic;
+  font-weight: 400;
+  color: transparent;
+  /* One gradient spread across the whole accent run, sliced per letter. */
+  background: linear-gradient(100deg, var(--accent), var(--kind-forecast) 60%, var(--kind-observed));
+  background-size: calc(var(--n, 8) * 0.62em) 100%;
+  background-position: calc(var(--j, 0) * -0.62em) 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* The hero's accent words keep bobbing gently, like they float. */
+.hero-title .split-word--accent .split-char {
+  animation:
+    char-rise 0.95s var(--ease-spring) both,
+    char-float 5s ease-in-out infinite;
+  animation-delay:
+    calc(var(--split-delay, 0ms) + var(--i, 0) * 30ms),
+    calc(2.2s + var(--j, 0) * 110ms);
+}
+
+/* Section eyebrows draw their rule in when revealed. */
+.section-eyebrow::before {
+  transform-origin: left;
+}
+
+.is-visible .section-eyebrow::before {
+  animation: line-grow 0.9s 0.1s var(--ease-out) both;
+}
+
+/* ---- Shared keyframes ---- */
+
+@keyframes char-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em) rotate(7deg) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes char-float {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(-0.06em);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes rise-in-centered {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 24px);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(8px);
+  }
+}
+
+@keyframes ping {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+@keyframes line-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Letters mid-decrypt (SplitText `scramble`): glowing monospace glyphs. */
+.split-char.is-scrambling {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-weight: 500;
+  text-align: center;
+  color: var(--accent);
+  background: none;
+  text-shadow: 0 0 0.4em color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
+/* Hover hint: words that re-decrypt get a soft pointer affordance. */
+.hero-title .split-word {
+  cursor: default;
+}

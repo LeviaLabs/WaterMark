@@ -24,8 +24,9 @@ run is now up to date; PR #21's migration remains absent.
 Existing `auth-verify` and `watermark-v1` code hashes, entrypoints, deployment timestamps and JWT
 settings are unchanged. Their metadata version counters advanced during secret updates; no
 deployment of either function was performed. The Gemini key is configured on a separate Free
-tier Google project and verified using model listing only. The public Gemini assistant stays
-undeployed pending bounded reads and verified abuse controls.
+tier Google project and verified using model listing only. PR #26 subsequently added assistant
+abuse controls; its eight guard tests pass locally. Its separate budget migration and public
+function remain undeployed pending their own hosted verification and authorization.
 
 PR #20 remains unmerged; independent review and the frontend release findings below remain
 pending. Production callback routing, real consent, session restoration, logout, valid human
@@ -48,7 +49,7 @@ Security corrections in this revision:
   the verifier's clock tolerance. Session and attempt replay rules remain server enforced.
 
 Verified locally: **67/67** Node authentication tests (50 Agentboxd, 17 MojoAuth), the existing
-**72/72** environmental tests, **170/170** frontend tests, Edge typecheck/lint and frontend
+**80/80** backend Deno tests (including eight newly merged assistant guard tests), **181/181** frontend tests, Edge typecheck/lint and frontend
 TypeScript/ESLint/build. An isolated PostgreSQL 17 container verified the migration, RLS/grants,
 expiry, revocation, replay retention, and concurrent admission/single-use callbacks.
 Astryx doctor reports an existing generated-theme mismatch; npm's production dependency audit

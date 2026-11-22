@@ -12,9 +12,10 @@ interface Saved { mode: PanelMode; x: number | null; y: number | null }
 function load(): Saved {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Saved>
-    return { mode: s.mode ?? 'open', x: s.x ?? null, y: s.y ?? null }
+    // Every visit starts tucked away (only the position is remembered); choosing an area opens it.
+    return { mode: 'stowed', x: s.x ?? null, y: s.y ?? null }
   } catch {
-    return { mode: 'open', x: null, y: null }
+    return { mode: 'stowed', x: null, y: null }
   }
 }
 function save(s: Saved) {

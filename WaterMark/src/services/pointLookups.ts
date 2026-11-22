@@ -1,5 +1,5 @@
 // Per-point lookups run when an area is selected: rain and river forecasts, NWS alerts,
-// FEMA flood zone, and the ZIP code (for the claims summary).
+// FEMA flood zone, and the ZIP code (for the insurance claims).
 import { ENDPOINTS } from './endpoints'
 import { getJSON } from './http'
 import { markFetched } from '../scripting/freshness'
@@ -41,21 +41,14 @@ export async function fetchFloodZone([lon, lat]: LngLat, signal: AbortSignal): P
   return j.features?.[0]?.attributes ?? 'none'
 }
 
+/** The 5-digit ZIP code at a point, from Photon's reverse geocoder (OpenStreetMap data). */
 export async function fetchZip([lon, lat]: LngLat, signal: AbortSignal): Promise<string> {
-  const j = await getJSON<{ address?: { postcode?: string } }>(
-    `${ENDPOINTS.nominatim}/reverse?lat=${lat}&lon=${lon}&format=json&zoom=18`, { signal })
+  const q = new URLSearchParams({ lat: lat.toFixed(5), lon: lon.toFixed(5), limit: '1', lang: 'en' })
+  const j = await getJSON<{ features?: { properties?: { postcode?: unknown; countrycode?: unknown } }[] }>(
+    `${ENDPOINTS.photonReverse}?${q}`, { signal })
   markFetched('geocode')
-  return j.address?.postcode?.slice(0, 5) ?? 'none'
-}
-
-export interface PlaceHit { center: LngLat; label: string }
-
-/** Forward search: a 5-digit string is treated as a US ZIP code. */
-export async function searchPlace(text: string, signal?: AbortSignal): Promise<PlaceHit | null> {
-  const q = /^\d{5}$/.test(text) ? `postalcode=${text}&country=us` : `q=${encodeURIComponent(text)}`
-  const hits = await getJSON<{ lon: string; lat: string; display_name: string }[]>(
-    `${ENDPOINTS.nominatim}/search?${q}&format=json&limit=1`, { signal })
-  markFetched('geocode')
-  if (!hits.length) return null
-  return { center: [Number(hits[0].lon), Number(hits[0].lat)], label: hits[0].display_name.split(',').slice(0, 2).join(',') }
+  const props = j.features?.[0]?.properties
+  const zip = typeof props?.postcode === 'string' ? props.postcode.trim().slice(0, 5) : ''
+  // Claims are keyed by US ZIP code, so anything else counts as "no ZIP here".
+  return props?.countrycode === 'US' && /^\d{5}$/.test(zip) ? zip : 'none'
 }

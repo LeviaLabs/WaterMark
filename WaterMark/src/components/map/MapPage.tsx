@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router'
 import { FloodMap, type FlyTarget } from './FloodMap'
 import { TopBar } from './TopBar'
 import { LayersCard } from './LayersCard'
-import { DataPanel, StowTab } from './DataPanel'
+import { CollapsedPanel, DataPanel } from './DataPanel'
 import { AreaReport } from './AreaReport'
 import { AlertsList } from './AlertsList'
 import { SourcesList } from '../sources/SourcesList'
@@ -14,12 +14,14 @@ import { useGlobalLayers } from '../../hooks/useGlobalLayers'
 import { useAreaReport } from '../../hooks/useAreaReport'
 import { useDraggablePanel } from '../../hooks/useDraggablePanel'
 import { distanceKm, makeCircle } from '../../scripting/geo'
-import { searchPlace } from '../../services/pointLookups'
+import type { GeocodedPlace } from '../../services/geocoding/photon'
 import type { LayerId, LayerVisibility, LngLat, Selection } from '../../scripting/types'
 import '../../styling/map-page.css'
 
 const DEFAULT = { lat: 40.5755, lon: -73.986, z: 13, label: 'Coney Island' }
 const HINT_MS = 4000
+// On phones the layers card and the data sheet share the screen, so opening one folds the other.
+const isPhone = () => matchMedia('(max-width: 700px)').matches
 
 function select(center: LngLat, radiusKm: number, label: string): Selection {
   return { center, radiusKm, label, circle: makeCircle(center, radiusKm) }
@@ -34,7 +36,7 @@ export default function MapPage() {
   }), [params])
 
   const { scheme } = useColorScheme()
-  const { sensors, floods, claims } = useGlobalLayers()
+  const { sensors, floods } = useGlobalLayers()
   const [selection, setSelection] = useState<Selection>(() => select(start.center, 1, start.label))
   const report = useAreaReport(selection)
   const panel = useDraggablePanel()
@@ -42,7 +44,7 @@ export default function MapPage() {
   const [layers, setLayers] = useState<LayerVisibility>({ rain: true, floods: true, sensors: true, storm: true, fema: false })
   const [stormNote, setStormNote] = useState<string | null>(null)
   const [flyTo, setFlyTo] = useState<FlyTarget | null>(null)
-  const [isSearching, setIsSearching] = useState(false)
+  const [isLayersOpen, setIsLayersOpen] = useState(false)
 
   // Circle tool: first click sets the center, the second sets the edge.
   const [isDrawing, setIsDrawing] = useState(false)
@@ -72,7 +74,14 @@ export default function MapPage() {
     setHint({ text: 'Click the center of the area. Press Esc to cancel.', transient: false })
   }
 
-  const openPanel = () => panel.setMode('open')
+  const openPanel = () => {
+    panel.setMode('open')
+    if (isPhone()) setIsLayersOpen(false)
+  }
+  const onLayersOpenChange = (isOpen: boolean) => {
+    setIsLayersOpen(isOpen)
+    if (isOpen && isPhone() && panel.mode === 'open') panel.setMode('stowed')
+  }
   const choose = (s: Selection) => { setSelection(s); if (panel.mode !== 'open') openPanel() }
 
   const onDrawClick = (at: LngLat) => {
@@ -89,18 +98,10 @@ export default function MapPage() {
     if (drawCenter) setPreview(makeCircle(drawCenter, distanceKm(drawCenter, at)))
   }
 
-  const onSearch = async (text: string) => {
-    setIsSearching(true)
-    try {
-      const hit = await searchPlace(text)
-      if (!hit) { setHint({ text: `Couldn't find "${text}". Try a ZIP code or add the city.`, transient: true }); return }
-      setFlyTo({ center: hit.center, zoom: 14 })
-      choose(select(hit.center, 1, hit.label))
-    } catch {
-      setHint({ text: "Place search isn't responding. Try again in a moment.", transient: true })
-    } finally {
-      setIsSearching(false)
-    }
+  const onPick = (place: GeocodedPlace) => {
+    const center: LngLat = [place.lon, place.lat]
+    setFlyTo({ center, zoom: 14 })
+    choose(select(center, 1, place.label))
   }
 
   const alertCount = Array.isArray(report.alerts) ? report.alerts.length : 0
@@ -124,13 +125,11 @@ export default function MapPage() {
       <TopBar
         isDrawing={isDrawing}
         onToggleDraw={isDrawing ? stopDrawing : startDrawing}
-        onSearch={onSearch}
-        isSearching={isSearching}
-        showReopen={panel.mode === 'closed'}
-        onReopen={openPanel}
+        searchNear={selection.center}
+        onPick={onPick}
       />
       <LayersCard layers={layers} onToggle={(id: LayerId, on) => setLayers((l) => ({ ...l, [id]: on }))}
-        floods={floods} stormNote={stormNote} />
+        floods={floods} stormNote={stormNote} isOpen={isLayersOpen} onOpenChange={onLayersOpenChange} />
       {panel.mode === 'open' ? (
         <DataPanel
           title={selection.label}
@@ -138,14 +137,13 @@ export default function MapPage() {
           panelRef={panel.panelRef}
           style={panel.style}
           handleProps={panel.handleProps}
-          onStow={() => panel.setMode('stowed')}
-          onClose={() => panel.setMode('closed')}
-          area={<AreaReport selection={selection} report={report} sensors={sensors} floods={floods} claims={claims} />}
+          onCollapse={() => panel.setMode('stowed')}
+          area={<AreaReport selection={selection} report={report} sensors={sensors} floods={floods} />}
           alerts={<AlertsList alerts={report.alerts} />}
           sources={<SourcesList isToggleable={false} />}
         />
       ) : null}
-      {panel.mode === 'stowed' ? <StowTab onOpen={openPanel} /> : null}
+      {panel.mode !== 'open' ? <CollapsedPanel title={selection.label} alertCount={alertCount} onOpen={openPanel} /> : null}
       {hint ? <p className="map-hint" role="status">{hint.text}</p> : null}
     </main>
   )

@@ -16,11 +16,11 @@ interface Props {
   onToggle: (id: LayerId, on: boolean) => void
   floods: Loadable<GlobalFloodCollection>
   stormNote: string | null
+  isOpen: boolean
+  onOpenChange: (isOpen: boolean) => void
 }
 
-const startsOpen = typeof matchMedia === 'undefined' || !matchMedia('(max-width: 700px)').matches
-
-export function LayersCard({ layers, onToggle, floods, stormNote }: Props) {
+export function LayersCard({ layers, onToggle, floods, stormNote, isOpen, onOpenChange }: Props) {
   let globalNote = 'Loading worldwide flood reports…'
   if (floods === 'error') globalNote = "Worldwide flood reports didn't load. GDACS may be busy; reload to try again."
   else if (floods) {
@@ -29,8 +29,9 @@ export function LayersCard({ layers, onToggle, floods, stormNote }: Props) {
   }
 
   return (
-    // A <details> so phones can fold the card away; it starts open on wider screens.
-    <details className="map-card layers-card" open={startsOpen}>
+    // A <details> that starts folded, so the map is the first thing people see.
+    <details className="map-card layers-card" open={isOpen}
+      onToggle={(e) => { if (e.currentTarget.open !== isOpen) onOpenChange(e.currentTarget.open) }}>
       <summary className="layers-title"><Icon name="layers" size={18} />Layers</summary>
       <ul className="layers-list">
         {LAYERS.map((l) => (

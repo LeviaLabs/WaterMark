@@ -1,13 +1,16 @@
 // The MapLibre map. MapLibre is imperative, so this component owns one map instance and syncs
 // React props into it with small effects: data -> setData, layer toggles -> visibility,
 // color scheme -> setStyle (overlays are re-added on "style.load").
+//
+// Performance: the stormwater model is our own vector tiles (services/stormwater.ts), so only the
+// blocks in view load, zoomed-out blocks are simplified, and MapLibre's tile cache is capped so
+// blocks far from the view are dropped instead of piling up in memory.
 import { useEffect, useRef } from 'react'
 import maplibregl, { type GeoJSONSource, type MapLayerMouseEvent } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Feature, FeatureCollection, Polygon } from 'geojson'
 import { ENDPOINTS } from '../../services/endpoints'
-import { fetchStormInView } from '../../services/stormwater'
-import { isAbort } from '../../services/http'
+import { STORM_PROTOCOL, loadStormTile } from '../../services/stormwater'
 import { markFetched } from '../../scripting/freshness'
 import { MAP_PALETTES } from '../../scripting/mapTheme'
 import { fmtDate } from '../../scripting/format'
@@ -16,7 +19,19 @@ import type {
 } from '../../scripting/types'
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
-const STORM_MIN_ZOOM = 13
+const STORM_MIN_ZOOM = 10
+const STORM_MAX_ZOOM = 14
+
+// Tiles kept in memory per source beyond the ones on screen. MapLibre's default grows with the
+// window size; a fixed cap keeps memory flat on long sessions and drops blocks you have left.
+const TILE_CACHE = 48
+
+let protocolAdded = false
+function addStormProtocol() {
+  if (protocolAdded) return
+  maplibregl.addProtocol(STORM_PROTOCOL, loadStormTile)
+  protocolAdded = true
+}
 const LAYER_IDS: LayerId[] = ['rain', 'floods', 'sensors', 'storm', 'fema']
 
 export interface FlyTarget { center: LngLat; zoom: number }
@@ -60,7 +75,6 @@ export function FloodMap(props: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   // Latest props, read by MapLibre callbacks that outlive a render.
   const latest = useRef(props)
-  const stormData = useRef<FeatureCollection>(EMPTY)
   const shownScheme = useRef(props.scheme)
 
   useEffect(() => { latest.current = props })
@@ -69,12 +83,15 @@ export function FloodMap(props: Props) {
   useEffect(() => {
     if (!containerRef.current) return
     const { scheme, initialCenter, initialZoom } = latest.current
+    addStormProtocol()
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: MAP_PALETTES[scheme].style,
       center: initialCenter,
       zoom: initialZoom,
       attributionControl: { compact: true },
+      maxTileCacheSize: TILE_CACHE,
+      maxTileCacheZoomLevels: 2,
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
@@ -93,8 +110,12 @@ export function FloodMap(props: Props) {
       map.addSource('fema', { type: 'raster', tiles: [ENDPOINTS.femaTiles], tileSize: 256, attribution: 'Flood zones: FEMA NFHL' })
       map.addLayer({ id: 'fema', type: 'raster', source: 'fema', layout: { visibility: vis('fema') }, paint: { 'raster-opacity': 0.6 } })
 
-      map.addSource('storm', { type: 'geojson', data: stormData.current, attribution: 'Stormwater model: NYC MOCEJ/DEP' })
-      map.addLayer({ id: 'storm', type: 'fill', source: 'storm', layout: { visibility: vis('storm') }, paint: {
+      map.addSource('storm', {
+        type: 'vector', tiles: [`${STORM_PROTOCOL}://{z}/{x}/{y}`], minzoom: STORM_MIN_ZOOM, maxzoom: STORM_MAX_ZOOM,
+        attribution: 'Stormwater model: NYC MOCEJ/DEP via NYC Open Data',
+      })
+      map.addLayer({ id: 'storm', type: 'fill', source: 'storm', 'source-layer': 'stormwater', minzoom: STORM_MIN_ZOOM,
+        layout: { visibility: vis('storm') }, paint: {
         'fill-color': ['match', ['get', 'Flooding_Category'], 2, t.storm[1], t.storm[0]],
         'fill-opacity': ['match', ['get', 'Flooding_Category'], 2, t.stormOpacity[1], t.stormOpacity[0]],
       } })
@@ -120,25 +141,9 @@ export function FloodMap(props: Props) {
     }
     map.on('style.load', addOverlays)
 
-    // Heavy-rain model for the visible area, only when zoomed in far enough to be readable.
-    let stormCtl: AbortController | null = null
-    const loadStorm = () => {
-      stormCtl?.abort()
-      if (map.getZoom() < STORM_MIN_ZOOM) {
-        stormData.current = EMPTY
-        ;(map.getSource('storm') as GeoJSONSource | undefined)?.setData(EMPTY)
-        latest.current.onStormNote('Zoom in to see the heavy-rain model.')
-        return
-      }
-      const b = map.getBounds()
-      stormCtl = new AbortController()
-      fetchStormInView([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], stormCtl.signal).then((fc) => {
-        stormData.current = fc
-        ;(map.getSource('storm') as GeoJSONSource | undefined)?.setData(fc)
-        latest.current.onStormNote(fc.properties?.exceededTransferLimit ? 'Showing part of the model here. Zoom in for full detail.' : null)
-      }, (e: unknown) => {
-        if (!isAbort(e)) latest.current.onStormNote("The heavy-rain model didn't load. Try moving the map.")
-      })
+    // The heavy-rain model is citywide at zoom 10 and closer; say so when zoomed further out.
+    const stormNote = () => {
+      latest.current.onStormNote(map.getZoom() < STORM_MIN_ZOOM ? 'Zoom in to New York City to see the heavy-rain model.' : null)
     }
 
     const onSensor = (e: MapLayerMouseEvent) => {
@@ -166,11 +171,16 @@ export function FloodMap(props: Props) {
     const pointer = (on: boolean) => () => { if (!latest.current.isDrawing) map.getCanvas().style.cursor = on ? 'pointer' : '' }
 
     map.once('load', () => {
+      // On phones the expanded attribution covers the collapsed panel card; start it folded
+      // (the info button still opens it, so every credit stays one tap away).
+      if (matchMedia('(max-width: 700px)').matches) {
+        containerRef.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show')
+      }
       markFetched('basemap')
       markFetched('imerg')
-      loadStorm()
+      stormNote()
     })
-    map.on('moveend', loadStorm)
+    map.on('zoomend', stormNote)
     for (const id of ['sensors', 'floods'] as const) {
       map.on('click', id, id === 'sensors' ? onSensor : onFlood)
       map.on('mouseenter', id, pointer(true))
@@ -180,7 +190,6 @@ export function FloodMap(props: Props) {
     map.on('mousemove', (e) => { if (latest.current.isDrawing) latest.current.onDrawMove([e.lngLat.lng, e.lngLat.lat]) })
 
     return () => {
-      stormCtl?.abort()
       map.remove()
       mapRef.current = null
     }

@@ -1,6 +1,7 @@
 // Shared types for the map page. Each provider adapter in services/ returns one of these shapes,
 // so components never depend on raw upstream payloads.
 import type { Feature, FeatureCollection, Point, Polygon } from 'geojson'
+import type { ClaimsSummary } from '../services/claims'
 
 export type LngLat = [number, number]
 export type { ColorScheme } from './theme/themeStorage'
@@ -60,7 +61,7 @@ export interface StormShare {
   nuisance: number
   /** Percent of the circle modeled at 1 ft or deeper. */
   deep: number
-  /** True when the service hit its feature limit, so the share is a lower bound. */
+  /** True when a big circle was measured on coarser (simplified) tiles, so shares are approximate. */
   partial: boolean
   none: boolean
 }
@@ -79,6 +80,8 @@ export interface AreaReport {
   storm: Loadable<StormShare>
   zip: Loadable<string>
   alerts: Loadable<WeatherAlert[]>
+  /** NFIP claim totals for the ZIP at the center; 'none' when the point has no US ZIP. */
+  claims: Loadable<ClaimsSummary | 'none'>
 }
 
 export type LayerId = 'rain' | 'floods' | 'sensors' | 'storm' | 'fema'

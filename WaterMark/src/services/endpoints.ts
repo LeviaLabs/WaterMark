@@ -8,7 +8,9 @@ export const ENDPOINTS = {
     $group: 'sensor_id',
     $limit: '5000',
   }),
-  storm: 'https://services2.arcgis.com/IsDCghZ73NgoYoz5/ArcGIS/rest/services/Moderate_Current_Sea_Levels/FeatureServer/0/query',
+  // Our own static vector tiles of the official NYC layer (built by `npm run tiles:stormwater`).
+  stormIndex: '/data/stormwater/index.json',
+  stormTiles: '/data/stormwater',
   femaTiles: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:28&f=image',
   femaQuery: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query',
   // NASA IMERG 30-minute rain rate. "default" asks GIBS for its newest available image.
@@ -17,6 +19,7 @@ export const ENDPOINTS = {
   forecast: 'https://api.open-meteo.com/v1/forecast',
   flood: 'https://flood-api.open-meteo.com/v1/flood',
   nwsAlerts: 'https://api.weather.gov/alerts/active',
-  nominatim: 'https://nominatim.openstreetmap.org',
-  claimsSummary: '/data/summary.json',
+  // Photon (OpenStreetMap data): forward search lives in services/geocoding/photon.ts.
+  photonReverse: 'https://photon.komoot.io/reverse',
+  nfipClaims: 'https://www.fema.gov/api/open/v3/NfipClaims',
 } as const

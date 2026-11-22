@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react'
 import { fetchAlerts, fetchFloodZone, fetchRain, fetchRiver, fetchZip } from '../services/pointLookups'
 import { fetchStormInArea } from '../services/stormwater'
+import { fetchClaims, type ClaimsSummary } from '../services/claims'
 import { isAbort } from '../services/http'
-import { stormShare } from '../scripting/geo'
 import type { AreaReport, Selection } from '../scripting/types'
 
-const EMPTY: AreaReport = { rain: null, river: null, zone: null, storm: null, zip: null, alerts: null }
+const EMPTY: AreaReport = { rain: null, river: null, zone: null, storm: null, zip: null, alerts: null, claims: null }
 
 export function useAreaReport(selection: Selection | null): AreaReport {
   const [report, setReport] = useState<{ for: Selection | null; data: AreaReport }>({ for: null, data: EMPTY })
@@ -26,8 +26,10 @@ export function useAreaReport(selection: Selection | null): AreaReport {
     run('river', fetchRiver(center, ctl.signal))
     run('alerts', fetchAlerts(center, ctl.signal))
     run('zone', fetchFloodZone(center, ctl.signal))
-    run('zip', fetchZip(center, ctl.signal))
-    run('storm', fetchStormInArea(circle, ctl.signal).then((fc) => stormShare(circle, fc)))
+    const zip = fetchZip(center, ctl.signal)
+    run('zip', zip)
+    run('claims', zip.then<ClaimsSummary | 'none'>((z) => (z === 'none' ? 'none' : fetchClaims(z, ctl.signal))))
+    run('storm', fetchStormInArea(circle, ctl.signal))
     return () => ctl.abort()
   }, [selection])
 

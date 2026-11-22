@@ -55,23 +55,59 @@ type StormFeatures = FeatureCollection<Polygon | MultiPolygon, { Flooding_Catego
   properties?: { exceededTransferLimit?: boolean }
 }
 
-/** Share of the circle covered by modeled nuisance (category 1) and deep (category 2) flooding. */
-export function stormShare(area_: Feature<Polygon>, fc: StormFeatures): StormShare {
-  const total = area(area_)
+/** Square meters of each flooding category inside `clip`. */
+function coveredArea(clip: Feature<Polygon | MultiPolygon>, features: StormFeatures['features']): Record<number, number> {
   const covered: Record<number, number> = { 1: 0, 2: 0 }
-  for (const f of fc.features) {
+  for (const f of features) {
     try {
-      const part = intersect(featureCollection<Polygon | MultiPolygon>([area_, f]))
+      const part = intersect(featureCollection<Polygon | MultiPolygon>([clip, f]))
       if (part) covered[f.properties.Flooding_Category] = (covered[f.properties.Flooding_Category] ?? 0) + area(part)
     } catch {
       // Skip a polygon with invalid geometry rather than failing the whole area.
     }
   }
+  return covered
+}
+
+/** Share of the circle covered by modeled nuisance (category 1) and deep (category 2) flooding. */
+export function stormShare(area_: Feature<Polygon>, fc: StormFeatures): StormShare {
+  const total = area(area_)
+  const covered = coveredArea(area_, fc.features)
   return {
     nuisance: (covered[1] / total) * 100,
     deep: (covered[2] / total) * 100,
     partial: Boolean(fc.properties?.exceededTransferLimit),
     none: fc.features.length === 0,
   }
+}
+
+/** One vector-tile block: its exact bounds [west, south, east, north] and the features it carries. */
+export interface StormTile {
+  bounds: [number, number, number, number]
+  features: StormFeatures['features']
+}
+
+/**
+ * The same shares, summed over tile blocks. Tiles carry a small buffer past their edges, so the
+ * circle is first clipped to each tile's exact bounds; the pieces then never overlap.
+ */
+export function stormShareFromTiles(area_: Feature<Polygon>, tiles: readonly StormTile[]): Omit<StormShare, 'partial'> {
+  const total = area(area_)
+  const covered: Record<number, number> = { 1: 0, 2: 0 }
+  let any = false
+  for (const { bounds: [w, s, e, n], features } of tiles) {
+    if (!features.length) continue
+    const box: Feature<Polygon> = {
+      type: 'Feature', properties: {},
+      geometry: { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
+    }
+    const clip = intersect(featureCollection<Polygon | MultiPolygon>([area_, box]))
+    if (!clip) continue
+    const part = coveredArea(clip, features)
+    covered[1] += part[1] ?? 0
+    covered[2] += part[2] ?? 0
+    any ||= (part[1] ?? 0) + (part[2] ?? 0) > 0
+  }
+  return { nuisance: (covered[1] / total) * 100, deep: (covered[2] / total) * 100, none: !any }
 }
 export type { StormFeatures }

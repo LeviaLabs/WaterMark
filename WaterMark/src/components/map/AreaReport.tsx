@@ -1,12 +1,13 @@
-// The "Area" tab: every number shown names its source and fetch time, and every empty or failed
-// state says what it means (no sensor is not the same as no flooding).
+// The "Area" tab. A short "what to do" line sits on top; every dataset below is a folded row that
+// already shows its one-line answer, and opens for the numbers, sources and caveats. Every number
+// names its source and fetch time, and every empty or failed state says what it means
+// (no sensor is not the same as no flooding).
 import type { ReactNode } from 'react'
 import { EvidenceTag } from '../common/EvidenceTag'
 import type { EvidenceKind } from '../../scripting/content/dataSources'
 import { fmtDate, fmtMiles, fmtRadius, fmtTime, pct, weekday } from '../../scripting/format'
 import { nearestFlood, summarizeSensors } from '../../scripting/geo'
 import { HIGH_RISK_ZONES, ZONE_TEXT } from '../../scripting/mapTheme'
-import { neighborhoodForZip, type ClaimsSummary } from '../../services/claims'
 import type { AreaReport as Report, GlobalFloodCollection, Loadable, Selection, SensorCollection } from '../../scripting/types'
 
 interface Props {
@@ -14,49 +15,85 @@ interface Props {
   report: Report
   sensors: Loadable<SensorCollection>
   floods: Loadable<GlobalFloodCollection>
-  claims: ClaimsSummary | null | undefined
 }
+
+const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
 const Row = ({ k, v }: { k: string; v: ReactNode }) => (
   <p className="stat-row"><span>{k}</span><span className="report-stat-value">{v}</span></p>
 )
-const Loading = () => <p className="map-meta">Loading…</p>
 const Failed = ({ what }: { what: string }) => (
   <p className="map-meta">Couldn't load {what} right now. The source may be down or blocking requests; try again in a minute.</p>
 )
 const Fetched = ({ from }: { from: string }) => <p className="map-meta">From {from}, fetched {fmtTime(new Date())}</p>
 const Empty = ({ children }: { children: ReactNode }) => <p className="panel-empty">{children}</p>
 
-// Every section names its kind of evidence with the same pill the landing page uses.
-function Section({ title, kind, children }: { title: string; kind?: EvidenceKind; children: ReactNode }) {
+/** The one-line answer for a folded row, from its loading state. */
+function line<T>(v: Loadable<T>, done: (v: T) => string): string {
+  if (v === null) return 'Loading…'
+  if (v === 'error') return "Couldn't load"
+  return done(v)
+}
+
+/** A folded row: title, evidence pill and the one-line answer; opens for the details. */
+function Section({ title, kind, summary, children }: { title: string; kind: EvidenceKind; summary: string; children: ReactNode }) {
   return (
-    <section className="report-section">
-      <header className="report-head">
-        <h3 className="report-title">{title}</h3>
-        {kind ? <EvidenceTag kind={kind} /> : null}
-      </header>
-      {children}
-    </section>
+    <details className="report-section">
+      <summary className="report-summary">
+        <span className="report-head">
+          <span className="report-title">{title}</span>
+          <EvidenceTag kind={kind} />
+        </span>
+        <span className="report-line">{summary}</span>
+      </summary>
+      <div className="report-body">{children}</div>
+    </details>
   )
 }
 
-export function AreaReport({ selection, report, sensors, floods, claims }: Props) {
+export function AreaReport({ selection, report: s, sensors, floods }: Props) {
   const { center, radiusKm, circle } = selection
-  const s = report
 
   const sensorSummary = sensors && sensors !== 'error' ? summarizeSensors(sensors, circle) : null
   const near = floods && floods !== 'error' ? nearestFlood(floods, center) : null
-  const hood = claims && typeof s.zip === 'string' && s.zip !== 'none' ? neighborhoodForZip(claims, s.zip) : null
   const zone = s.zone && s.zone !== 'error' && s.zone !== 'none' ? s.zone : null
   const isHighRisk = (zone && HIGH_RISK_ZONES.has(zone.FLD_ZONE)) || (s.storm && s.storm !== 'error' && s.storm.deep > 1)
   const alertCount = Array.isArray(s.alerts) ? s.alerts.length : 0
+  const riverFlows = s.river && s.river !== 'error' ? s.river.river_discharge.filter((x): x is number => x != null) : []
 
   return (
     <>
-      <p className="map-meta">Circle of {fmtRadius(radiusKm)} radius around {center[1].toFixed(4)}, {center[0].toFixed(4)}</p>
+      <p className="map-meta report-where">Circle of {fmtRadius(radiusKm)} radius around {center[1].toFixed(4)}, {center[0].toFixed(4)}</p>
 
-      <Section title="Street flooding measured by sensors" kind="observed">
-        {sensors === 'error' ? <Failed what="FloodNet sensors" /> : sensors === null ? <Loading /> : !sensorSummary ? (
+      {alertCount ? (
+        <p className="callout callout-alert">
+          <strong>There {alertCount === 1 ? 'is an active alert' : `are ${alertCount} active alerts`} here.</strong>{' '}
+          Open the Alerts tab and follow the National Weather Service instructions.
+        </p>
+      ) : isHighRisk ? (
+        <p className="callout callout-info">
+          This area has a mapped flood risk. Renters and owners can buy flood insurance through{' '}
+          <a href="https://www.floodsmart.gov" target="_blank" rel="noopener">FloodSmart.gov</a>;{' '}
+          <a href="https://www.floodhelpny.org" target="_blank" rel="noopener">FloodHelpNY</a> explains options in NYC.
+        </p>
+      ) : s.alerts === null || s.zone === null || s.storm === null ? (
+        <p className="callout callout-info">Checking weather alerts and flood zones for this area…</p>
+      ) : s.alerts === 'error' ? (
+        <p className="callout callout-info">
+          Couldn't check weather alerts right now, so this is not an all-clear. See{' '}
+          <a href="https://www.weather.gov" target="_blank" rel="noopener">weather.gov</a> for current warnings.
+        </p>
+      ) : (
+        <p className="callout callout-info">
+          No active alerts or high-risk zone found here. Flooding can still happen in heavy rain, so keep drains clear and know your route to higher ground.
+        </p>
+      )}
+
+      <Section title="Street flooding sensors" kind="observed"
+        summary={line(sensors, () => (sensorSummary
+          ? `${sensorSummary.count} sensor${sensorSummary.count === 1 ? '' : 's'}, ${sensorSummary.events.toLocaleString('en-US')} floods recorded`
+          : 'No sensors in this area'))}>
+        {sensors === 'error' ? <Failed what="FloodNet sensors" /> : !sensorSummary ? (
           <Empty>No FloodNet sensors in this area. Sensors only cover parts of NYC, so no sensor does not mean no flooding.</Empty>
         ) : (
           <>
@@ -70,8 +107,79 @@ export function AreaReport({ selection, report, sensors, floods, claims }: Props
         {sensors && sensors !== 'error' ? <Fetched from="FloodNet NYC" /> : null}
       </Section>
 
-      <Section title="Nearest reported flood" kind="historical">
-        {floods === 'error' ? <Failed what="worldwide flood reports" /> : floods === null ? <Loading /> : !near ? (
+      <Section title="Heavy-rain flood model" kind="scenario"
+        summary={line(s.storm, (v) => (v.none ? 'No modeled flooding here' : `${pct(v.nuisance)} shallow, ${pct(v.deep)} deep`))}>
+        {s.storm === 'error' ? <Failed what="the NYC stormwater model" /> : s.storm === null ? null : s.storm.none ? (
+          <Empty>No modeled heavy-rain flooding in this circle. The model covers New York City only.</Empty>
+        ) : (
+          <>
+            <p className="map-meta">A scenario, not flooding today. If 2.13 inches of rain fell in an hour, this share of the area is modeled to flood:</p>
+            <Row k="4 inches to 1 foot deep" v={pct(s.storm.nuisance)} />
+            <Row k="1 foot or deeper" v={pct(s.storm.deep)} />
+            {s.storm.partial ? <p className="map-meta">This area is large, so it was measured on simplified map tiles. Draw a smaller circle for a more exact figure.</p> : null}
+            <p className="map-meta">From the NYC Stormwater Flood Map (NYC Open Data, updated July 3, 2024).</p>
+          </>
+        )}
+      </Section>
+
+      <Section title="FEMA flood zone" kind="reference"
+        summary={line(s.zone, (v) => (v === 'none' ? 'No zone mapped here' : `Zone ${v.FLD_ZONE}${HIGH_RISK_ZONES.has(v.FLD_ZONE) ? ', high risk' : ''}`))}>
+        {s.zone === 'error' ? <Failed what="FEMA flood zones" /> : s.zone === null ? null : s.zone === 'none' ? (
+          <Empty>No FEMA flood zone is mapped at this point. FEMA maps cover the US only.</Empty>
+        ) : (
+          <>
+            <Row k="Zone at the center" v={s.zone.FLD_ZONE + (s.zone.ZONE_SUBTY ? ` (${s.zone.ZONE_SUBTY.toLowerCase()})` : '')} />
+            {ZONE_TEXT[s.zone.FLD_ZONE] ? <p className="report-text">{ZONE_TEXT[s.zone.FLD_ZONE]}</p> : null}
+            <Fetched from="FEMA NFHL" />
+          </>
+        )}
+      </Section>
+
+      <Section title="Rain, next 3 days" kind="forecast"
+        summary={line(s.rain, (v) => `${v.precipitation_sum.reduce((a, b) => a + b, 0).toFixed(2)} in expected`)}>
+        {s.rain === 'error' ? <Failed what="the rain forecast" /> : s.rain === null ? null : <RainBars rain={s.rain} />}
+      </Section>
+
+      <Section title="Nearest river, 7 days" kind="modeled"
+        summary={line(s.river, () => (riverFlows.length ? `Peak ${Math.max(...riverFlows).toLocaleString('en-US')} m³/s` : 'No modeled river nearby'))}>
+        {s.river === 'error' ? <Failed what="the river forecast" /> : s.river === null ? null : !riverFlows.length ? (
+          <Empty>No modeled river near this point.</Empty>
+        ) : (
+          <>
+            <Row k="Today" v={`${riverFlows[0].toLocaleString('en-US')} m³/s`} />
+            <Row k="7-day peak" v={`${Math.max(...riverFlows).toLocaleString('en-US')} m³/s`} />
+            <p className="map-meta">Modeled flow of the nearest river cell. It does not include coastal surge or street flooding.</p>
+            <Fetched from="GloFAS via Open-Meteo" />
+          </>
+        )}
+      </Section>
+
+      <Section title="Past insurance claims" kind="historical"
+        summary={line(s.claims, (v) => (v === 'none' ? 'No US ZIP code here' : `${v.claims.toLocaleString('en-US')} claims in ZIP ${v.zip}`))}>
+        {s.claims === 'error' ? <Failed what="flood insurance claims from OpenFEMA" /> : s.claims === null ? null : s.claims === 'none' ? (
+          <Empty>Claims are listed by US ZIP code, and no ZIP code was found at the center of this area.</Empty>
+        ) : !s.claims.claims ? (
+          <Empty>No National Flood Insurance Program claims on record for ZIP {s.claims.zip}.</Empty>
+        ) : (
+          <>
+            <Row k="ZIP code" v={s.claims.zip} />
+            <Row k="Claims" v={`${s.claims.claims.toLocaleString('en-US')}${s.claims.partial ? '+' : ''}`} />
+            <Row k="Total paid" v={usd(s.claims.totalPaidUsd)} />
+            {s.claims.firstYear ? <Row k="Years covered" v={`${s.claims.firstYear} to ${s.claims.lastYear}`} /> : null}
+            {s.claims.topYears.length ? (
+              <Row k="Most claims" v={s.claims.topYears.map((y) => `${y.year} (${y.claims.toLocaleString('en-US')})`).join(', ')} />
+            ) : null}
+            <p className="map-meta">
+              Claims only cover insured properties, so a low count can mean few people had flood insurance. Amounts are as paid, not adjusted for inflation.
+            </p>
+            <Fetched from="FEMA OpenFEMA (NFIP Redacted Claims v3)" />
+          </>
+        )}
+      </Section>
+
+      <Section title="Nearest reported flood" kind="historical"
+        summary={line(floods, () => (near ? `${fmtMiles(near.km)} away` : 'None in the past 30 days'))}>
+        {floods === 'error' ? <Failed what="worldwide flood reports" /> : !near ? (
           <Empty>No floods reported worldwide in the past 30 days.</Empty>
         ) : (
           <>
@@ -84,78 +192,6 @@ export function AreaReport({ selection, report, sensors, floods, claims }: Props
             </p>
             <Fetched from="GDACS" />
           </>
-        )}
-      </Section>
-
-      <Section title="Heavy-rain flood model" kind="scenario">
-        {s.storm === null ? <Loading /> : s.storm === 'error' ? <Failed what="the NYC stormwater model" /> : s.storm.none ? (
-          <Empty>No modeled heavy-rain flooding in this circle. The model covers New York City only.</Empty>
-        ) : (
-          <>
-            <p className="map-meta">A scenario, not flooding today. If 2.13 inches of rain fell in an hour, this share of the area is modeled to flood:</p>
-            <Row k="4 inches to 1 foot deep" v={pct(s.storm.nuisance)} />
-            <Row k="1 foot or deeper" v={pct(s.storm.deep)} />
-            {s.storm.partial ? <p className="map-meta">This area is large, so only part of the model was counted. Draw a smaller circle for an exact figure.</p> : null}
-            <Fetched from="NYC Stormwater Flood Map" />
-          </>
-        )}
-      </Section>
-
-      <Section title="FEMA flood zone at the center" kind="reference">
-        {s.zone === null ? <Loading /> : s.zone === 'error' ? <Failed what="FEMA flood zones" /> : s.zone === 'none' ? (
-          <Empty>No FEMA flood zone is mapped at this point. FEMA maps cover the US only.</Empty>
-        ) : (
-          <>
-            <Row k="Zone" v={s.zone.FLD_ZONE + (s.zone.ZONE_SUBTY ? ` (${s.zone.ZONE_SUBTY.toLowerCase()})` : '')} />
-            {ZONE_TEXT[s.zone.FLD_ZONE] ? <p className="report-text">{ZONE_TEXT[s.zone.FLD_ZONE]}</p> : null}
-            <Fetched from="FEMA NFHL" />
-          </>
-        )}
-      </Section>
-
-      <Section title="Rain in the next 3 days" kind="forecast">
-        {s.rain === null ? <Loading /> : s.rain === 'error' ? <Failed what="the rain forecast" /> : (
-          <RainBars rain={s.rain} />
-        )}
-      </Section>
-
-      <Section title="Nearest river, next 7 days" kind="modeled">
-        {s.river === null ? <Loading /> : s.river === 'error' ? <Failed what="the river forecast" /> : !s.river.river_discharge.some((x) => x != null) ? (
-          <Empty>No modeled river near this point.</Empty>
-        ) : (
-          <RiverRows flows={s.river.river_discharge.filter((x): x is number => x != null)} />
-        )}
-      </Section>
-
-      <Section title="Past flood insurance claims" kind="historical">
-        {claims === undefined || s.zip === null ? <Loading /> : claims === null ? (
-          <Empty>Claim history isn't loaded. Run scripts/watermark_data.py and copy its summary.json to WaterMark/public/data/.</Empty>
-        ) : !hood ? (
-          <Empty>No claim summary for ZIP {s.zip === 'error' ? 'unknown' : s.zip} yet. Add it to NEIGHBORHOODS in the data script.</Empty>
-        ) : (
-          <>
-            <Row k="Neighborhood" v={hood[0]} />
-            <Row k="Claims since 1978" v={hood[1].nfip.claims.toLocaleString('en-US')} />
-            <Row k="Total paid" v={`$${hood[1].nfip.total_paid_usd.toLocaleString('en-US')}`} />
-            <p className="map-meta">Claims only cover insured homes, so a low count can mean few people had flood insurance. Data generated {fmtDate(claims.generated_at_utc)}.</p>
-          </>
-        )}
-      </Section>
-
-      <Section title="What to do">
-        {alertCount ? (
-          <p className="callout callout-alert">
-            <strong>There {alertCount === 1 ? 'is an active alert' : `are ${alertCount} active alerts`} here.</strong>{' '}
-            Open the Alerts tab and follow the National Weather Service instructions.
-          </p>
-        ) : isHighRisk ? (
-          <p className="callout callout-info">
-            This area has a mapped flood risk. Check whether your home is covered: renters and owners can buy flood insurance through{' '}
-            <a href="https://www.floodsmart.gov" target="_blank" rel="noopener">FloodSmart.gov</a>, and{' '}
-            <a href="https://www.floodhelpny.org" target="_blank" rel="noopener">FloodHelpNY</a> explains your options in NYC.
-          </p>
-        ) : (
-          <p className="report-text">No active alerts and no high-risk zone found here. Flooding can still happen in heavy rain, so keep drains clear and know your route to higher ground.</p>
         )}
       </Section>
     </>
@@ -179,17 +215,6 @@ function RainBars({ rain }: { rain: NonNullable<Exclude<Report['rain'], 'error'>
           v={`${rain.precipitation_sum[i].toFixed(2)} in, ${rain.precipitation_probability_max?.[i] ?? '?'}% chance`} />
       ))}
       <Fetched from="Open-Meteo" />
-    </>
-  )
-}
-
-function RiverRows({ flows }: { flows: number[] }) {
-  return (
-    <>
-      <Row k="Today" v={`${flows[0].toLocaleString('en-US')} m³/s`} />
-      <Row k="7-day peak" v={`${Math.max(...flows).toLocaleString('en-US')} m³/s`} />
-      <p className="map-meta">Modeled flow of the nearest river cell. It does not include coastal surge or street flooding.</p>
-      <Fetched from="GloFAS via Open-Meteo" />
     </>
   )
 }

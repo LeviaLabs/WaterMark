@@ -13,7 +13,7 @@ import {
   startAgentboxdSignIn,
   type AgentboxdErrorCode,
 } from '../../services/auth/agentboxd'
-import { MojoAuthError, sendEmailCode, verifyEmailCode, type MojoAuthErrorCode } from '../../services/auth/mojoAuth'
+import { createEmailCodeAttempt, MojoAuthError, type MojoAuthErrorCode } from '../../services/auth/mojoAuth'
 import { isAgentAccount } from '../../services/auth/session'
 
 type Mode = 'login' | 'signup'
@@ -42,6 +42,7 @@ const ERRORS: Record<MojoAuthErrorCode, string> = {
   network: 'Could not reach the sign-in service. Check your connection and try again.',
   'verify-failed': 'We could not confirm your sign-in. Try again in a moment.',
   misconfigured: 'Sign-in is not set up on this site yet. You can explore every map and data layer without an account.',
+  'code-expired': 'That code has expired. Enter your email again to get a new one.',
 }
 
 const AGENT_ERRORS: Record<AgentboxdErrorCode, string> = {
@@ -79,15 +80,18 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [stateId, setStateId] = useState('')
+  // Holds MojoAuth's state id between "Email me a code", "Send a new code" and "Sign in".
+  const [attempt] = useState(() => (config ? createEmailCodeAttempt(config, 'en') : null))
   // Agentboxd callback: public/agentboxd-callback.html saved the query and sent us here.
   // Read it (no side effects) for the first render; the effect below deletes it and finishes.
   const [callback] = useState(() => readAgentboxdCallback(sessionStore()))
   const [busy, setBusy] = useState(callback?.ok === true)
+  const [resent, setResent] = useState(false)
   const [error, setError] = useState(callback && !callback.ok ? agentMessage(callback.code) : '')
   const callbackHandled = useRef(false)
 
   const signedIn = auth.state.status === 'signed-in'
+  const expired = auth.state.status === 'expired'
   const agent = isAgentAccount(auth.state.account)
   // The provider is re-checking a stored session (not this page's own sign-in).
   const checking = auth.state.status === 'loading' && !busy
@@ -120,21 +124,35 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
   const sendCode = (event?: FormEvent) => {
     event?.preventDefault()
-    const cfg = config
-    if (!cfg) return setError(ERRORS.misconfigured)
+    if (!attempt) return setError(ERRORS.misconfigured)
     void run(async () => {
-      setStateId(await sendEmailCode(cfg, email, 'en'))
+      await attempt.send(email)
       setCode('')
+      setResent(false)
       setStep('code')
+    })
+  }
+
+  // "Send a new code" uses MojoAuth's resend call for the same attempt, not a second first send.
+  const resendCode = () => {
+    if (!attempt) return setError(ERRORS.misconfigured)
+    void run(async () => {
+      try {
+        await attempt.resend()
+      } catch (err) {
+        if (err instanceof MojoAuthError && err.code === 'code-expired') setStep('email')
+        throw err
+      }
+      setCode('')
+      setResent(true)
     })
   }
 
   const verify = (event: FormEvent) => {
     event.preventDefault()
-    const cfg = config
-    if (!cfg) return
+    if (!attempt) return
     void run(async () => {
-      const state = await auth.signIn(await verifyEmailCode(cfg, stateId, code))
+      const state = await auth.signIn(await attempt.verify(code))
       if (state.status !== 'signed-in') throw new MojoAuthError('verify-failed')
     })
   }
@@ -175,7 +193,9 @@ export function AuthPage({ mode }: { mode: Mode }) {
               : busy && step === 'email'
                 ? 'Signing in…'
                 : step === 'code'
-                  ? `We sent a code to ${email}. It can take a minute to arrive.`
+                  ? `We sent ${resent ? 'a new' : 'a'} code to ${email}. It can take a minute to arrive.`
+                  : expired
+                    ? 'Your session ended. Sign in again to keep your saved places and alert preferences.'
                   : copy.lede}
         </p>
 
@@ -217,7 +237,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
               width="100%"
             />
             <Button type="submit" label="Sign in" variant="primary" size="lg" width="100%" isDisabled={busy || code.trim().length < 4} />
-            <Button label="Send a new code" variant="ghost" width="100%" isDisabled={busy} onClick={() => sendCode()} />
+            <Button label="Send a new code" variant="ghost" width="100%" isDisabled={busy} onClick={resendCode} />
             <Button label="Use a different email" variant="ghost" width="100%" isDisabled={busy} onClick={() => setStep('email')} />
           </form>
         )}

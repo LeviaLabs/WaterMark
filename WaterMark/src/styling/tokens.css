@@ -8,6 +8,9 @@
   --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
   --font-body: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  --font-map-display: 'Bricolage Grotesque Variable', 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-map-body: 'Instrument Sans Variable', 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-map-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
 
   /*
    * Sizes mix rem with vw so browser zoom always changes them (a pure-vw size
@@ -58,6 +61,25 @@
   --kind-observed: #4fdca6;
   --kind-historical: #f5c451;
   --kind-reference: #9fb3c8;
+  /* Flood-history map classes (none recorded, then fewest to most); mirrored in scripting/mapTheme.ts. */
+  --flood-0: #1b222d; --flood-1: #16305c; --flood-2: #1b478c; --flood-3: #2263bd; --flood-4: #2f83e3; --flood-5: #55a6f7; --flood-6: #9dd2ff;
+  --map-glow: #4aa3ff;
+  /* Map page: near-black glass, ice accent. */
+  --map-bg: #05070b;
+  --map-panel: rgba(9, 12, 18, 0.9);
+  --map-panel-solid: #090c12;
+  --map-panel-line: rgba(255, 255, 255, 0.08);
+  --map-panel-line-strong: rgba(255, 255, 255, 0.16);
+  --map-ink: #f2f5f9;
+  --map-ink-muted: #a2acba;
+  --map-ink-subtle: #6b7584;
+  --map-accent: #7cc4ff;
+  --map-accent-strong: #4aa3ff;
+  --map-accent-soft: rgba(124, 196, 255, 0.12);
+  --map-chart-past: rgba(124, 196, 255, 0.38);
+  --map-chart-band: rgba(124, 196, 255, 0.16);
+  --map-chart-band-wide: rgba(124, 196, 255, 0.07);
+  --map-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.04);
 
   --orb-a: rgba(31, 191, 214, 0.28);
   --orb-b: rgba(83, 109, 254, 0.22);
@@ -154,6 +176,23 @@
   --kind-observed: #047857;
   --kind-historical: #a16207;
   --kind-reference: #475569;
+  --flood-0: #e9ebef; --flood-1: #c4d6f1; --flood-2: #98b9ea; --flood-3: #6c97de; --flood-4: #4073cb; --flood-5: #2352a8; --flood-6: #10306f;
+  --map-glow: #3b82f6;
+  --map-bg: #eef1f4;
+  --map-panel: rgba(255, 255, 255, 0.92);
+  --map-panel-solid: #ffffff;
+  --map-panel-line: rgba(11, 18, 32, 0.08);
+  --map-panel-line-strong: rgba(11, 18, 32, 0.16);
+  --map-ink: #0b1220;
+  --map-ink-muted: #4a5566;
+  --map-ink-subtle: #7a8494;
+  --map-accent: #2563eb;
+  --map-accent-strong: #1d4ed8;
+  --map-accent-soft: rgba(37, 99, 235, 0.08);
+  --map-chart-past: rgba(37, 99, 235, 0.35);
+  --map-chart-band: rgba(37, 99, 235, 0.16);
+  --map-chart-band-wide: rgba(37, 99, 235, 0.07);
+  --map-shadow: 0 24px 60px -24px rgba(11, 18, 32, 0.35), 0 0 0 1px rgba(11, 18, 32, 0.04);
 
   --orb-a: rgba(20, 168, 196, 0.22);
   --orb-b: rgba(83, 109, 254, 0.14);

@@ -10,6 +10,8 @@ import {
   parseToken,
   verifyMojoAuthToken,
 } from '../../functions/auth-verify/verify.ts'
+import { createLimits } from '../../functions/auth-verify/verify.ts'
+import { RateLimiter, readBounded } from '../../functions/auth-verify/limits.ts'
 
 const NOW = Date.UTC(2026, 10, 21, 20, 0, 0)
 const b64url = (o: unknown) =>
@@ -163,4 +165,126 @@ test('handler: preflight, bad origin, bad method, bad body, invalid token', asyn
 test('handler: empty allowed-origins list rejects every browser origin', async () => {
   const res = await handleRequest(post({ token: TOKEN }), { ...config(fakeFetch(200, valid())), allowedOrigins: '' })
   assert.equal(res.status, 403)
+})
+
+// --- Abuse limits (WM-CODEX-003 review) ---
+
+const streamOf = (chunks: Uint8Array[], onCancel?: () => void) => {
+  let i = 0
+  return new ReadableStream<Uint8Array>({
+    pull(c) {
+      if (i < chunks.length) c.enqueue(chunks[i++])
+      else c.close()
+    },
+    cancel() {
+      onCancel?.()
+    },
+  })
+}
+
+test('readBounded: stops reading once the limit is passed, without buffering the rest', async () => {
+  let pulled = 0
+  let cancelled = false
+  const big = new ReadableStream<Uint8Array>({
+    pull(c) {
+      pulled += 1
+      c.enqueue(new Uint8Array(1024))
+    }, // endless body
+    cancel() {
+      cancelled = true
+    },
+  })
+  assert.equal(await readBounded({ body: big, headers: new Headers() }, 4096), null)
+  assert.ok(cancelled, 'stream is cancelled')
+  assert.ok(pulled <= 6, `read ${pulled} chunks; must stop near the limit`)
+
+  const small = streamOf([new TextEncoder().encode('{"a":'), new TextEncoder().encode('1}')])
+  assert.equal(await readBounded({ body: small, headers: new Headers() }, 4096), '{"a":1}')
+  assert.equal(await readBounded({ body: null, headers: new Headers() }, 10), '')
+})
+
+test('readBounded: rejects an oversized Content-Length before reading, a slow body, and bad UTF-8', async () => {
+  let cancelled = false
+  const declared = streamOf([new Uint8Array(1)], () => (cancelled = true))
+  assert.equal(await readBounded({ body: declared, headers: new Headers({ 'content-length': '999999' }) }, 8192), null)
+  assert.ok(cancelled)
+
+  const stalled = new ReadableStream<Uint8Array>({ pull: () => new Promise(() => {}) })
+  const started = Date.now()
+  assert.equal(await readBounded({ body: stalled, headers: new Headers() }, 8192, 30), null)
+  assert.ok(Date.now() - started < 1000)
+
+  assert.equal(await readBounded({ body: streamOf([new Uint8Array([0xff, 0xfe])]), headers: new Headers() }, 10), null)
+})
+
+test('provider response is read with a cap: an oversized MojoAuth body fails closed', async () => {
+  const huge = (() =>
+    Promise.resolve(
+      new Response(streamOf(Array.from({ length: 200 }, () => new Uint8Array(1024).fill(32))), { status: 200 }),
+    )) as typeof fetch
+  assert.deepEqual(await verifyMojoAuthToken(TOKEN, { apiKey: API_KEY, now: NOW, fetcher: huge }), {
+    ok: false, status: 502, code: 'provider-unavailable',
+  })
+})
+
+test('expired, foreign-project or undecodable tokens are rejected without a MojoAuth call', async () => {
+  const calls: Call[] = []
+  const run = (token: string) =>
+    verifyMojoAuthToken(token, { apiKey: API_KEY, now: NOW, fetcher: fakeFetch(200, valid(), calls) })
+  assert.deepEqual(await run(jwt({ ...CLAIMS, exp: NOW / 1000 - 1 })), { ok: false, status: 401, code: 'expired-token' })
+  assert.deepEqual(await run(jwt({ ...CLAIMS, aud: 'other-project' })), { ok: false, status: 401, code: 'invalid-token' })
+  assert.deepEqual(await run('bm90.anNvbg.c2ln'), { ok: false, status: 401, code: 'invalid-token' })
+  assert.equal(calls.length, 0, 'MojoAuth must not be called')
+  assert.equal((await run(TOKEN)).ok, true)
+  assert.equal(calls.length, 1)
+})
+
+test('RateLimiter: fixed window per key, reports seconds to wait, keeps memory bounded', () => {
+  const rl = new RateLimiter(2, 60_000, 3)
+  assert.equal(rl.hit('a', 0), 0)
+  assert.equal(rl.hit('a', 1000), 0)
+  assert.equal(rl.hit('a', 2000), 58)
+  assert.equal(rl.hit('b', 2000), 0, 'other keys are independent')
+  assert.equal(rl.hit('a', 60_000), 0, 'new window')
+  for (const k of ['c', 'd', 'e', 'f']) rl.hit(k, 61_000)
+  assert.ok((rl as unknown as { windows: Map<string, unknown> }).windows.size <= 3)
+})
+
+test('handler: rate limit answers 429 with Retry-After before reading the body or calling MojoAuth', async () => {
+  const calls: Call[] = []
+  const limits = { perClient: new RateLimiter(2, 60_000), global: new RateLimiter(100, 60_000) }
+  const cfg = { ...config(fakeFetch(200, valid(), calls)), limits }
+  const from = (ip: string) => {
+    const r = post({ token: TOKEN })
+    r.headers.set('x-forwarded-for', `${ip}, 10.0.0.1`)
+    return r
+  }
+  assert.equal((await handleRequest(from('203.0.113.7'), cfg)).status, 200)
+  assert.equal((await handleRequest(from('203.0.113.7'), cfg)).status, 200)
+  const limited = await handleRequest(from('203.0.113.7'), cfg)
+  assert.equal(limited.status, 429)
+  assert.equal(limited.headers.get('retry-after'), '60')
+  assert.equal(limited.headers.get('access-control-allow-origin'), ORIGIN, 'browser can read the 429')
+  assert.deepEqual(await limited.json(), { error: 'rate-limited' })
+  assert.equal(calls.length, 2, 'the limited request never reached MojoAuth')
+  assert.equal((await handleRequest(from('198.51.100.9'), cfg)).status, 200, 'another client is unaffected')
+
+  // The instance-wide cap holds even when every request claims a different address.
+  const tight = { ...config(fakeFetch(200, valid())), limits: { perClient: new RateLimiter(100, 60_000), global: new RateLimiter(3, 60_000) } }
+  const statuses = []
+  for (let i = 0; i < 5; i++) statuses.push((await handleRequest(from(`192.0.2.${i}`), tight)).status)
+  assert.deepEqual(statuses, [200, 200, 200, 429, 429])
+})
+
+test('handler: an oversized request body is refused without buffering it', async () => {
+  const res = await handleRequest(
+    new Request('http://local/auth-verify', {
+      method: 'POST',
+      headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+      body: streamOf(Array.from({ length: 64 }, () => new Uint8Array(1024).fill(32))),
+      duplex: 'half',
+    } as RequestInit),
+    { ...config(fakeFetch(200, valid())), limits: createLimits() },
+  )
+  assert.equal(res.status, 400)
 })

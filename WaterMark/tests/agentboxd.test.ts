@@ -260,7 +260,7 @@ test('existing MojoAuth sign-in still works through the combined adapter', async
   assert.equal(state.status, 'signed-in')
   assert.equal(state.account?.provider, 'mojoauth')
   assert.ok(!isAgentAccount(state.account))
-  assert.equal(storage.getItem('wm-auth'), 'a.b.c')
+  assert.equal(JSON.parse(storage.getItem('wm-auth') ?? '{}').token, 'a.b.c')
 })
 
 test('access: guests keep every public feature; agents get public features only, never account features', () => {

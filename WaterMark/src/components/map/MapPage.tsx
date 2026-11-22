@@ -3,6 +3,7 @@
 // camera glides in, the rest of the world goes dark and its provinces (in the US, states and then
 // counties) take the color, clickable straight away. Clicking inside a province or county selects
 // that spot and zooms in; the area data loads for it. Search and the circle tool select a spot directly.
+// Back, the breadcrumb, and Escape each step up one level and clear the spot.
 // Open a place directly with /map?lat=40.68&lon=-74.01&z=14&label=Red%20Hook
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
@@ -24,7 +25,7 @@ import { useDraggablePanel } from '../../hooks/useDraggablePanel'
 import { usePresence } from '../../hooks/usePresence'
 import { distanceKm, makeCircle } from '../../scripting/geo'
 import { bboxesOverlap, NYC_BOUNDS, touchesNYC, type BBox } from '../../scripting/region'
-import { DETAIL_ZOOM, pathTo } from '../../scripting/choropleth'
+import { DETAIL_ZOOM, focusAtDepth, pathTo, stepUpFocus } from '../../scripting/choropleth'
 import { cellAt, cellWidthKm, squareOf } from '../../scripting/cells'
 import { gridAt, regionPathAt } from './regionLayers'
 import { contextText } from '../../scripting/assistant'
@@ -178,10 +179,10 @@ export default function MapPage() {
     return props ? { level, props } : null
   }, [history.countries, history.states])
 
-  const flyToRegion = (pick: RegionPick) => {
+  const flyToRegion = useCallback((pick: RegionPick) => {
     const bounds = pick.level === 'country' && pick.props.k === 'USA' ? US_FOCUS : pick.props.b
     setFlyTo({ bounds, maxZoom: MAX_ZOOM[pick.level] })
-  }
+  }, [])
 
   // Focus a region: fly there, dim the rest and show its record. A new region clears the spot,
   // whose data belonged to the place you just left.
@@ -191,14 +192,20 @@ export default function MapPage() {
     flyToRegion(pick)
     if (panel.mode !== 'open' && !isPhone()) openPanel()
   }
-  const goTo = (depth: number) => {
-    const next = path.slice(0, depth)
-    setPath(next)
+  // Breadcrumb jumps and Back both drop the selected square. Depth 0 is the world, which also
+  // drops the region veil. Back steps one level: square to its region, then region to its parent.
+  const showFocus = useCallback((nextPath: readonly RegionPick[]) => {
+    setPath(nextPath.slice())
     setSelection(null)
-    const last = next.at(-1)
+    const last = nextPath.at(-1)
     if (last) flyToRegion(last)
     else setFlyTo({ center: WORLD.center, zoom: WORLD.zoom() })
-  }
+  }, [flyToRegion])
+  const goTo = useCallback((depth: number) => showFocus(focusAtDepth(path, depth).path), [path, showFocus])
+  const stepBack = useCallback(() => {
+    if (!path.length && !selection) return
+    showFocus(stepUpFocus(path, selection != null).path)
+  }, [path, selection, showFocus])
   // A click inside a province or county (or anywhere at street zoom) picks the grid square there:
   // its flood record, plus the forecasts and history at its middle.
   const onSpotClick = (at: LngLat, shouldZoom: boolean) => {
@@ -231,11 +238,17 @@ export default function MapPage() {
   }
 
   useEffect(() => {
-    if (!path.length || isDrawing) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) goTo(path.length - 1) }
+    if ((!path.length && !selection) || isDrawing) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.altKey || e.ctrlKey || e.metaKey) return
+      const target = e.target
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return
+      if (target instanceof HTMLElement && target.isContentEditable) return
+      stepBack()
+    }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  })
+  }, [path.length, selection, isDrawing, stepBack])
 
   const alertCount = Array.isArray(report.alerts) ? report.alerts.length : 0
   const isReportLoading = selection ? Object.values(report).some((v) => v === null) : false
@@ -245,6 +258,11 @@ export default function MapPage() {
     ? named ?? (selection.label === SPOT_LABEL && region ? `Square in ${crumbName(region)}` : selection.label)
     : region ? (region.level === 'county' && region.props.s ? `${crumbName(region)}, ${region.props.s}` : crumbName(region)) : 'Floods around the world'
   const zoomHint = !selection && view.zoom >= DETAIL_ZOOM ? 'Click a spot on the map to see the data there.' : null
+  const selectionCrumb = !selection ? null : selection.label === SPOT_LABEL ? 'Square' : selection.label === AREA_LABEL ? 'Area' : selection.label
+  const backTarget = selection
+    ? (region ? crumbName(region) : 'the world')
+    : path.length > 1 ? crumbName(path[path.length - 2]) : 'the world'
+  const backLabel = `Back to ${backTarget}`
 
   return (
     <main className="map-page">
@@ -276,16 +294,19 @@ export default function MapPage() {
       <LayersCard layers={layers} onToggle={showOverlay}
         floods={floods} stormNote={stormNote} isOpen={isLayersOpen} onOpenChange={onLayersOpenChange}
         legend={isLayersOpen || view.zoom >= 12 ? null : <MapLegend grid={path[0]?.props.k === 'USA' ? 'us' : 'world'} index={history.index} />} />
-      {path.length ? (
+      {path.length || selection ? (
         <nav className="map-crumbs" aria-label="Map focus">
-          <button type="button" className="map-crumb map-crumb--back" onClick={() => goTo(path.length - 1)} aria-label="Back out one level">
+          <button type="button" className="map-crumb map-crumb--back" onClick={stepBack} aria-label={backLabel} aria-keyshortcuts="Escape">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg>
+            Back
           </button>
           <button type="button" className="map-crumb" onClick={() => goTo(0)}>World</button>
           {path.map((p, i) => (
-            <button key={p.level + p.props.k} type="button" className="map-crumb" aria-current={i === path.length - 1 ? 'location' : undefined}
+            <button key={p.level + p.props.k} type="button" className="map-crumb"
+              aria-current={!selection && i === path.length - 1 ? 'location' : undefined}
               onClick={() => goTo(i + 1)}>{crumbName(p)}</button>
           ))}
+          {selectionCrumb ? <span className="map-crumb map-crumb--here" aria-current="location" title={title}>{selectionCrumb}</span> : null}
         </nav>
       ) : null}
       {panelPresence.isMounted ? (

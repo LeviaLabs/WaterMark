@@ -435,11 +435,15 @@ export function FloodMap(props: Props) {
   }, [props.scheme])
 
   // Flood-history data, class breaks and the opened state.
+  // Remember the snapshot that was actually drawn. Checking for a countries-fill layer left this
+  // stuck on the first world view (that layer is countries-line), so stepping back to World
+  // compared equal and the veil never cleared.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    syncRegionLayers(map, MAP_PALETTES[shownScheme.current], props.regions, shownRegions.current)
-    if (map.getLayer('countries-fill')) shownRegions.current = props.regions
+    if (syncRegionLayers(map, MAP_PALETTES[shownScheme.current], props.regions, shownRegions.current)) {
+      shownRegions.current = props.regions
+    }
   }, [props.regions])
 
   // Data and selection.

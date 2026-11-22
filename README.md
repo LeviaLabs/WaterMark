@@ -327,6 +327,21 @@ Do not create this tree unless the team approves the structure. A simpler single
 6. Run typecheck, tests, build, and local application smoke test.
 7. Connect the deployment branch to AWS Amplify, verify SPA routing if needed, and confirm the external `.xyz` domain separately.
 
+### Frontend app (`WaterMark/`)
+
+The web app is a Vite + React + TypeScript project in [`WaterMark/`](./WaterMark). Its file structure and frontend rules are in [AGENTS.md › Frontend conventions](./AGENTS.md#frontend-conventions-set-by-ryan-b-landing-page-and-frontend-owner).
+
+```bash
+cd WaterMark
+npm ci          # install the locked dependencies
+npm run dev     # local dev server
+npm test        # Vitest unit tests (tests/)
+npm run lint    # ESLint
+npm run build   # typecheck + production build into dist/
+```
+
+Routes (React Router, declared in `WaterMark/src/App.tsx`): `/` landing page, `/map` (reserved for Ryan L's map), `/login` and `/signup` (account shell; MojoAuth not wired yet), anything else shows a 404 page. Because routing happens in the browser, the AWS Amplify app needs a rewrite so deep links work: source `</^[^.]+$|\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json|webmanifest)$)([^.]+$)/>`, target `/index.html`, type `200 (Rewrite)`.
+
 **The team reports $200 in AWS credits**, but account eligibility and balance are not independently verified. Set spending alerts and avoid adding unnecessary services.
 
 ## 13. Security, reliability, and privacy

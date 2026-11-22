@@ -44,3 +44,94 @@
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
+
+/*
+ * Design tokens. Dark is the default; [data-theme="light"] on <html> switches
+ * (set by ThemeProvider, and before first paint by the script in index.html).
+ * Astryx components read their own --color-* tokens from src/themes/watermark.
+ */
+
+:root {
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+  --font-body: 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+
+  --page-max: 1180px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --section-space: clamp(88px, 12vw, 160px);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Night */
+  --bg: #03101c;
+  --bg-deep: #020a13;
+  --bg-raised: #082036;
+  --text: #e7f3f9;
+  --text-muted: #a3bccb;
+  --text-subtle: #6f8b9c;
+  --accent: #5fd8ea;
+  --accent-strong: #2fbfd6;
+  --accent-soft: rgba(95, 216, 234, 0.14);
+  --line: rgba(163, 220, 240, 0.12);
+  --line-strong: rgba(163, 220, 240, 0.24);
+
+  --glass-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.02) 60%);
+  --glass-solid: rgba(7, 26, 43, 0.62);
+  --glass-border: rgba(190, 236, 255, 0.16);
+  --glass-edge: rgba(255, 255, 255, 0.22);
+  --glass-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.75);
+  --glare: rgba(255, 255, 255, 0.16);
+
+  --kind-official: #ff8f6b;
+  --kind-forecast: #86b9ff;
+  --kind-modeled: #b39dff;
+  --kind-scenario: #45c8f5;
+  --kind-observed: #4fdca6;
+  --kind-historical: #f5c451;
+  --kind-reference: #9fb3c8;
+
+  --orb-a: rgba(31, 191, 214, 0.28);
+  --orb-b: rgba(83, 109, 254, 0.22);
+  --orb-c: rgba(79, 220, 166, 0.16);
+
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  /* Day */
+  --bg: #eef6fa;
+  --bg-deep: #e2eef5;
+  --bg-raised: #ffffff;
+  --text: #062538;
+  --text-muted: #3c5a6e;
+  --text-subtle: #6a8597;
+  --accent: #0b7f99;
+  --accent-strong: #08697f;
+  --accent-soft: rgba(11, 127, 153, 0.1);
+  --line: rgba(6, 37, 56, 0.1);
+  --line-strong: rgba(6, 37, 56, 0.2);
+
+  --glass-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.5) 60%);
+  --glass-solid: rgba(255, 255, 255, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-edge: rgba(255, 255, 255, 1);
+  --glass-shadow: 0 24px 50px -28px rgba(10, 60, 90, 0.35);
+  --glare: rgba(255, 255, 255, 0.7);
+
+  --kind-official: #c2410c;
+  --kind-forecast: #1d5fd1;
+  --kind-modeled: #6d43d9;
+  --kind-scenario: #0369a1;
+  --kind-observed: #047857;
+  --kind-historical: #a16207;
+  --kind-reference: #475569;
+
+  --orb-a: rgba(20, 168, 196, 0.22);
+  --orb-b: rgba(83, 109, 254, 0.14);
+  --orb-c: rgba(16, 185, 129, 0.12);
+
+  color-scheme: light;
+}

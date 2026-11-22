@@ -1,0 +1,103 @@
+/*
+ * Glass surfaces.
+ * .glass-panel blurs what is behind it (backdrop-filter). Blur is expensive,
+ * so it is used only on a few elements that sit over moving or busy content
+ * (nav, hero strip, auth card, stack detail, CTA).
+ * .glass-card fakes glass with a translucent gradient and a lit edge, with no
+ * blur, so a grid of them stays cheap to scroll on phones.
+ */
+
+.glass-panel {
+  position: relative;
+  background: var(--glass-solid);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-edge);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.glass-card {
+  position: relative;
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-edge);
+}
+
+/* ---- 3D tilt (variables written by hooks/usePointerTilt) ---- */
+
+.tilt-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --glare-x: 50%;
+  --glare-y: 0%;
+  height: 100%;
+  overflow: hidden;
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition:
+    transform 0.5s var(--ease-out),
+    border-color 0.3s;
+}
+
+.tilt-card:hover {
+  border-color: var(--line-strong);
+  transition:
+    transform 0.12s linear,
+    border-color 0.3s;
+}
+
+.tilt-card-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--glare-x) var(--glare-y), var(--glare), transparent 55%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+.tilt-card:hover .tilt-card-glare {
+  opacity: 1;
+}
+
+/* ---- Evidence kind pills ---- */
+
+.evidence-tag {
+  --kind: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 3px 10px 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--kind) 40%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kind) 12%, transparent);
+  color: var(--kind);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.evidence-tag::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.evidence-tag--official { --kind: var(--kind-official); }
+.evidence-tag--forecast { --kind: var(--kind-forecast); }
+.evidence-tag--modeled { --kind: var(--kind-modeled); }
+.evidence-tag--scenario { --kind: var(--kind-scenario); }
+.evidence-tag--observed { --kind: var(--kind-observed); }
+.evidence-tag--historical { --kind: var(--kind-historical); }
+.evidence-tag--reference { --kind: var(--kind-reference); }

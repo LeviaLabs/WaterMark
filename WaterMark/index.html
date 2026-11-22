@@ -1,10 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>WaterMark · Flood and rainfall evidence for communities</title>
+    <meta name="description" content="WaterMark puts official flood warnings, rainfall forecasts, stormwater scenarios, sensor readings and flood history on one honest 2D map, with every source and timestamp shown." />
+    <meta name="theme-color" content="#03101c" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>watermark</title>
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:title" content="WaterMark" />
+    <meta property="og:description" content="Flood and extreme-rainfall evidence for communities, labeled with its source and time." />
+    <meta property="og:type" content="website" />
+    <script>
+      // Pick light/dark before the first paint so the page never flashes the
+      // wrong theme. Same rules as src/scripting/theme/themeStorage.ts.
+      try {
+        var saved = localStorage.getItem('watermark-theme')
+        var scheme = saved === 'light' || saved === 'dark' ? saved : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        document.documentElement.dataset.theme = scheme
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

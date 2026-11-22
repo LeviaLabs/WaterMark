@@ -43,7 +43,7 @@ export default function App() {
     <ThemeProvider>
       {/* Sign-in state for the nav and pages. Children never wait for it; see AuthProvider. */}
       <AuthProvider adapter={authAdapter}>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Routes>
             <Route element={<SiteLayout />}>
               <Route index element={<LandingPage />} />

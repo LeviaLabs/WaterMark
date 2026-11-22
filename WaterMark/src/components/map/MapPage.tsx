@@ -101,7 +101,14 @@ export default function MapPage() {
   const [selection, setSelection] = useState<Selection | null>(() => (start.isSpot ? select(start.center, 1, start.label) : null))
   // World > country > (province | state > county): the regions focused, outermost first.
   const [path, setPath] = useState<RegionPick[]>([])
-  const history = useFloodHistory(path)
+  const loaded = useFloodHistory(path)
+  // The time slider: one year of the flood squares, or all years (null). A year the shown grid has
+  // no data for (NOAA starts in 2016) falls back to all years when you focus the US.
+  const [pickedYear, setPickedYear] = useState<number | null>(null)
+  const gridKind = path[0]?.props.k === 'USA' || (selection != null && mayBeUS(selection.center)) ? 'us' : 'world'
+  const yearRange = loaded.index?.cells[gridKind].years
+  const year = pickedYear != null && yearRange && (pickedYear < yearRange[0] || pickedYear > yearRange[1]) ? null : pickedYear
+  const history = useMemo(() => ({ ...loaded, year }), [loaded, year])
   const region = path.at(-1) ?? null
 
   // FloodNet covers NYC only, so its tables download the first time NYC is on screen up close or selected.
@@ -114,7 +121,6 @@ export default function MapPage() {
   const { report, retry } = useAreaReport(selection)
   const schoolSamples = usePlaceSamples(selection?.center ?? null, [SCHOOL_SAMPLE_KM], role === 'school' && selection != null)
   const carSamples = usePlaceSamples(selection?.center ?? null, CAR_RINGS_KM, carOn && selection != null)
-  const gridKind = path[0]?.props.k === 'USA' || (selection != null && mayBeUS(selection.center)) ? 'us' : 'world'
   const responder = useResponderModel(
     history.grids[gridKind], history.index?.cells[gridKind] ?? null, region, selection, report,
     sensors && sensors !== 'error' ? sensors : null,
@@ -389,7 +395,7 @@ export default function MapPage() {
       <RolePicker role={role} onChange={onRole} />
       <LayersCard layers={layers} onToggle={showOverlay}
         floods={floods} stormNote={stormNote} isOpen={isLayersOpen} onOpenChange={onLayersOpenChange}
-        legend={isLayersOpen || view.zoom >= 12 ? null : <MapLegend grid={gridKind} index={history.index} />} />
+        legend={isLayersOpen || view.zoom >= 12 ? null : <MapLegend grid={gridKind} index={history.index} year={year} onYearChange={setPickedYear} />} />
       {path.length || selection ? (
         <nav className="map-crumbs" aria-label="Map focus">
           <button type="button" className="map-crumb map-crumb--back" onClick={stepBack} aria-label={backLabel} aria-keyshortcuts="Escape">
@@ -424,9 +430,9 @@ export default function MapPage() {
               {role === 'home' ? <HomeownerView selection={selection} place={title} report={report}
                 cellMeta={selection?.cell ? history.index?.cells[selection.cell.grid] : null} /> : null}
               {role === 'responder' ? <ResponderView model={responder} onFocus={(bounds) => setFlyTo({ bounds, maxZoom: 11 })} /> : null}
-              {selection ? null : <RegionSummary region={region} index={history.index} status={history.status} />}
+              {selection ? null : <RegionSummary region={region} index={history.index} status={history.status} year={year} />}
               {selection ? <AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods}
-                cellMeta={selection.cell ? history.index?.cells[selection.cell.grid] : null} /> : null}
+                cellMeta={selection.cell ? history.index?.cells[selection.cell.grid] : null} year={year} /> : null}
             </>
           }
           alerts={selection ? <AlertsList alerts={report.alerts} />

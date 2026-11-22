@@ -34,6 +34,8 @@ export interface RegionData {
   /** ISO3 of the focused country, or of the focused province's country. */
   country: string | null
   grids: { us: Grid | null; world: Grid | null }
+  /** The time slider's year, or null for all years together. */
+  year: number | null
 }
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
@@ -80,8 +82,21 @@ function lineOpacity(d: RegionData, level: RegionLevel): ExpressionSpecification
   return ['interpolate', ['linear'], ['zoom'], 11, top, 13, 0] as ExpressionSpecification
 }
 
-const cellColor = (d: RegionData, t: MapPalette, g: GridKind) =>
-  fillColor(d.index?.cells[g].breaks ?? [1, 2, 3, 5, 8], t.flood, 'e')
+/** Colored by all records, or with a year on the slider by that year's records on the one-year scale. */
+function cellColor(d: RegionData, t: MapPalette, g: GridKind): ExpressionSpecification {
+  const meta = d.index?.cells[g]
+  return d.year == null
+    ? fillColor(meta?.breaks ?? [1, 2, 3, 5, 8], t.flood, 'e')
+    : fillColor(meta?.yearBreaks ?? [1, 2, 3, 5, 8], t.flood, `y${d.year}`)
+}
+
+/** With a year picked, only the squares with records that year; none from a grid that has no such year. */
+function cellFilter(d: RegionData, g: GridKind): ExpressionSpecification | null {
+  if (d.year == null) return null
+  const years = d.index?.cells[g].years
+  if (years && (d.year < years[0] || d.year > years[1])) return ['boolean', false] as ExpressionSpecification
+  return ['>', ['coalesce', ['get', `y${d.year}`], 0], 0] as ExpressionSpecification
+}
 
 /**
  * The basemap layer the grid goes under: the first one after the last line or fill, so the
@@ -99,10 +114,11 @@ export function addRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionDat
   const beforeId = regionBeforeId(map)
   for (const g of GRIDS) {
     map.addSource(cellSource(g), { type: 'geojson', data: d.grids[g]?.cells ?? EMPTY, maxzoom: 12, tolerance: 0, buffer: 4 })
-    map.addLayer({ id: `${cellSource(g)}-fill`, type: 'fill', source: cellSource(g), paint: {
+    const filter = cellFilter(d, g)
+    map.addLayer({ id: `${cellSource(g)}-fill`, type: 'fill', source: cellSource(g), ...(filter ? { filter } : {}), paint: {
       'fill-color': cellColor(d, t, g), 'fill-opacity': CELL_OPACITY, 'fill-antialias': false,
     } }, beforeId)
-    map.addLayer({ id: `${cellSource(g)}-gap`, type: 'line', source: cellSource(g), paint: {
+    map.addLayer({ id: `${cellSource(g)}-gap`, type: 'line', source: cellSource(g), ...(filter ? { filter } : {}), paint: {
       'line-color': t.basemap.background, 'line-width': GAP_WIDTH, 'line-opacity': CELL_OPACITY,
     } }, beforeId)
   }
@@ -179,7 +195,11 @@ export function syncRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionDa
   if (!map.getLayer(lineId('country'))) return false
   for (const g of GRIDS) {
     if (!prev || prev.grids[g] !== d.grids[g]) (map.getSource(cellSource(g)) as GeoJSONSource).setData(d.grids[g]?.cells ?? EMPTY)
-    if (!prev || prev.index !== d.index) map.setPaintProperty(`${cellSource(g)}-fill`, 'fill-color', cellColor(d, t, g))
+    if (!prev || prev.index !== d.index || prev.year !== d.year) {
+      map.setPaintProperty(`${cellSource(g)}-fill`, 'fill-color', cellColor(d, t, g))
+      map.setFilter(`${cellSource(g)}-fill`, cellFilter(d, g))
+      map.setFilter(`${cellSource(g)}-gap`, cellFilter(d, g))
+    }
   }
   for (const level of LEVELS) {
     if (!prev || collectionOf(prev, level) !== collectionOf(d, level)) {

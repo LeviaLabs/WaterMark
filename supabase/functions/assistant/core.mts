@@ -63,7 +63,7 @@ export const TOOLS = [
   },
   {
     name: 'flood_record',
-    description: 'Recorded flood history at a point: the country (GDACS flood events 2001–2025: count per year, serious floods with an orange or red alert, largest magnitude, busiest months), its province or region outside the US, and in the US the state and county (NOAA Storm Events flood reports 2016–2025 with deaths, injuries and damage). Also the grid square around the point.',
+    description: 'Recorded flood history at a point: the country (GDACS flood events 2001–2025: count per year, serious floods with an orange or red alert, largest magnitude, busiest months), its province or region outside the US, and in the US the state and county (NOAA Storm Events flood episodes 2016–2025 with deaths, injuries, damage and causes such as heavy rain, rivers, tropical storms, snowmelt, dams or the sea). Also the grid square around the point.',
     parameters: {
       type: 'object',
       properties: { lat: { type: 'number' }, lon: { type: 'number' } },
@@ -72,7 +72,7 @@ export const TOOLS = [
   },
   {
     name: 'top_regions',
-    description: 'Rank places by their flood record: countries by GDACS flood events or serious floods (2001–2025), or US states by NOAA flood reports, deaths or damage (2016–2025). Optionally limited to one year.',
+    description: 'Rank places by their flood record: countries by GDACS flood events or serious floods (2001–2025), or US states by NOAA flood episodes, deaths or damage (2016–2025). Optionally limited to one year.',
     parameters: {
       type: 'object',
       properties: {

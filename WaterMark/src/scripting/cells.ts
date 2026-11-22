@@ -2,10 +2,11 @@
 // reported point falls inside it (scripts/floods/build.py writes them as compact rows). Pure;
 // tested in tests/cells.test.ts.
 //
-//   US       0.5-degree squares (about 55 km), NOAA Storm Events flood reports, 2016-2025
+//   US       0.5-degree squares (about 55 km), NOAA Storm Events flood episodes, 2016-2025
 //   world    1-degree squares (about 110 km), GDACS flood events, 2001-2025 (US points left out)
 import type { Feature, FeatureCollection, Polygon } from 'geojson'
 import type { LngLat } from './types'
+import { decodeCauses } from './causes'
 
 export type GridKind = 'us' | 'world'
 
@@ -26,7 +27,14 @@ export interface CellProps {
   b: number
   /** [west, south, east, north] */
   bounds: [number, number, number, number]
+  /** US only: floods by cause (scripting/causes.ts). */
+  causes?: Record<string, number>
+  /** Records in one year, as `y2019`; absent means none that year. Flat so map styles can read them. */
+  [year: `y${number}`]: number
 }
+
+/** Records in a square in one year (the time slider). */
+export const countIn = (cell: CellProps, year: number): number => cell[`y${year}`] ?? 0
 
 export interface Grid {
   kind: GridKind
@@ -58,12 +66,23 @@ export function parseGrid(raw: unknown, kind: GridKind): Grid {
   const r = raw as { size?: unknown; years?: unknown; rows?: unknown }
   if (typeof r?.size !== 'number' || !Array.isArray(r.rows) || !Array.isArray(r.years)) throw new Error('Malformed flood grid file.')
   const size = r.size
+  const firstYear = Number(r.years[0])
   const features: Feature<Polygon, CellProps>[] = []
   for (const row of r.rows as unknown[]) {
-    if (!Array.isArray(row) || row.length < 8 || !row.every((x) => typeof x === 'number')) continue
+    if (!Array.isArray(row) || row.length < 8 || !row.slice(0, 8).every((x) => typeof x === 'number')) continue
     const [i, j, e, n, wy, wn, a, b] = row as number[]
     const bounds = cellBounds(i, j, size)
-    features.push({ type: 'Feature', properties: { k: `${i}_${j}`, grid: kind, e, n, wy, wn, a, b, bounds }, geometry: squareOf(bounds) })
+    const props: CellProps = { k: `${i}_${j}`, grid: kind, e, n, wy, wn, a, b, bounds }
+    // Per year, as [year offset, records, ...] for the years with any.
+    const byYear = row[8]
+    if (Array.isArray(byYear)) {
+      for (let q = 0; q + 1 < byYear.length; q += 2) {
+        const off = byYear[q], count = byYear[q + 1]
+        if (typeof off === 'number' && typeof count === 'number' && count > 0) props[`y${firstYear + off}`] = count
+      }
+    }
+    if (row[9] !== undefined) props.causes = decodeCauses(row[9])
+    features.push({ type: 'Feature', properties: props, geometry: squareOf(bounds) })
   }
   const cells: FeatureCollection<Polygon, CellProps> = { type: 'FeatureCollection', features }
   return { kind, size, years: [Number(r.years[0]), Number(r.years[1])], cells, byKey: new Map(features.map((f) => [f.properties.k, f])) }

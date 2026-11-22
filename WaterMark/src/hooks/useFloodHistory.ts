@@ -11,7 +11,7 @@ import type { Grid } from '../scripting/cells'
 
 type Keyed = { for: string; data: RegionCollection } | null
 
-export function useFloodHistory(path: readonly RegionPick[]): RegionData & { status: Loadable<true> } {
+export function useFloodHistory(path: readonly RegionPick[]): Omit<RegionData, 'year'> & { status: Loadable<true> } {
   const [index, setIndex] = useState<FloodHistoryIndex | null>(null)
   const [countries, setCountries] = useState<RegionCollection | null>(null)
   const [states, setStates] = useState<RegionCollection | null>(null)

@@ -4,10 +4,10 @@ Like the stormwater tiles, these are static files built once from official archi
 browser downloads a small pre-totalled file instead of thousands of records:
 
   public/data/floods/countries.json      every country: GDACS flood events per year, 2001-2025
-  public/data/floods/us-states.json      every US state: NOAA Storm Events flood reports per year
+  public/data/floods/us-states.json      every US state: NOAA Storm Events flood episodes per year, and their causes
   public/data/floods/counties/SS.json    the counties of one state (SS = state FIPS), loaded on click
   public/data/floods/admin1/XXX.json     the provinces, regions or departments of one country (ISO3), on click
-  public/data/floods/cells-us.json       0.5-degree squares over the US: NOAA flood reports at their reported point
+  public/data/floods/cells-us.json       0.5-degree squares over the US: NOAA flood episodes at their reported points
   public/data/floods/cells-world.json    1-degree squares elsewhere: GDACS flood events at their event point
   public/data/floods/index.json          sources, years and build date
 
@@ -45,7 +45,8 @@ GDACS_YEARS = range(2001, 2026)
 NOAA_YEARS = range(2016, 2026)
 # NOAA event types that are floods. Coastal and lakeshore floods are often reported per forecast
 # zone rather than per county, so they count toward the state but not always a county.
-NOAA_FLOOD_TYPES = {'Flood', 'Flash Flood', 'Coastal Flood', 'Lakeshore Flood'}
+# Storm surge is NOAA's own event type, separate from Coastal Flood; a seiche is a surge on a large lake.
+NOAA_FLOOD_TYPES = {'Flood', 'Flash Flood', 'Coastal Flood', 'Lakeshore Flood', 'Storm Surge/Tide', 'Seiche'}
 
 NE_COUNTRIES = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_50m_admin_0_countries.geojson'
 NE_ADMIN1 = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_10m_admin_1_states_provinces.geojson'
@@ -306,9 +307,9 @@ def build_countries():
         if iso:
             adm0_to_key[p.get('ADM0_A3')] = iso
     admin1_breaks = build_admin1(events, adm0_to_key, {f['properties']['k']: f['properties']['n'] for f in feats})
-    pts = [(x, y, year, 1 if major else 0, mag) for year, isos, x, y, month, major, mag in events.values()
+    pts = [(x, y, year, 1 if major else 0, mag, eid, None) for eid, (year, isos, x, y, month, major, mag) in events.items()
            if x is not None and y is not None and not ({i.upper() for i in isos} <= {'USA'} and isos)]
-    world_cells = build_cells(pts, WORLD_CELL, 'cells-world.json', years, us=False)
+    world_cells = build_cells(pts, WORLD_CELL, 'cells-world.json', years, us=False)  # (all years, one year)
     return len(events), breaks([f['properties']['py'] for f in feats]), admin1_breaks, world_cells
 
 
@@ -368,7 +369,41 @@ def build_admin1(events, adm0_to_key, country_names):
     return breaks(all_py)
 
 
-# ---------- NOAA: flood reports per US state and county ----------
+# ---------- NOAA: flood episodes per US state and county ----------
+#
+# NOAA files one row per event: each county or zone a storm flooded, and often several flash-flood
+# reports in one county. Counting rows counts the same storm many times (Missouri 2016-2025: 3,486
+# rows from 582 episodes). So a flood here is an EPISODE_ID, NOAA's id for one weather system's
+# flooding: counted once in a state, once in each county it touched, once in each grid square.
+# Deaths, injuries and damage are recorded per row, without repeats, so they are summed over rows.
+
+# What caused a flood, from NOAA's event type and its FLOOD_CAUSE field.
+CAUSES = [
+    ('rain', 'Flash floods from heavy rain'),
+    ('river', 'Rivers and slow-rising water'),
+    ('tropical', 'Tropical storms and hurricanes'),
+    ('snowmelt', 'Rain with snowmelt'),
+    ('burn', 'Rain on wildfire burn scars'),
+    ('ice', 'Ice jams'),
+    ('dam', 'Dams and levees'),
+    ('sea', 'The sea: storm surge and high tides'),
+    ('lake', 'Lakes: Great Lakes and large lakes'),
+]
+CAUSE_INDEX = {k: i for i, (k, _) in enumerate(CAUSES)}
+
+
+def cause_of(row):
+    kind, cause = row.get('EVENT_TYPE'), row.get('FLOOD_CAUSE') or ''
+    if kind in ('Coastal Flood', 'Storm Surge/Tide'):
+        return 'sea'
+    if kind in ('Lakeshore Flood', 'Seiche'):
+        return 'lake'
+    for word, key in (('Tropical', 'tropical'), ('Snow Melt', 'snowmelt'), ('Burn', 'burn'), ('Ice Jam', 'ice'),
+                      ('Dam', 'dam'), ('Levee', 'dam')):
+        if word in cause:
+            return key
+    return 'rain' if kind == 'Flash Flood' else 'river'
+
 
 def noaa_counts():
     listing = fetch(NOAA_DIR, None).decode('utf-8', 'replace')
@@ -378,6 +413,8 @@ def noaa_counts():
     states, counties = defaultdict(Counter), defaultdict(Counter)
     state_months = defaultdict(Counter)
     harm = defaultdict(lambda: {'d': Counter(), 'i': Counter(), '$': Counter()})
+    causes = defaultdict(lambda: defaultdict(set))  # region key -> cause -> episodes
+    seen = set()  # (region key, episode): each episode counts once per state and per county
     points = []
     for y in NOAA_YEARS:
         name = files[y]
@@ -389,7 +426,20 @@ def noaa_counts():
             st = (row.get('STATE_FIPS') or '').zfill(2)
             if not st.strip('0'):
                 continue
-            states[st][y] += 1
+            ep = row.get('EPISODE_ID') or f"event-{row.get('EVENT_ID')}"
+            cause = cause_of(row)
+            county = st + row['CZ_FIPS'].zfill(3) if row.get('CZ_TYPE') == 'C' and row.get('CZ_FIPS') else None
+            for key in [st] + ([county] if county else []):
+                causes[key][cause].add(ep)
+            if (st, ep) not in seen:
+                seen.add((st, ep))
+                states[st][y] += 1
+                ym = row.get('BEGIN_YEARMONTH') or ''
+                if len(ym) == 6 and ym[4:].isdigit():
+                    state_months[st][int(ym[4:])] += 1
+            if county and (county, ep) not in seen:
+                seen.add((county, ep))
+                counties[county][y] += 1
             dead = num(row.get('DEATHS_DIRECT')) + num(row.get('DEATHS_INDIRECT'))
             hurt = num(row.get('INJURIES_DIRECT')) + num(row.get('INJURIES_INDIRECT'))
             usd = damage_usd(row.get('DAMAGE_PROPERTY')) + damage_usd(row.get('DAMAGE_CROPS'))
@@ -400,15 +450,11 @@ def noaa_counts():
                 harm[key]['$'][y] += usd
             lat, lon = num(row.get('BEGIN_LAT'), None), num(row.get('BEGIN_LON'), None)
             if lat is not None and lon is not None and -90 < lat < 90 and -180 < lon < 180 and (lat or lon):
-                points.append((lon, lat, y, dead, usd))
-            ym = row.get('BEGIN_YEARMONTH') or ''
-            if len(ym) == 6 and ym[4:].isdigit():
-                state_months[st][int(ym[4:])] += 1
-            if row.get('CZ_TYPE') == 'C' and row.get('CZ_FIPS'):
-                counties[st + row['CZ_FIPS'].zfill(3)][y] += 1
+                points.append((lon, lat, y, dead, usd, ep, cause))
             n += 1
-        print(f'  NOAA {y}: {n} flood reports')
-    return states, counties, state_months, harm, points
+        print(f'  NOAA {y}: {n} flood rows')
+    print(f'  NOAA: {sum(sum(c.values()) for c in states.values())} state flood episodes')
+    return states, counties, state_months, harm, points, causes
 
 
 def num(v, default=0):
@@ -429,7 +475,7 @@ def damage_usd(v):
 
 def build_us():
     print('US states and counties (NOAA Storm Events + Census via us-atlas)')
-    states, counties, state_months, harm, points = noaa_counts()
+    states, counties, state_months, harm, points, causes = noaa_counts()
     topo = json.loads(fetch(US_ATLAS, 'us-atlas-counties-10m.json'))
     years = list(NOAA_YEARS)
 
@@ -437,6 +483,9 @@ def build_us():
         total = sum(counts[y] for y in years)
         h = harm.get(key)
         out = {'k': key, 'n': name, 'e': total, 'py': round(total / len(years), 2), 'y': [counts[y] for y in years]}
+        c = causes.get(key)
+        if c:
+            out['c'] = {k: len(c[k]) for k, _ in CAUSES if c.get(k)}
         if h:
             out['d'] = [int(h['d'][y]) for y in years]
             out['i'] = [int(h['i'][y]) for y in years]
@@ -467,8 +516,8 @@ def build_us():
         all_counties.append(p['py'])
     for st, feats in per_state.items():
         write(os.path.join(OUT, 'counties', f'{st}.json'), {'type': 'FeatureCollection', 'features': feats})
-    us_cells = build_cells(points, US_CELL, 'cells-us.json', years, us=True)
-    return breaks([f['properties']['py'] for f in state_feats]), breaks(all_counties), us_cells
+    us_cells, us_year = build_cells(points, US_CELL, 'cells-us.json', years, us=True)
+    return breaks([f['properties']['py'] for f in state_feats]), breaks(all_counties), (us_cells, us_year)
 
 
 US_CELL = 0.5
@@ -480,23 +529,40 @@ def cell_of(x, y, size):
 
 
 def build_cells(points, size, name, years, us):
-    """Squares of `size` degrees, each with the flood records whose reported point falls in it.
-    points: (lon, lat, year, deaths, usd) for the US; (lon, lat, year, major, magnitude) elsewhere."""
-    cells = defaultdict(lambda: {'y': Counter(), 'a': 0.0, 'b': 0.0})
-    for x, y, year, a, b in points:
+    """Squares of `size` degrees, each with the floods whose reported point falls in it, each flood
+    (NOAA episode, GDACS event) counted once per square however many reports it has there.
+    points: (lon, lat, year, deaths, usd, episode, cause) for the US;
+            (lon, lat, year, major, magnitude, event, None) elsewhere."""
+    cells = defaultdict(lambda: {'y': Counter(), 'a': 0.0, 'b': 0.0, 'seen': set(), 'c': defaultdict(set)})
+    for x, y, year, a, b, key, cause in points:
         c = cells[cell_of(x, y, size)]
-        c['y'][year] += 1
+        if key not in c['seen']:
+            c['seen'].add(key)
+            c['y'][year] += 1
+        if cause:
+            c['c'][cause].add(key)
         c['a'] += a
         c['b'] = c['b'] + b if us else max(c['b'], b)
     # Compact rows; the browser rebuilds each square from its column and row (scripting/cells.ts):
-    # [column, row, records, years with any, worst year, records that year, deaths | serious, USD | magnitude]
+    # [column, row, records, years with any, worst year, records that year, deaths | serious, USD | magnitude,
+    #  [year offset, records, year offset, records, ...],   (the time slider: only years with records)
+    #  [cause index, floods, cause index, floods, ...]]      (US only: CAUSES; a flood can have two)
     rows = []
+    per_year = []
     for (i, j), c in sorted(cells.items()):
         worst = max(years, key=lambda yr: (c['y'][yr], yr))
+        by_year = []
+        for k, yr in enumerate(years):
+            if c['y'][yr]:
+                by_year += [k, c['y'][yr]]
+                per_year.append(c['y'][yr])
         rows.append([i, j, sum(c['y'].values()), sum(1 for yr in years if c['y'][yr]), worst, c['y'][worst],
-                     int(c['a']), int(round(c['b'])) if us else round(c['b'], 1)])
+                     int(c['a']), int(round(c['b'])) if us else round(c['b'], 1), by_year,
+                     [v for k, eps in sorted(c['c'].items(), key=lambda kv: CAUSE_INDEX[kv[0]])
+                      for v in (CAUSE_INDEX[k], len(eps))]])
     write(os.path.join(OUT, name), {'size': size, 'years': [years[0], years[-1]], 'us': us, 'rows': rows})
-    return breaks([r[2] for r in rows])
+    # One color scale for every single year, so years compare fairly on the slider.
+    return breaks([r[2] for r in rows]), breaks(per_year)
 
 
 def main():
@@ -510,14 +576,15 @@ def main():
         'states': {'source': 'NOAA NCEI Storm Events Database', 'url': 'https://www.ncdc.noaa.gov/stormevents/',
                    'years': [NOAA_YEARS[0], NOAA_YEARS[-1]], 'types': sorted(NOAA_FLOOD_TYPES),
                    'breaks': state_breaks, 'countyBreaks': county_breaks,
-                   'unit': 'flood reports per year (one report per county or zone affected by an event)'},
+                   'unit': 'flood episodes per year (NOAA: one weather system flooding the area, however many reports it has)',
+                   'causes': [list(c) for c in CAUSES]},
         'admin1': {'source': 'GDACS flood events placed in Natural Earth provinces and regions', 'url': 'https://www.gdacs.org/',
                    'years': [GDACS_YEARS[0], GDACS_YEARS[-1]], 'breaks': admin1_breaks,
                    'unit': 'flood events per year whose GDACS event point falls in the area'},
-        'cells': {'us': {'size': US_CELL, 'breaks': us_cells, 'years': [NOAA_YEARS[0], NOAA_YEARS[-1]],
+        'cells': {'us': {'size': US_CELL, 'breaks': us_cells[0], 'yearBreaks': us_cells[1], 'years': [NOAA_YEARS[0], NOAA_YEARS[-1]],
                          'source': 'NOAA NCEI Storm Events Database', 'url': 'https://www.ncdc.noaa.gov/stormevents/',
-                         'unit': 'flood reports whose reported starting point is in the square'},
-                  'world': {'size': WORLD_CELL, 'breaks': world_cells, 'years': [GDACS_YEARS[0], GDACS_YEARS[-1]],
+                         'unit': 'flood episodes with a reported point in the square'},
+                  'world': {'size': WORLD_CELL, 'breaks': world_cells[0], 'yearBreaks': world_cells[1], 'years': [GDACS_YEARS[0], GDACS_YEARS[-1]],
                             'source': 'GDACS flood events (UN / European Commission JRC)', 'url': 'https://www.gdacs.org/',
                             'unit': 'flood events whose GDACS event point is in the square'}},
         'outlines': 'Natural Earth 1:50m (public domain); US Census Bureau cartographic boundaries via us-atlas',

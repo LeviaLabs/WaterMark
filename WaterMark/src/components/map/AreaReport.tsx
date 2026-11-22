@@ -9,7 +9,8 @@ import { EvidenceTag } from '../common/EvidenceTag'
 import { RainOutlookChart, FlowChart, YearBars } from './Charts'
 import type { EvidenceKind } from '../../scripting/content/dataSources'
 import { fmtDate, fmtDepthIn, fmtDistance, fmtRadius, fmtRain, fmtTime, fmtUsd, pct, UNITS } from '../../scripting/format'
-import { cellWidthKm, howOften, type CellProps } from '../../scripting/cells'
+import { cellWidthKm, countIn, howOften, type CellProps } from '../../scripting/cells'
+import { causeRows } from '../../scripting/causes'
 import type { CellMeta } from '../../services/floodHistory'
 import { nearestFlood, summarizeSensors } from '../../scripting/geo'
 import { touchesNYC } from '../../scripting/region'
@@ -26,6 +27,8 @@ interface Props {
   floods: Coverable<GlobalFloodCollection>
   /** The grid a picked square belongs to (years, sizes, source). */
   cellMeta?: CellMeta | null
+  /** The time slider's year, or null for all years. */
+  year?: number | null
 }
 
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -104,10 +107,10 @@ function Tile({ label, value, note }: { label: string; value: ReactNode; note?: 
 const pending = (v: Coverable<unknown>) => (v === null ? <span className="report-loading">…</span> : v === 'error' ? '—' : null)
 
 /** The flood record of a picked grid square, like the reference's "square you picked". */
-function CellRecord({ cell, meta, finer }: { cell: CellProps; meta: CellMeta; finer: boolean }) {
+function CellRecord({ cell, meta, year, finer }: { cell: CellProps; meta: CellMeta; year: number | null; finer: boolean }) {
   const span = meta.years[1] - meta.years[0] + 1
   const isUS = cell.grid === 'us'
-  const unit = isUS ? 'flood reports' : 'floods'
+  const unit = 'floods'
   const [w, s0] = cell.bounds
   const lat = `${Math.abs(s0 + meta.size / 2).toFixed(2)}°${s0 >= 0 ? 'N' : 'S'}`
   const lon = `${Math.abs(w + meta.size / 2).toFixed(2)}°${w >= 0 ? 'E' : 'W'}`
@@ -119,13 +122,19 @@ function CellRecord({ cell, meta, finer }: { cell: CellProps; meta: CellMeta; fi
           ? <>{cell.e.toLocaleString('en-US')} {unit} recorded here since {meta.years[0]}, {howOften(cell.e, span)}.</>
           : <>No {unit} recorded in this square since {meta.years[0]}. That is not a sign it is safe: small and local floods often go unlisted.</>}
       </p>
+      {year != null && year >= meta.years[0] && year <= meta.years[1] ? (
+        <Row k={`Floods in ${year}`} v={countIn(cell, year).toLocaleString('en-US')} />
+      ) : null}
       {cell.e ? (
         <>
           <Row k="Years with a flood" v={`${cell.n} of ${span}`} />
           <Row k="Worst year here" v={`${cell.wy} (${cell.wn.toLocaleString('en-US')})`} />
           {isUS ? (
             <>
-              <Row k="Deaths in these reports" v={cell.a.toLocaleString('en-US')} />
+              {causeRows(cell.causes).length ? (
+                <Row k="Main causes" v={causeRows(cell.causes).slice(0, 2).map((r) => `${r.short} ${r.count}`).join(' · ')} />
+              ) : null}
+              <Row k="Deaths in these floods" v={cell.a.toLocaleString('en-US')} />
               <Row k="Damage to property and crops" v={cell.b ? fmtUsd(cell.b) : 'None reported'} />
             </>
           ) : (
@@ -138,14 +147,15 @@ function CellRecord({ cell, meta, finer }: { cell: CellProps; meta: CellMeta; fi
       ) : null}
       <p className="map-meta">
         A {meta.size}° square (about {Math.round(meta.size * 111 * Math.cos(((s0 + meta.size / 2) * Math.PI) / 180))} km across).
-        Counts {isUS ? 'NOAA Storm Events flood reports' : 'GDACS flood events'} by where they were reported to start, {meta.years[0]} to {meta.years[1]}.
+        Counts {isUS ? 'NOAA flood episodes (each storm once, however many reports it has here)' : 'GDACS flood events'} by
+        where they were reported, {meta.years[0]} to {meta.years[1]}.{isUS ? '' : ' GDACS does not record causes.'}
         {finer ? ' The smaller block on the map is only the spot being inspected. These counts still belong to the whole square.' : ''}
       </p>
     </section>
   )
 }
 
-export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, floods, cellMeta }: Props) {
+export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, floods, cellMeta, year = null }: Props) {
   const { center, radiusKm, circle } = selection
   const sensors: Coverable<SensorCollection> = touchesNYC(circle) ? sensorsIn : 'unsupported'
   const isUS = s.alerts !== 'unsupported'
@@ -175,7 +185,7 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
 
   return (
     <RetryContext.Provider value={onRetry}>
-      {selection.cell && cellMeta ? <CellRecord cell={selection.cell} meta={cellMeta} finer={radiusKm * 2 < cellWidthKm(selection.cell.bounds) * 0.75} /> : null}
+      {selection.cell && cellMeta ? <CellRecord cell={selection.cell} meta={cellMeta} year={year} finer={radiusKm * 2 < cellWidthKm(selection.cell.bounds) * 0.75} /> : null}
       <p className="map-meta report-where">
         {selection.cell ? 'Forecasts and history at the middle of the block you picked' : <>{center[1].toFixed(4)}, {center[0].toFixed(4)} · circle of {fmtRadius(radiusKm, UNITS)} radius</>}
         {ready(s.elevation) && s.elevation != null ? <> · {height(s.elevation)} above sea level</> : null}

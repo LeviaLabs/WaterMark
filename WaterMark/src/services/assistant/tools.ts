@@ -10,6 +10,7 @@ import { fetchAlerts } from '../pointLookups'
 import { fetchGlobalFloods } from '../gdacs'
 import { busiestMonths, rainByYear, seasonalMedian, todayIndex } from '../../scripting/climate'
 import { cellAt, cellWidthKm } from '../../scripting/cells'
+import { causeRows } from '../../scripting/causes'
 import { distanceKm } from '../../scripting/geo'
 import { mayBeUS } from '../../scripting/region'
 import type { FunctionCall } from '../../scripting/assistant'
@@ -67,6 +68,8 @@ function record(p: RegionProps, firstYear: number, unit: string) {
   if (p.$) out.damage_usd_property_and_crops = sum(p.$)
   if (p.x) out.serious_floods_orange_or_red_alert = sum(p.x)
   if (p.g) out.largest_flood_magnitude = p.g
+  const causes = causeRows(p.c)
+  if (causes.length) out.causes = { counts: causes.map((c) => ({ cause: c.label, floods: c.count })), note: 'A flood with more than one cause counts under each.' }
   return out
 }
 
@@ -82,9 +85,9 @@ async function floodRecord(at: LngLat): Promise<Result> {
     const state = regionAt(await loadStates(), at)
     const noaa = { source: index.state.source, url: index.state.url }
     if (state) {
-      out.us_state = { ...record(state, index.state.years[0], 'flood reports (NOAA; one per county or zone an event touched)'), ...noaa }
+      out.us_state = { ...record(state, index.state.years[0], 'flood episodes (NOAA: one weather system flooding the state, counted once)'), ...noaa }
       const county = regionAt(await loadCounties(state.k).catch(() => null), at)
-      if (county) out.us_county = { ...record(county, index.state.years[0], 'flood reports (NOAA)'), ...noaa }
+      if (county) out.us_county = { ...record(county, index.state.years[0], 'flood episodes (NOAA) that touched the county'), ...noaa }
     }
   } else if (country) {
     const province = regionAt(await loadAdmin1(country.k).catch(() => null), at)
@@ -100,14 +103,16 @@ async function floodRecord(at: LngLat): Promise<Result> {
     years_with_any: cell.n,
     period: `${meta.years[0]}–${meta.years[1]}`,
     ...(cell.e ? { worst_year: cell.wy, worst_year_count: cell.wn } : {}),
-    ...(isUS ? { deaths: cell.a, damage_usd: cell.b } : { serious_floods: cell.a, largest_magnitude: cell.b }),
+    ...(isUS ? { deaths: cell.a, damage_usd: cell.b, causes: causeRows(cell.causes).map((c) => ({ cause: c.label, floods: c.count })) }
+      : { serious_floods: cell.a, largest_magnitude: cell.b, causes: 'not recorded by GDACS' }),
     counts: meta.unit,
     source: meta.source,
   }
   out.limits = [
     'Historical counts describe the past, not today.',
     'GDACS lists floods large enough for international notice and recorded about three times as many a year from 2019 on.',
-    'NOAA reports start in 2016 here; damage is as estimated in the reports, not inflation-adjusted.',
+    'NOAA figures start in 2016 here; a US flood is one NOAA episode (a weather system), counted once per area; damage is as estimated in the reports, not inflation-adjusted.',
+    'Causes come from NOAA (US only); GDACS does not record them.',
     'Zero recorded is not the same as no risk.',
   ]
   return out
@@ -249,7 +254,7 @@ async function topRegions(args: Record<string, unknown> | undefined): Promise<Re
     .sort((a, b) => b.value - a.value)
     .slice(0, limit)
   return {
-    measure: { floods: level === 'country' ? 'flood events' : 'flood reports', serious_floods: 'floods with an orange or red GDACS alert', deaths: 'deaths in flood reports', damage: 'property and crop damage, USD, not inflation-adjusted' }[measure],
+    measure: { floods: level === 'country' ? 'flood events' : 'flood episodes', serious_floods: 'floods with an orange or red GDACS alert', deaths: 'deaths in flood reports', damage: 'property and crop damage, USD, not inflation-adjusted' }[measure],
     period: yi >= 0 ? String(year) : `${meta.years[0]}–${meta.years[1]}`,
     ranking: ranked,
     note: level === 'country'

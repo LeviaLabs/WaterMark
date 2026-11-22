@@ -37,11 +37,16 @@ function Frame({ title, readout, fallback, ends, children }: {
 }
 
 /** One bar per year. */
-export function YearBars({ title, data, format, summary, accent = 'accent' }: {
+export function YearBars({ title, data, format, summary, accent = 'accent', highlight = null }: {
   title: string; data: { year: number; value: number }[]; format: (v: number) => string; summary: ReactNode; accent?: 'accent' | 'warm'
+  /** A year to mark (the time slider's); the other bars dim. */
+  highlight?: number | null
 }) {
-  const { i, bind } = useHover(data.length)
+  const { i: hovered, bind } = useHover(data.length)
   if (!data.length) return null
+  const marked = highlight == null ? -1 : data.findIndex((d) => d.year === highlight)
+  // The readout shows the hovered year, else the slider's.
+  const i = hovered ?? (marked >= 0 ? marked : null)
   const max = Math.max(...data.map((d) => d.value)) || 1
   const step = W / data.length
   const gap = Math.min(2, step * 0.25)
@@ -49,7 +54,7 @@ export function YearBars({ title, data, format, summary, accent = 'accent' }: {
   return (
     <Frame title={title} fallback={summary} ends={[String(data[0].year), String(data.at(-1)!.year)]}
       readout={i == null ? null : { label: String(data[i].year), value: format(data[i].value) }}>
-      <svg className={`chart-svg chart--${accent}`} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img"
+      <svg className={`chart-svg chart--${accent}${marked >= 0 ? ' has-current' : ''}`} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img"
         aria-label={`${title}, ${data[0].year} to ${data.at(-1)!.year}. Highest: ${format(peak.value)} in ${peak.year}.`} {...bind}>
         <line className="chart-base" x1="0" x2={W} y1={H - 0.5} y2={H - 0.5} />
         {data.map((d, k) => {
@@ -57,7 +62,7 @@ export function YearBars({ title, data, format, summary, accent = 'accent' }: {
           const isZero = !(d.value > 0)
           const h = isZero ? 3 : Math.max(2, ((H - PAD_TOP) * d.value) / max)
           return (
-            <rect key={d.year} className={`chart-bar${isZero ? ' is-zero' : ''}${k === i ? ' is-hot' : ''}`} x={k * step + gap / 2} y={H - h}
+            <rect key={d.year} className={`chart-bar${isZero ? ' is-zero' : ''}${k === hovered ? ' is-hot' : ''}${k === marked ? ' is-current' : ''}`} x={k * step + gap / 2} y={H - h}
               width={Math.max(1, step - gap)} height={h} rx={isZero ? 0 : Math.min(2, (step - gap) / 2)} />
           )
         })}

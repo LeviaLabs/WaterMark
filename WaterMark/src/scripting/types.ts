@@ -124,12 +124,14 @@ export type LayerVisibility = Record<LayerId, boolean>
 
 /**
  * Flood-history levels. Every country opens into its provinces or regions ('admin1', GDACS floods);
- * the US opens into states and then counties instead (NOAA flood reports).
+ * the US opens into states and then counties instead (NOAA flood episodes).
  */
 export type RegionLevel = 'country' | 'admin1' | 'state' | 'county'
 
 /** Flood history of one country, US state or US county (public/data/floods, built by scripts/floods). */
 export interface RegionProps {
+  /** US only: floods by cause (scripting/causes.ts ids); a flood can have more than one. */
+  c?: Record<string, number>
   /** ISO 3166 alpha-3 for countries, FIPS code for states (2 digits) and counties (5 digits). */
   k: string
   /** Name. */

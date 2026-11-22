@@ -1,0 +1,872 @@
+/*
+ * "Evidence, labeled" under the sea (components/landing/EvidenceSea.tsx).
+ * Back to front: water gradient, light rays and the shimmering surface,
+ * distant schools, bubbles, the evidence fish, seabed, the copy (top left)
+ * and the principles (bottom), then the veil and the card.
+ *
+ * Each fish lane spans the section's width and is an inline-size container,
+ * so 100cqw inside it is the section's width: a fish swims from just off the
+ * left edge to just off the right one (or back, for right-to-left fish) in
+ * one linear loop, and comes back at a new depth.
+ */
+
+.sea {
+  --fish-w: clamp(104px, 4.6rem + 4.4vw, 176px);
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: max(100svh, 50rem);
+  padding: clamp(6rem, 4rem + 6svh, 8.5rem) var(--gutter) clamp(2rem, 1rem + 3svh, 3.5rem);
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(180deg, var(--sea-top) 0%, var(--sea-mid) 45%, var(--sea-bottom) 100%);
+}
+
+/* ---- Light from above ---- */
+
+.sea-surface {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 0;
+  height: 90px;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 34px, var(--sea-ray) 34px 64px, transparent 64px 110px);
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent);
+  mask-image: linear-gradient(180deg, #000, transparent);
+  animation: surface-shimmer 9s linear infinite;
+}
+
+@keyframes surface-shimmer {
+  to {
+    background-position: 220px 0;
+  }
+}
+
+.sea-rays {
+  position: absolute;
+  inset: -10% 0 20%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.sea-rays span {
+  position: absolute;
+  top: 0;
+  width: 9%;
+  height: 100%;
+  background: linear-gradient(180deg, var(--sea-ray), transparent 85%);
+  transform: skewX(-16deg);
+  transform-origin: top;
+  animation: ray-sway 11s ease-in-out infinite alternate;
+}
+
+.sea-rays span:nth-child(1) {
+  left: 18%;
+}
+
+.sea-rays span:nth-child(2) {
+  left: 42%;
+  width: 6%;
+  animation-duration: 14s;
+  animation-delay: -4s;
+}
+
+.sea-rays span:nth-child(3) {
+  left: 64%;
+  width: 12%;
+  animation-duration: 9s;
+  animation-delay: -2s;
+}
+
+.sea-rays span:nth-child(4) {
+  left: 85%;
+  width: 5%;
+  animation-duration: 13s;
+  animation-delay: -7s;
+}
+
+@keyframes ray-sway {
+  from {
+    opacity: 0.45;
+    transform: skewX(-20deg) translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: skewX(-10deg) translateX(30px);
+  }
+}
+
+/* ---- Distant schools ---- */
+
+.sea-schools {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  container-type: inline-size;
+}
+
+.sea-school {
+  position: absolute;
+  top: 24%;
+  left: 0;
+  width: 150px;
+  height: 40px;
+  animation: school-swim 46s linear infinite;
+}
+
+.sea-school--1 {
+  top: 62%;
+  animation-duration: 60s;
+  animation-direction: reverse;
+  animation-delay: -20s;
+}
+
+.sea-school--1 svg {
+  scale: -1 1;
+}
+
+@keyframes school-swim {
+  from {
+    transform: translateX(-180px);
+  }
+  to {
+    transform: translateX(calc(100cqw + 40px));
+  }
+}
+
+.sea-school svg {
+  position: absolute;
+  left: calc(var(--n) * 19px);
+  top: calc(var(--n) * 3px);
+  width: 20px;
+  fill: var(--sea-school);
+  animation: school-wiggle 1.6s ease-in-out infinite alternate;
+  animation-delay: calc(var(--n) * -0.23s);
+}
+
+.sea-school svg:nth-child(odd) {
+  top: calc(18px - var(--n) * 2px);
+}
+
+@keyframes school-wiggle {
+  to {
+    transform: translate(3px, -4px);
+  }
+}
+
+/* ---- Bubbles ---- */
+
+.sea-bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.sea-bubbles li {
+  position: absolute;
+  bottom: 0;
+  left: calc(var(--x) * 100%);
+  width: var(--bubble);
+  height: 100%;
+  container-type: size;
+}
+
+.sea-bubbles span {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--bubble);
+  aspect-ratio: 1;
+  border: 1px solid var(--sea-bubble);
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, var(--sea-bubble) 0 18%, transparent 30%);
+  animation: bubble-rise var(--rise) linear infinite;
+  animation-delay: var(--start);
+}
+
+@keyframes bubble-rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(var(--drift), -50cqh) scale(0.9);
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, -100cqh) scale(1.15);
+  }
+}
+
+/* ---- The evidence fish ---- */
+
+.sea-fish-lanes {
+  position: absolute;
+  top: 34%;
+  bottom: 20%;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.sea-lane {
+  --lane-w: calc(var(--fish-w) * var(--size, 1));
+  position: absolute;
+  top: calc(var(--y, 0.5) * 100%);
+  left: 0;
+  width: 100%;
+  height: calc(var(--lane-w) * 0.62);
+  margin-top: calc(var(--lane-w) * -0.31);
+  container-type: inline-size;
+  pointer-events: none;
+  transition: top 0s;
+}
+
+.sea-fish {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--lane-w);
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: fish-swim var(--swim, 24s) linear infinite;
+  animation-delay: var(--start, 0s);
+}
+
+.sea-lane--rtl .sea-fish {
+  animation-direction: reverse;
+}
+
+@keyframes fish-swim {
+  from {
+    transform: translateX(calc(-1 * var(--lane-w) - 60px));
+  }
+  to {
+    transform: translateX(calc(100cqw + 60px));
+  }
+}
+
+.sea-fish-body {
+  position: absolute;
+  inset: 0;
+  animation: fish-bob var(--bob, 3s) ease-in-out infinite alternate;
+  animation-delay: var(--start, 0s);
+  transition: scale 0.5s var(--ease-spring);
+}
+
+@keyframes fish-bob {
+  from {
+    transform: translateY(-7px) rotate(-3deg);
+  }
+  to {
+    transform: translateY(7px) rotate(3deg);
+  }
+}
+
+.sea-fish-body svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 8px 16px color-mix(in srgb, var(--fish) 35%, transparent));
+}
+
+.sea-lane--rtl .sea-fish-body svg {
+  transform: scaleX(-1);
+}
+
+.sea-fish-shape {
+  fill: var(--fish);
+  stroke: color-mix(in oklab, var(--fish) 60%, var(--sea-pupil));
+  stroke-width: 2;
+}
+
+.sea-fish-stripes {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.sea-fish-tail,
+.sea-fish-fin {
+  fill: color-mix(in oklab, var(--fish) 75%, var(--sea-pupil));
+}
+
+/* The tail hinges where it meets the body and sweeps side to side. */
+.sea-fish-tail {
+  transform-box: fill-box;
+  transform-origin: 100% 50%;
+  animation: tail-wag 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes tail-wag {
+  from {
+    transform: scaleY(0.8) rotate(-12deg);
+  }
+  to {
+    transform: scaleY(1.05) rotate(12deg);
+  }
+}
+
+.sea-fish-pectoral {
+  fill: rgba(255, 255, 255, 0.45);
+  transform-box: fill-box;
+  transform-origin: 30% 0;
+  animation: fin-flutter 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes fin-flutter {
+  to {
+    transform: rotate(24deg);
+  }
+}
+
+.sea-fish-eye {
+  fill: var(--sea-eye);
+}
+
+.sea-fish-pupil {
+  fill: var(--sea-pupil);
+}
+
+/* Name tag that swims along below each fish. */
+.sea-fish-tag {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 7px;
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--fish);
+  border-radius: 999px;
+  background: var(--sea-scrim);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  transition: transform 0.45s var(--ease-spring);
+}
+
+.sea-fish-tag svg {
+  color: var(--fish);
+}
+
+.sea-fish-open {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  color: var(--fish);
+  opacity: 0;
+  transition:
+    max-width 0.4s var(--ease-out),
+    opacity 0.3s;
+}
+
+/* Hover or focus: the fish stops, turns to face you and offers to open. */
+.sea-fish:hover,
+.sea-fish:focus-visible,
+.sea-fish:hover .sea-fish-body,
+.sea-fish:focus-visible .sea-fish-body,
+.sea.is-open .sea-fish,
+.sea.is-open .sea-fish-body {
+  animation-play-state: paused;
+}
+
+.sea-fish:hover .sea-fish-body,
+.sea-fish:focus-visible .sea-fish-body {
+  scale: 1.16;
+}
+
+.sea-fish:hover .sea-fish-tail,
+.sea-fish:focus-visible .sea-fish-tail {
+  animation-duration: 0.2s;
+}
+
+.sea-fish:hover .sea-fish-tag,
+.sea-fish:focus-visible .sea-fish-tag {
+  transform: translateX(-50%) translateY(6px) scale(1.06);
+}
+
+.sea-fish:hover .sea-fish-open,
+.sea-fish:focus-visible .sea-fish-open {
+  max-width: 4em;
+  opacity: 1;
+}
+
+.sea-fish:focus-visible {
+  outline: none;
+}
+
+.sea-fish:focus-visible .sea-fish-tag {
+  outline: 2px solid var(--fish);
+  outline-offset: 2px;
+}
+
+.sea-lane.is-selected .sea-fish-body svg {
+  animation: fish-glow 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes fish-glow {
+  to {
+    filter: drop-shadow(0 0 24px var(--fish));
+  }
+}
+
+/* ---- Seabed ---- */
+
+.sea-bed {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  height: 22%;
+  pointer-events: none;
+}
+
+.sea-sand {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 55%;
+  fill: var(--sea-sand);
+}
+
+.sea-weed {
+  position: absolute;
+  left: var(--x);
+  bottom: 30%;
+  width: 40px;
+  height: calc(var(--h) * 100%);
+  fill: var(--sea-weed);
+  transform-origin: 50% 100%;
+  animation: weed-sway 5s ease-in-out infinite alternate;
+  animation-delay: calc(-1 * var(--delay, 0s));
+}
+
+@keyframes weed-sway {
+  from {
+    transform: rotate(-7deg) skewX(4deg);
+  }
+  to {
+    transform: rotate(6deg) skewX(-5deg);
+  }
+}
+
+/* ---- The copy, top left ---- */
+
+.sea-content {
+  position: relative;
+  z-index: 4;
+  align-self: start;
+  justify-self: start;
+  width: min(100%, 36rem);
+  margin-left: max(0px, calc((100% - var(--page-max)) / 2));
+  pointer-events: none;
+}
+
+/* A soft pool of water behind the words, so fish passing behind stay out of the way. */
+.sea-content::before {
+  content: '';
+  position: absolute;
+  inset: -5rem -9rem -4rem -12rem;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--sea-scrim), transparent);
+}
+
+.sea-content .section-title {
+  margin-bottom: 18px;
+}
+
+.sea-content .section-lede {
+  margin: 0 0 18px;
+}
+
+.sea-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 16px 8px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--sea-scrim);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sea-hint-fish {
+  display: grid;
+  width: 24px;
+  color: var(--accent);
+  animation: hint-swim 2.2s ease-in-out infinite;
+}
+
+.sea-hint-fish svg {
+  width: 100%;
+  fill: currentColor;
+}
+
+@keyframes hint-swim {
+  0%,
+  100% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(4px) translateY(-2px);
+  }
+}
+
+.sea-footer {
+  position: relative;
+  z-index: 4;
+  align-self: end;
+  width: min(100%, var(--page-max));
+  margin: 2rem auto 0;
+}
+
+.sea-footer .principles {
+  justify-content: center;
+  margin: 0;
+}
+
+.sea-footer .principle {
+  border-color: var(--glass-border);
+  background: var(--sea-scrim);
+}
+
+/* ---- Open: the sea stops and blurs, the card grows out of its fish ---- */
+
+.sea.is-open .sea-bubbles span,
+.sea.is-open .sea-school,
+.sea.is-open .sea-rays span,
+.sea.is-open .sea-weed {
+  animation-play-state: paused;
+}
+
+.sea-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--sea-bottom) 35%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  backdrop-filter: blur(12px) saturate(120%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.55s var(--ease-out);
+}
+
+.sea.is-open:not(.is-closing) .sea-veil {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sea-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 7;
+  width: min(36rem, calc(100% - 2rem));
+  max-height: calc(100% - 3rem);
+  overflow: auto;
+  padding: clamp(18px, 2.6vw, 28px);
+  border-top: 3px solid var(--fish);
+  border-radius: var(--radius-lg);
+  transform: translate(-50%, -50%);
+  animation: card-grow 0.8s var(--ease-spring) both;
+}
+
+.sea-card.is-closing {
+  animation: card-shrink 0.5s var(--ease-in-out) both;
+}
+
+@keyframes card-grow {
+  from {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--from-x, 0px)), calc(-50% + var(--from-y, 0px))) scale(0.12);
+    border-radius: 50%;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+@keyframes card-shrink {
+  to {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--from-x, 0px)), calc(-50% + var(--from-y, 0px))) scale(0.12);
+    border-radius: 50%;
+  }
+}
+
+.sea-card-wash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(110% 55% at 0% 0%, color-mix(in srgb, var(--fish) 20%, transparent), transparent 62%);
+}
+
+.sea-card-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.sea-card-count {
+  margin-right: auto;
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sea-card-nav,
+.sea-card-close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    transform 0.45s var(--ease-spring),
+    border-color 0.2s;
+}
+
+.sea-card-prev {
+  transform: rotate(180deg);
+}
+
+.sea-card-nav:hover,
+.sea-card-nav:focus-visible {
+  border-color: var(--fish);
+  transform: translateX(2px);
+}
+
+.sea-card-nav:first-of-type:hover,
+.sea-card-nav:first-of-type:focus-visible {
+  transform: translateX(-2px);
+}
+
+.sea-card-close:hover,
+.sea-card-close:focus-visible {
+  border-color: var(--fish);
+  transform: rotate(90deg) scale(1.08);
+}
+
+/* Stepping through kinds slides the content the way you went. */
+.sea-card-body {
+  position: relative;
+  animation: card-body-in 0.55s var(--ease-out) both;
+}
+
+@keyframes card-body-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--dir, 1) * 36px));
+  }
+}
+
+.sea-card-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.sea-card-badge {
+  flex: none;
+  width: 64px;
+  animation: badge-swim 0.9s 0.1s var(--ease-spring) both;
+}
+
+.sea-card-badge svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.sea-card-badge path {
+  fill: var(--fish);
+}
+
+.sea-card-badge path:first-child {
+  fill: color-mix(in oklab, var(--fish) 75%, var(--sea-pupil));
+  transform-box: fill-box;
+  transform-origin: 100% 50%;
+  animation: tail-wag 0.5s ease-in-out infinite alternate;
+}
+
+.sea-card-badge-eye {
+  fill: var(--sea-eye);
+}
+
+@keyframes badge-swim {
+  from {
+    opacity: 0;
+    transform: translateX(-30px) scale(0.6);
+  }
+}
+
+.sea-card-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  animation: rise-in 0.6s 0.15s var(--ease-out) both;
+}
+
+.sea-card-eyebrow svg {
+  color: var(--fish);
+}
+
+.sea-card-title {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  font-weight: 500;
+  line-height: 1.1;
+  animation: rise-in 0.6s 0.2s var(--ease-out) both;
+}
+
+.sea-card-facts {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 18px;
+}
+
+.sea-fact {
+  padding-left: 14px;
+  border-left: 2px solid var(--fish);
+  animation: rise-in 0.6s var(--ease-out) both;
+  animation-delay: calc(0.28s + var(--n, 0) * 0.08s);
+}
+
+.sea-fact--not {
+  border-left-style: dashed;
+}
+
+.sea-fact dt {
+  margin-bottom: 2px;
+  color: var(--text-subtle);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sea-fact dd {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.sea-fact .evidence-tag {
+  margin-right: 4px;
+  vertical-align: 0.1em;
+}
+
+.sea-card-sources-title {
+  margin: 0 0 6px;
+  color: var(--text-subtle);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  animation: rise-in 0.6s 0.5s var(--ease-out) both;
+}
+
+.sea-card-sources li {
+  animation: rise-in 0.6s var(--ease-out) both;
+  animation-delay: calc(0.55s + var(--n, 0) * 0.07s);
+}
+
+.sea-card-sources a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sea-card-sources a > * {
+  transition: transform 0.45s var(--ease-spring);
+}
+
+.sea-card-sources a:hover .sea-card-provider {
+  transform: translateX(5px);
+}
+
+.sea-card-sources a:hover svg {
+  transform: translate(3px, -3px);
+}
+
+.sea-card-provider {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.sea-card-sources svg {
+  margin-left: auto;
+  opacity: 0.6;
+}
+
+/* ---- Phones ---- */
+
+@media (max-width: 720px) {
+  .sea {
+    --fish-w: 84px;
+    min-height: max(100svh, 48rem);
+  }
+
+  .sea-fish-lanes {
+    top: 46%;
+    bottom: 14%;
+  }
+
+  .sea-footer .principles {
+    gap: 6px;
+  }
+
+  .sea-footer .principle {
+    padding: 5px 10px 5px 8px;
+    font-size: 0.74rem;
+  }
+
+  .sea-content::before {
+    inset: -4rem -2rem;
+  }
+
+}

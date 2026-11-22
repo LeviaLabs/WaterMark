@@ -1,9 +1,13 @@
-import { DATA_SOURCES, EVIDENCE_RULES } from '../../scripting/content/dataSources'
+import type { CSSProperties } from 'react'
+import { DATA_SOURCES } from '../../scripting/content/dataSources'
 import { EvidenceTag } from '../common/EvidenceTag'
 import { Icon, type IconName } from '../common/Icon'
 import { Reveal } from '../common/Reveal'
-import { TiltCard } from '../common/TiltCard'
-import { ProvenanceCard } from './ProvenanceCard'
+import { RollText } from '../common/RollText'
+import { SplitText } from '../common/SplitText'
+import { EvidenceSea } from './EvidenceSea'
+
+const TITLE = ['Evidence, labeled.', '\n', { text: 'Never guessed.', accent: true }] as const
 
 const PRINCIPLES: readonly { icon: IconName; text: string }[] = [
   { icon: 'shield', text: 'Official warnings always win' },
@@ -14,59 +18,49 @@ const PRINCIPLES: readonly { icon: IconName; text: string }[] = [
 
 export function DataSection() {
   return (
-    <section id="data" className="data section" aria-labelledby="data-title">
-      <Reveal className="section-head">
-        <p className="section-eyebrow">Accurate data</p>
-        <h2 id="data-title" className="section-title">
-          Evidence, labeled.
-          <br />
-          <span className="text-gradient">Never guessed.</span>
-        </h2>
-        <p className="section-lede">
-          Most flood tools blend everything into one colorful score. WaterMark keeps each kind of evidence separate and
-          tells you what it is, and what it is not.
-        </p>
+    <section className="data" aria-labelledby="data-title">
+      <Reveal className="data-sea">
+        <EvidenceSea
+          footer={
+            <ul className="principles" aria-label="Data principles">
+              {PRINCIPLES.map((principle, index) => (
+                <li key={principle.text} className="principle" style={{ '--i': index } as CSSProperties}>
+                  <Icon name={principle.icon} size={16} />
+                  {principle.text}
+                </li>
+              ))}
+            </ul>
+          }
+        >
+          <p className="section-eyebrow">Accurate data</p>
+          <h2 id="data-title" className="section-title">
+            <SplitText parts={TITLE} />
+          </h2>
+          <p className="section-lede">
+            Most flood tools blend everything into one colorful score. WaterMark keeps seven kinds of evidence separate,
+            each with its own color.
+          </p>
+          <p className="sea-hint">
+            <span className="sea-hint-fish" aria-hidden="true">
+              <svg viewBox="0 0 24 12">
+                <path d="M4 6C8 1 17 1 21 6C17 11 8 11 4 6ZM4 6L0 2V10Z" />
+              </svg>
+            </span>
+            Click a fish to see what that kind of evidence is, and what it is not.
+          </p>
+        </EvidenceSea>
       </Reveal>
 
-      <ul className="principles" aria-label="Data principles">
-        {PRINCIPLES.map((principle) => (
-          <li key={principle.text} className="principle">
-            <Icon name={principle.icon} size={16} />
-            {principle.text}
-          </li>
-        ))}
-      </ul>
-
-      <div className="data-grid">
-        <ul className="rules" aria-label="Kinds of evidence">
-          {EVIDENCE_RULES.map((rule, index) => (
-            <li key={rule.kind}>
-              <Reveal delay={(index % 2) * 80}>
-                <TiltCard className="rule">
-                  <EvidenceTag kind={rule.kind} />
-                  <p className="rule-is">{rule.is}</p>
-                  <p className="rule-not">
-                    <span>Not:</span> {rule.isNot}
-                  </p>
-                </TiltCard>
-              </Reveal>
-            </li>
-          ))}
-        </ul>
-        <Reveal className="data-provenance">
-          <ProvenanceCard />
-        </Reveal>
-      </div>
-
+      <div className="section data-sources">
       {/* Ryan Lin's resources / bibliography component mounts below this list (README Section 10). */}
       <Reveal className="sources">
         <h3 className="sources-title">Where the data comes from</h3>
         <ul className="sources-list">
-          {DATA_SOURCES.map((source) => (
-            <li key={source.url}>
+          {DATA_SOURCES.map((source, index) => (
+            <li key={source.url} style={{ '--i': index } as CSSProperties}>
               <a href={source.url} target="_blank" rel="noreferrer" className="source-row">
                 <span className="source-name">
-                  {source.name}
+                  <RollText text={source.name} />
                   <Icon name="external" size={14} />
                 </span>
                 <span className="source-provider">{source.provider}</span>
@@ -77,6 +71,7 @@ export function DataSection() {
           ))}
         </ul>
       </Reveal>
+      </div>
     </section>
   )
 }

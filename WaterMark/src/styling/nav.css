@@ -15,6 +15,14 @@
   z-index: 50;
   padding: 0 var(--gutter);
   pointer-events: none;
+  animation: nav-drop 0.9s 0.1s var(--ease-out) both;
+}
+
+@keyframes nav-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
 }
 
 .nav-inner {
@@ -83,16 +91,34 @@
   color: inherit;
   font-size: 0.92rem;
   font-weight: 500;
+  position: relative;
   text-decoration: none;
   opacity: 0.82;
-  transition:
-    opacity 0.2s,
-    background-color 0.2s;
+  transition: opacity 0.2s;
 }
 
-.nav-link:hover {
+/* Hover: letters roll (RollText) and a droplet underline stretches in. */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform 0.5s var(--ease-spring);
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
   opacity: 1;
-  background: var(--accent-soft);
+}
+
+.nav-link:hover::after,
+.nav-link:focus-visible::after {
+  transform: scaleX(1);
 }
 
 .nav-actions {
@@ -138,12 +164,12 @@
   cursor: pointer;
   overflow: hidden;
   transition:
-    transform 0.3s var(--ease-out),
+    transform 0.5s var(--ease-spring),
     border-color 0.3s;
 }
 
 .theme-toggle:hover {
-  transform: rotate(-12deg) scale(1.06);
+  transform: rotate(-20deg) scale(1.08);
   border-color: var(--line-strong);
 }
 

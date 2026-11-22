@@ -1,0 +1,75 @@
+/*
+ * Page-level motion: smooth scrolling (Lenis), the theme switch that spreads
+ * out in a circle from the toggle, and the crossfade between pages. All of it
+ * is skipped under reduced motion.
+ */
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+/* Lenis eases the scroll itself; native smooth scrolling on top would fight it. */
+html.lenis {
+  scroll-behavior: auto;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+/* ---- Theme switch: the new theme grows out of the toggle button ---- */
+
+/* Snapshots are taken mid-switch; CSS color transitions would only blur them. */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+}
+
+html.theme-switching::view-transition-old(root),
+html.theme-switching::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.theme-switching::view-transition-new(root) {
+  animation: theme-reveal 0.75s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 0));
+  }
+  to {
+    clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 0));
+  }
+}
+
+/* ---- Page changes: the old page sinks away, the new one rises in ---- */
+
+::view-transition-old(root) {
+  animation: page-out 0.35s var(--ease-out) both;
+}
+
+::view-transition-new(root) {
+  animation: page-in 0.55s var(--ease-out) both;
+}
+
+@keyframes page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.99);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+}

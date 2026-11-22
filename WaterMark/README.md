@@ -14,7 +14,7 @@ npm run build   # typecheck + production build into dist/
 
 ## What is here
 
-- **Landing page** (`/`): interactive WebGL sea in the hero (move to stir it, tap for ripples), a scroll-driven parallax "evidence stack", the data principles and source list, planned features, team credits and a footer thanking EvoHacks II and its sponsors.
+- **Landing page** (`/`): the hero is the WaterMark droplet as a large glass drop of water over a slow aurora. The water inside sloshes as the pointer moves, a thin waterline runs from its surface across the page, and scrolling down fills the drop on the way into the city. The title's second line decrypts on load and each word re-decrypts on hover. Then a scroll story ("How it works"): a 2D SVG city (lit windows at night, sun and clouds by day) whose curved water rises continuously with the scroll, while each step shows a working feature panel (place search, NWS alerts, rainfall chart, stormwater scenarios, sensor and tide readings, circle-an-area, assistant, alert digest). Every panel uses clearly labeled example data until it is wired to the data API. Then the page sinks under the sea: each kind of evidence is a fish of its own color swimming left to right or right to left (click one to open its card), with the data principles on the seabed, then the source list, who it is for, team credits with build status, and a footer thanking EvoHacks II and its sponsors. Smooth scrolling (Lenis), view-transition theme and page changes, and sections below the first screen (and each story panel) load only as they come on screen, with skeletons until they arrive. No WebGL, so it works without hardware graphics.
 - **Light and dark mode**: `src/context/ThemeProvider.tsx`, remembered in `localStorage`, defaulting to the system setting.
 - **Routing**: React Router in `src/App.tsx`. `/map` is reserved for the map page (Ryan Lin); `/login` and `/signup` are a shell until MojoAuth sign-in (Decong Huang) is connected.
 - **Astryx design system**: the custom `watermark` theme (`themes/watermark/`, generated into `src/themes/`) styles Astryx controls such as `Button`, `TextInput` and `Avatar`. Page layout and visuals are plain CSS in `src/styling/`.
@@ -25,12 +25,13 @@ npm run build   # typecheck + production build into dist/
 public/            icons and web manifest only
 src/
   App.tsx          providers + routes
-  components/      layout/, hero/, landing/, common/, pages/
+  components/      layout/, hero/, landing/, common/, pages/, city/ (SVG city), features/ (evidence panels)
   styling/         CSS files (tokens.css holds the theme colors)
-  scripting/       pure logic: theme rules, WebGL renderer + GLSL shaders, page content
+  scripting/       pure logic: theme rules, city/ geometry, evidence/ API contract mirror + formatting, text/, content/
   context/         React contexts and providers
   hooks/           custom hooks
-  services/        integrations with outside tools (none yet)
+  services/        integrations with outside tools: geocoding/photon.ts (place search through Photon,
+                   keyless, OpenStreetMap data, credited in the panel)
   assets/          images imported by code
   themes/          generated Astryx theme (do not edit by hand)
 tests/             Vitest tests

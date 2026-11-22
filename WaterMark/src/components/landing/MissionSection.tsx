@@ -1,5 +1,9 @@
+import type { CSSProperties } from 'react'
 import { DATA_SOURCES, EVIDENCE_RULES } from '../../scripting/content/dataSources'
 import { Reveal } from '../common/Reveal'
+import { SplitText } from '../common/SplitText'
+
+const TITLE = ['Flood information is scattered.', '\n', { text: 'Your street isn’t.', accent: true }] as const
 
 const STATS = [
   { value: String(DATA_SOURCES.length), label: 'public datasets evaluated', note: 'NWS, NOAA, FEMA, USGS, NYC and more' },
@@ -13,9 +17,7 @@ export function MissionSection() {
       <Reveal className="mission-copy">
         <p className="section-eyebrow">Why WaterMark</p>
         <h2 id="mission-title" className="section-title">
-          Flood information is scattered.
-          <br />
-          <span className="text-gradient">Your street isn't.</span>
+          <SplitText parts={TITLE} />
         </h2>
         <p className="section-lede">
           The facts about a place that floods are spread across weather forecasts, government flood maps, tide gauges,
@@ -29,7 +31,7 @@ export function MissionSection() {
         {STATS.map((stat, index) => (
           <li key={stat.label}>
             <Reveal delay={index * 90} className="stat glass-card">
-              <span className="stat-value">{stat.value}</span>
+              <span className="stat-value" style={{ '--i': index } as CSSProperties}>{stat.value}</span>
               <span className="stat-label">{stat.label}</span>
               <span className="stat-note">{stat.note}</span>
             </Reveal>

@@ -40,13 +40,48 @@ export const DATA_SOURCES: readonly DataSource[] = [
   { name: 'American Community Survey', provider: 'US Census Bureau', url: 'https://www.census.gov/data/developers.html', kind: 'reference', coverage: 'United States' },
 ]
 
-/** What each kind of evidence is, and what it must never be mistaken for. */
-export const EVIDENCE_RULES: readonly { kind: EvidenceKind; is: string; isNot: string }[] = [
-  { kind: 'official', is: 'Active NWS warnings, exactly as issued and linked to the agency.', isNot: 'A forecast we computed, or an all-clear when no warning exists.' },
-  { kind: 'forecast', is: 'Predicted rainfall amounts and intensity, with the time the model was issued.', isNot: 'An official warning, or flooding that has already happened.' },
-  { kind: 'modeled', is: 'GloFAS river-discharge forecasts at supported river points.', isNot: 'Street-level flood depth, coastal surge, or urban rainfall flooding.' },
-  { kind: 'scenario', is: 'NYC stormwater maps showing where a modeled storm could pond water.', isNot: 'What is flooding today.' },
-  { kind: 'observed', is: 'Readings from a specific FloodNet sensor, tide station or stream gauge.', isNot: 'A measurement for the whole neighborhood around it.' },
-  { kind: 'historical', is: '311 flooding reports and insurance claims from past events.', isNot: 'Present conditions, or a statement about any one household.' },
-  { kind: 'reference', is: 'FEMA flood zones, evacuation zones and census context for planning.', isNot: 'A current warning, a live prediction, or facts about one person.' },
+/** What each kind of evidence is, what it must never be mistaken for, and how WaterMark labels it. */
+export const EVIDENCE_RULES: readonly { kind: EvidenceKind; is: string; isNot: string; shownAs: string }[] = [
+  {
+    kind: 'official',
+    is: 'Active NWS warnings, exactly as issued and linked to the agency.',
+    isNot: 'A forecast we computed, or an all-clear when no warning exists.',
+    shownAs: 'First, in the agency’s own words: severity, urgency and certainty as issued, when it starts and ends, and a link to weather.gov.',
+  },
+  {
+    kind: 'forecast',
+    is: 'Predicted rainfall amounts and intensity, with the time the model was issued.',
+    isNot: 'An official warning, or flooding that has already happened.',
+    shownAs: 'Millimeters per hour for the hours ahead, with the model’s issue time. Missing hours stay blank instead of reading zero.',
+  },
+  {
+    kind: 'modeled',
+    is: 'GloFAS river-discharge forecasts at supported river points.',
+    isNot: 'Street-level flood depth, coastal surge, or urban rainfall flooding.',
+    shownAs: 'River flow at the nearest supported river point, with the model run time and a note that it says nothing about street flooding.',
+  },
+  {
+    kind: 'scenario',
+    is: 'NYC stormwater maps showing where a modeled storm could pond water.',
+    isNot: 'What is flooding today.',
+    shownAs: 'Named by the storm it models (limited, moderate or extreme) and always labeled a scenario, never today’s water.',
+  },
+  {
+    kind: 'observed',
+    is: 'Readings from a specific FloodNet sensor, tide station or stream gauge.',
+    isNot: 'A measurement for the whole neighborhood around it.',
+    shownAs: 'The exact sensor or station, its reading with units and the time it was taken. Gaps in the record stay gaps.',
+  },
+  {
+    kind: 'historical',
+    is: '311 flooding reports and insurance claims from past events.',
+    isNot: 'Present conditions, or a statement about any one household.',
+    shownAs: 'Counts with their date range. Capped counts read “at least”, and counts we could not load read “Unknown”, never zero.',
+  },
+  {
+    kind: 'reference',
+    is: 'FEMA flood zones, evacuation zones and census context for planning.',
+    isNot: 'A current warning, a live prediction, or facts about one person.',
+    shownAs: 'As a reference layer with its publisher, kept apart from anything that describes right now.',
+  },
 ]

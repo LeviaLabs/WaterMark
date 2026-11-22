@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@astryxdesign/core/Button'
 import { TextInput } from '@astryxdesign/core/TextInput'
-import { WaveCanvas } from '../hero/WaveCanvas'
+import { CityScene } from '../city/CityScene'
 import { RouterLink } from '../common/RouterLink'
 
 type Mode = 'login' | 'signup'
@@ -43,7 +43,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
   return (
     <section className="auth" aria-labelledby="auth-title">
-      <WaveCanvas className="auth-canvas" />
+      <CityScene level={0.18} boat className="auth-city" />
       <span className="auth-shade" aria-hidden="true" />
       <div className="auth-card glass-panel">
         <h1 id="auth-title" className="auth-title">

@@ -497,19 +497,3 @@
     opacity: 0.15;
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .flood-surface,
-  .city-skyline,
-  .city-orb {
-    transition: none;
-  }
-
-  .flood-surface {
-    animation: none;
-  }
-
-  .city-rain {
-    display: none;
-  }
-}

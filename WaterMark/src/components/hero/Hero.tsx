@@ -5,17 +5,17 @@ import { Icon } from '../common/Icon'
 import { RollText } from '../common/RollText'
 import { RouterLink } from '../common/RouterLink'
 import { SplitText } from '../common/SplitText'
-import { TideChart } from './TideChart'
+import { StormScope } from './StormScope'
 
 const PROVIDERS = ['National Weather Service', 'NOAA Tides & Currents', 'FEMA', 'USGS', 'NYC Open Data', 'FloodNet NYC', 'Open-Meteo', 'Copernicus GloFAS']
 
 const TITLE = ['Know the water', '\n', { text: 'around you.', accent: true }] as const
 
 /**
- * Hero: a living tide chart. The headline rises in and its last letters
- * decrypt, while behind it the tide rolls in and out over a topographic
- * island on its own. Nothing to press; the chart drifts a little with the
- * mouse on desktop.
+ * Hero: a storm scope you can play with (StormScope.tsx). The headline rises
+ * in and its second line decrypts (hover a word to decrypt it again). Behind
+ * it a radar sweep turns over a field of dots, the evidence kinds blip as it
+ * passes, and clicking drops rain cells that holding builds into a storm.
  */
 export function Hero() {
   const heroRef = useRef<HTMLElement>(null)
@@ -23,7 +23,7 @@ export function Hero() {
 
   return (
     <section ref={heroRef} className="hero" aria-labelledby="hero-title">
-      <TideChart />
+      <StormScope />
       <span className="hero-shade" aria-hidden="true" />
 
       <div className="hero-content">
@@ -32,7 +32,7 @@ export function Hero() {
           EvoHacks II · Projects for Social Good
         </p>
         <h1 id="hero-title" className="hero-title">
-          <SplitText parts={TITLE} play delay={250} scramble={6} />
+          <SplitText parts={TITLE} play delay={250} scramble="accent" hoverScramble />
         </h1>
         <p className="hero-lede">
           Official flood warnings, rainfall forecasts, stormwater scenarios, sensor readings and flood history on one

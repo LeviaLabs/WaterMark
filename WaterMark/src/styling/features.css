@@ -1350,17 +1350,3 @@
     transform: translateY(10px) rotateX(18deg);
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .place-search-ghost {
-    animation: none;
-    clip-path: none;
-    border-right: 0;
-  }
-
-  .scenario-thumb,
-  .scenario-ponds path,
-  .area-circle {
-    transition: none;
-  }
-}

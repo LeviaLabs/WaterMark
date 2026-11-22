@@ -1,0 +1,559 @@
+/*
+ * Hero storm scope (components/hero/StormScope.tsx). Back to front: a field of
+ * dots (lit around the pointer), radar echoes drawn twice (a faint wash and a
+ * halftone of dots), the dial with its turning sweep and the evidence blips,
+ * then the readout panel. Everything moves with transform and opacity, except
+ * the pointer light, which repaints only while the pointer moves.
+ */
+
+.storm {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  container-type: inline-size;
+  cursor: crosshair;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- The dot field ---- */
+
+.storm-field {
+  position: absolute;
+  inset: -24px;
+  pointer-events: none;
+  background-image: radial-gradient(circle, var(--storm-dot) 1.2px, transparent 1.8px);
+  background-size: 18px 18px;
+  translate: calc(var(--px, 0) * -10px) calc(var(--py, 0) * -8px);
+  animation: field-in 1.6s var(--ease-out) both;
+}
+
+.storm-field--lit {
+  background-image: radial-gradient(circle, var(--accent) 1.6px, transparent 2.2px);
+  -webkit-mask-image: radial-gradient(circle 190px at calc(var(--mx, -999px) + 24px) calc(var(--my, -999px) + 24px), #000, transparent);
+  mask-image: radial-gradient(circle 190px at calc(var(--mx, -999px) + 24px) calc(var(--my, -999px) + 24px), #000, transparent);
+  opacity: 0;
+  transition: opacity 0.5s var(--ease-out);
+}
+
+.storm[data-pointer] .storm-field--lit {
+  opacity: 1;
+}
+
+@keyframes field-in {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+/* ---- Radar echoes ---- */
+
+.storm-echoes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.storm-echoes--glow {
+  opacity: 0.2;
+}
+
+.storm-echo {
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  margin: -120px 0 0 -120px;
+}
+
+/* Each echo is drawn as a halftone: its own dot mask moves with it, so nothing repaints as it drifts. */
+.storm-echoes--dots .storm-echo-bloom {
+  -webkit-mask-image: radial-gradient(circle, #000 2.3px, transparent 2.9px);
+  mask-image: radial-gradient(circle, #000 2.3px, transparent 2.9px);
+  -webkit-mask-size: 8px 8px;
+  mask-size: 8px 8px;
+}
+
+.storm-echo-bloom {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: echo-bloom 0.7s var(--ease-spring) both;
+}
+
+.storm-echo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: scale(calc(0.45 + var(--i, 0.3) * 0.75));
+  transition: transform 0.3s var(--ease-out);
+}
+
+/* Heavier bands appear as the cell's intensity (--i) passes their threshold. */
+.storm-echo-light {
+  fill: var(--echo-light);
+}
+
+.storm-echo-moderate {
+  fill: var(--echo-moderate);
+  opacity: clamp(0, (var(--i, 0) - 0.35) * 6, 1);
+}
+
+.storm-echo-heavy {
+  fill: var(--echo-heavy);
+  opacity: clamp(0, (var(--i, 0) - 0.62) * 6, 1);
+}
+
+.storm-echo-extreme {
+  fill: var(--echo-extreme);
+  opacity: clamp(0, (var(--i, 0) - 0.88) * 8, 1);
+}
+
+/* A cell you are holding pulses as it builds. */
+.storm-echo.is-growing .storm-echo-bloom {
+  animation:
+    echo-bloom 0.7s var(--ease-spring) both,
+    echo-build 0.5s ease-in-out 0.7s infinite alternate;
+}
+
+@keyframes echo-bloom {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+
+@keyframes echo-build {
+  to {
+    opacity: 0.7;
+  }
+}
+
+/* Let go and the cell drifts off with the wind, fading as it goes. */
+.storm-echo:not(.is-growing):not(.storm-echo--line) {
+  animation: echo-drift 16s linear forwards;
+}
+
+@keyframes echo-drift {
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translate(260px, -90px);
+  }
+}
+
+/* The storm line crosses the scope on a long loop, clipped to its range ring. */
+.storm-echoes--range {
+  clip-path: circle(50%);
+  container-type: inline-size;
+}
+
+.storm-echo--line {
+  left: 0;
+  top: var(--top);
+  width: 34cqw;
+  height: 34cqw;
+  margin: -17cqw 0 0 -17cqw;
+  animation: echo-pass var(--pass, 60s) linear infinite;
+  animation-delay: var(--start, 0s);
+}
+
+@keyframes echo-pass {
+  from {
+    transform: translate(-20cqw, 6cqw);
+  }
+  to {
+    transform: translate(120cqw, -8cqw);
+  }
+}
+
+/* ---- The dial ---- */
+
+.storm-scope {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--storm-disc), transparent 72%);
+  animation: scope-in 1.2s 0.2s var(--ease-spring) both;
+}
+
+@keyframes scope-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86) rotate(-20deg);
+  }
+}
+
+.storm-dial {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.storm-ring,
+.storm-cross,
+.storm-tick {
+  fill: none;
+  stroke: var(--storm-ring);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.storm-ring {
+  stroke-dasharray: 1;
+  animation: ring-draw 1.6s var(--ease-out) both;
+}
+
+.storm-ring:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.storm-ring:nth-child(3) {
+  stroke-width: 1;
+  animation-delay: 0.3s;
+}
+
+@keyframes ring-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+.storm-cross {
+  stroke-dasharray: 2 4;
+}
+
+.storm-tick--major {
+  stroke-width: 1.4;
+}
+
+.storm-compass {
+  fill: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 4.6px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.storm-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0deg 280deg, var(--storm-sweep) 360deg);
+  animation: sweep var(--sweep, 6s) linear infinite;
+}
+
+.storm-sweep::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 50%;
+  margin-left: -1px;
+  background: linear-gradient(0deg, transparent, var(--accent));
+  box-shadow: 0 0 12px var(--accent);
+}
+
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Evidence blips: each flashes as the sweep passes its bearing ---- */
+
+.storm-blips {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.storm-blip-slot {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.storm-blip {
+  position: absolute;
+  top: -18px;
+  left: -18px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  animation: blip-in 0.6s var(--ease-spring) both;
+  animation-delay: calc(0.9s + var(--n, 0) * 0.08s);
+}
+
+@keyframes blip-in {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+.storm-blip-dot {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--kind);
+  box-shadow: 0 0 14px var(--kind);
+  animation: blip-flash var(--sweep, 6s) linear infinite;
+  animation-delay: var(--blip, 0s);
+}
+
+.storm-blip-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--kind);
+  border-radius: 50%;
+  animation: blip-ring var(--sweep, 6s) var(--ease-out) infinite;
+  animation-delay: var(--blip, 0s);
+}
+
+@keyframes blip-flash {
+  0% {
+    opacity: 1;
+    transform: scale(1.7);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+}
+
+@keyframes blip-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  30%,
+  100% {
+    opacity: 0;
+    transform: scale(4);
+  }
+}
+
+.storm-blip:hover .storm-blip-dot,
+.storm-blip:focus-visible .storm-blip-dot,
+.storm-blip.is-open .storm-blip-dot {
+  animation-play-state: paused;
+  opacity: 1;
+  outline: 2px solid var(--kind);
+  outline-offset: 4px;
+}
+
+.storm-blip:focus-visible {
+  outline: none;
+}
+
+.storm-blip-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  gap: 3px;
+  width: max-content;
+  max-width: 15rem;
+  padding: 9px 12px;
+  border: 1px solid var(--glass-border);
+  border-top: 2px solid var(--kind);
+  border-radius: var(--radius-sm, 10px);
+  background: var(--storm-tip);
+  box-shadow: var(--glass-shadow);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 8px) scale(0.96);
+  transition:
+    opacity 0.25s var(--ease-out),
+    transform 0.4s var(--ease-spring);
+}
+
+.storm-blip-slot--east .storm-blip-tip {
+  left: auto;
+  right: -10px;
+  transform: translate(0, 8px) scale(0.96);
+}
+
+.storm-blip-tip strong {
+  color: var(--kind);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.storm-blip:hover .storm-blip-tip,
+.storm-blip:focus-visible .storm-blip-tip,
+.storm-blip.is-open .storm-blip-tip {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.storm-blip-slot--east .storm-blip:hover .storm-blip-tip,
+.storm-blip-slot--east .storm-blip:focus-visible .storm-blip-tip,
+.storm-blip-slot--east .storm-blip.is-open .storm-blip-tip {
+  transform: none;
+}
+
+/* ---- Readout ---- */
+
+.storm-hud {
+  position: absolute;
+  bottom: clamp(7.5rem, 5rem + 6svh, 9.5rem);
+  left: max(var(--gutter), calc((100% - var(--page-max)) / 2));
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 8px 22px;
+  width: max-content;
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 14px);
+  font-size: 0.78rem;
+  animation: rise-in 0.9s 1.4s var(--ease-out) both;
+  cursor: default;
+}
+
+.storm-hud-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.storm-hud-note {
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.storm-hud-live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.storm-readout {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.storm-legend {
+  display: grid;
+  grid-template-columns: repeat(4, 4.2rem);
+  gap: 2px;
+}
+
+.storm-legend-band {
+  padding-top: 6px;
+  border-top: 4px solid var(--band);
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  text-align: center;
+}
+
+.storm-legend-band--light {
+  --band: var(--echo-light);
+}
+
+.storm-legend-band--moderate {
+  --band: var(--echo-moderate);
+}
+
+.storm-legend-band--heavy {
+  --band: var(--echo-heavy);
+}
+
+.storm-legend-band--extreme {
+  --band: var(--echo-extreme);
+}
+
+.storm-hint {
+  color: var(--text-muted);
+}
+
+.storm-hint-coarse {
+  display: none;
+}
+
+@media (hover: none) {
+  .storm-hint-fine {
+    display: none;
+  }
+
+  .storm-hint-coarse {
+    display: inline;
+  }
+}
+
+/* ---- Off screen everything stops ---- */
+
+.storm--paused *,
+.storm--paused *::after {
+  animation-play-state: paused !important;
+}
+
+/* ---- Narrow screens: the scope sits low behind the copy, the readout shrinks to a hint ---- */
+
+@media (max-width: 720px) {
+  .storm-hud {
+    bottom: 7.5rem;
+    left: var(--gutter);
+    grid-template-columns: auto;
+    padding: 8px 12px;
+  }
+
+  .storm-hud-title,
+  .storm-readout,
+  .storm-legend {
+    display: none;
+  }
+
+  .storm-blip-tip {
+    max-width: 12rem;
+  }
+}

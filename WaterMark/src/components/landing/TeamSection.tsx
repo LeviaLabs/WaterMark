@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { Avatar } from '@astryxdesign/core/Avatar'
 import { STATUS_LABELS } from '../../scripting/content/featureStory'
 import { TEAM } from '../../scripting/content/team'
@@ -9,7 +10,7 @@ const TITLE = ['Three builders,', '\n', { text: 'one coastline.', accent: true }
 
 export function TeamSection() {
   return (
-    <section id="team" className="team section" aria-labelledby="team-title">
+    <section className="team section" aria-labelledby="team-title">
       <Reveal className="section-head">
         <p className="section-eyebrow">The crew</p>
         <h2 id="team-title" className="section-title">
@@ -31,8 +32,8 @@ export function TeamSection() {
                 <h3>{member.name}</h3>
                 <p className="member-role">{member.role}</p>
                 <ul className="member-work">
-                  {member.work.map((item) => (
-                    <li key={item.text}>
+                  {member.work.map((item, itemIndex) => (
+                    <li key={item.text} className="stagger-item" style={{ '--i': itemIndex } as CSSProperties}>
                       <span>{item.text}</span>
                       <span className={`build-status build-status--${item.status}`}>{STATUS_LABELS[item.status]}</span>
                     </li>

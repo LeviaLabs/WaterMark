@@ -178,29 +178,18 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .split-char,
-  .split--play .split-char,
-  .is-visible .split-char,
-  .hero-title .split-word--accent .split-char {
-    opacity: 1;
-    transform: none;
-    animation: none;
-  }
-
-  .roll-char {
-    transition: none;
-  }
-
-  :where(a, button, .roll-host):is(:hover, :focus-visible) .roll-char {
-    transform: none;
-  }
-}
-
-/* Letters mid-decrypt (SplitText `scramble`) flicker in a monospace face. */
+/* Letters mid-decrypt (SplitText `scramble`): glowing monospace glyphs. */
 .split-char.is-scrambling {
   font-family: var(--font-mono);
   font-style: normal;
   font-weight: 500;
   text-align: center;
+  color: var(--accent);
+  background: none;
+  text-shadow: 0 0 0.4em color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
+/* Hover hint: words that re-decrypt get a soft pointer affordance. */
+.hero-title .split-word {
+  cursor: default;
 }

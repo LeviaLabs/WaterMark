@@ -23,6 +23,7 @@
   --radius-xl: 32px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
   /* Sun and moon (the same in both themes; CSS sets which one is up). */
   --sun-core: #fff4c2;
@@ -87,17 +88,30 @@
   --boat-sail: #c7d6e4;
   --story-scrim: linear-gradient(90deg, rgba(2, 8, 18, 0.88) 0%, rgba(2, 8, 18, 0.55) 42%, rgba(2, 8, 18, 0.05) 75%);
 
-  /* Hero tide chart at night: a glowing sonar-style chart. */
-  --topo-sea: #03101f;
-  --topo-grid: rgba(95, 216, 234, 0.07);
-  --topo-depth: rgba(95, 216, 234, 0.28);
-  --topo-land-low: #0f1c26;
-  --topo-land-high: #2b3f4c;
-  --topo-flood: #0f5f96;
-  --topo-line: #5fd8ea;
-  --topo-glow: rgba(95, 216, 234, 0.55);
-  --topo-ripple: rgba(150, 225, 255, 0.55);
-  --topo-label-bg: rgba(6, 24, 41, 0.82);
+  /* Hero storm scope. */
+  --storm-dot: rgba(140, 190, 230, 0.16);
+  --storm-ring: rgba(120, 210, 255, 0.3);
+  --storm-sweep: rgba(80, 220, 255, 0.3);
+  --storm-disc: rgba(40, 140, 200, 0.14);
+  --storm-glow: rgba(30, 110, 170, 0.22);
+  --storm-tip: rgba(5, 20, 34, 0.94);
+  --echo-light: #34d27b;
+  --echo-moderate: #f2d43d;
+  --echo-heavy: #f5813a;
+  --echo-extreme: #ee3f8c;
+
+  /* Underwater evidence section. */
+  --sea-top: #0b3a5c;
+  --sea-mid: #062640;
+  --sea-bottom: #020c18;
+  --sea-ray: rgba(140, 220, 255, 0.12);
+  --sea-bubble: rgba(180, 235, 255, 0.55);
+  --sea-sand: #1d2a33;
+  --sea-weed: #155e4b;
+  --sea-school: rgba(120, 190, 220, 0.35);
+  --sea-scrim: rgba(4, 22, 38, 0.72);
+  --sea-eye: #ffffff;
+  --sea-pupil: #071420;
 
   /* Custom page scrollbar. */
   --scroll-track: rgba(95, 216, 234, 0.1);
@@ -165,17 +179,30 @@
   --boat-sail: #fefefe;
   --story-scrim: linear-gradient(90deg, rgba(238, 246, 250, 0.94) 0%, rgba(238, 246, 250, 0.7) 42%, rgba(238, 246, 250, 0.05) 75%);
 
-  /* Hero tide chart by day: a paper nautical chart. */
-  --topo-sea: #cfe7f2;
-  --topo-grid: rgba(11, 127, 153, 0.1);
-  --topo-depth: rgba(11, 100, 140, 0.35);
-  --topo-land-low: #f3ead2;
-  --topo-land-high: #d8c393;
-  --topo-flood: #7cc3df;
-  --topo-line: #8a6a3a;
-  --topo-glow: rgba(11, 127, 153, 0.35);
-  --topo-ripple: rgba(11, 100, 140, 0.45);
-  --topo-label-bg: rgba(255, 255, 255, 0.85);
+  /* Hero storm scope. */
+  --storm-dot: rgba(20, 70, 110, 0.16);
+  --storm-ring: rgba(10, 100, 140, 0.32);
+  --storm-sweep: rgba(11, 127, 153, 0.26);
+  --storm-disc: rgba(11, 127, 153, 0.08);
+  --storm-glow: rgba(120, 200, 230, 0.35);
+  --storm-tip: rgba(255, 255, 255, 0.96);
+  --echo-light: #1fa95f;
+  --echo-moderate: #d9b300;
+  --echo-heavy: #e06414;
+  --echo-extreme: #d0206e;
+
+  /* Underwater evidence section. */
+  --sea-top: #bfe6f4;
+  --sea-mid: #6fbedc;
+  --sea-bottom: #2f88b3;
+  --sea-ray: rgba(255, 255, 255, 0.35);
+  --sea-bubble: rgba(255, 255, 255, 0.8);
+  --sea-sand: #e3d3a6;
+  --sea-weed: #2f8f6b;
+  --sea-school: rgba(12, 70, 110, 0.3);
+  --sea-scrim: rgba(225, 243, 250, 0.78);
+  --sea-eye: #ffffff;
+  --sea-pupil: #071420;
 
   /* Custom page scrollbar. */
   --scroll-track: rgba(11, 127, 153, 0.12);

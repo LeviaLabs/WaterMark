@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react'
-import { useFinePointer, usePrefersReducedMotion } from './useMediaQuery'
+import { useFinePointer } from './useMediaQuery'
 
 /**
  * Writes the pointer position over the element as `--px` and `--py`, each
@@ -9,8 +9,7 @@ import { useFinePointer, usePrefersReducedMotion } from './useMediaQuery'
  */
 export function usePointerParallax(ref: RefObject<HTMLElement | null>): void {
   const finePointer = useFinePointer()
-  const reducedMotion = usePrefersReducedMotion()
-  const enabled = finePointer && !reducedMotion
+  const enabled = finePointer
 
   useEffect(() => {
     const element = ref.current

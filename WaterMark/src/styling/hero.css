@@ -1,6 +1,6 @@
 /*
- * Hero: a living tide chart fills the screen (TideChart.tsx, tide.css) and
- * the headline sits over its open water on the left.
+ * Hero: an interactive storm scope fills the screen (StormScope.tsx, storm.css)
+ * and the headline sits on the left, clear of the dial.
  */
 
 .hero {
@@ -11,7 +11,9 @@
   padding: clamp(6.5rem, 4rem + 8svh, 10rem) var(--gutter) clamp(9rem, 6rem + 10svh, 12rem);
   overflow: hidden;
   isolation: isolate;
-  background: var(--topo-sea);
+  background:
+    radial-gradient(90% 70% at 75% 50%, var(--storm-glow), transparent 70%),
+    var(--bg);
 }
 
 /* A soft wash behind the words so they stay readable over the chart. */
@@ -21,8 +23,20 @@
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(75% 60% at 18% 38%, color-mix(in srgb, var(--topo-sea) 82%, transparent), transparent 72%),
+    radial-gradient(70% 60% at 16% 40%, color-mix(in srgb, var(--bg) 75%, transparent), transparent 72%),
     linear-gradient(0deg, var(--bg) 0%, transparent 16%);
+}
+
+/* The map behind the words is interactive: let the pointer through except on text and controls. */
+.hero-content {
+  pointer-events: none;
+}
+
+.hero-eyebrow,
+.hero-title .split-word,
+.hero-lede,
+.hero-actions > * {
+  pointer-events: auto;
 }
 
 .hero-content {
@@ -75,7 +89,7 @@
   font-variation-settings: 'opsz' 144, 'SOFT' 100;
   line-height: 0.98;
   letter-spacing: -0.035em;
-  text-shadow: 0 2px 40px color-mix(in srgb, var(--topo-sea) 70%, transparent);
+  text-shadow: 0 2px 40px color-mix(in srgb, var(--bg) 80%, transparent);
 }
 
 .hero-lede {
@@ -210,19 +224,5 @@
 
   .hero-title {
     font-size: clamp(2.4rem, 1.6rem + 4vw, 4.4rem);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .marquee-track {
-    animation: none;
-  }
-
-  .marquee {
-    flex-wrap: wrap;
-  }
-
-  .marquee-track[aria-hidden='true'] {
-    display: none;
   }
 }

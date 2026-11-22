@@ -18,7 +18,10 @@ export type ScrambleTiming = {
   tick: number
 }
 
-export const TITLE_SCRAMBLE: ScrambleTiming = { start: 0, settle: 650, stagger: 140, tick: 55 }
+export const TITLE_SCRAMBLE: ScrambleTiming = { start: 0, settle: 1000, stagger: 85, tick: 55 }
+
+/** Quicker re-decrypt when the pointer passes over a word. */
+export const HOVER_SCRAMBLE: ScrambleTiming = { start: 0, settle: 320, stagger: 45, tick: 45 }
 
 /** Small integer hash, so the same letter at the same tick shows the same glyph. */
 function hash(a: number, b: number): number {

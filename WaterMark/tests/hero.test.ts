@@ -1,45 +1,77 @@
 import { describe, expect, it } from 'vitest'
 import { scrollForOffset, thumbGeometry } from '../src/scripting/scroll/thumb'
-import { CHART, DEPTH_LEVELS, ISLANDS, LAND_LEVELS, closedPath, contourRadius, islandContours, pointOn } from '../src/scripting/tide/contours'
+import { createRandom } from '../src/scripting/city/random'
+import {
+  BLIPS,
+  BUILD_SECONDS,
+  ECHO_BANDS,
+  SWEEP_SECONDS,
+  TAP_INTENSITY,
+  bandFor,
+  bearingOf,
+  blobPath,
+  echoShape,
+  heldIntensity,
+  polar,
+  scopeFor,
+  sweepDelay,
+} from '../src/scripting/radar/scope'
 import { SCRAMBLE_GLYPHS, TITLE_SCRAMBLE, lockTime, scrambleDuration, scrambledChar } from '../src/scripting/text/scramble'
 
-describe('tide chart contours', () => {
-  it('nests every contour inside the one below it, so bands never cross', () => {
-    for (const island of ISLANDS) {
-      for (let level = -DEPTH_LEVELS; level < LAND_LEVELS - 1; level++) {
-        for (let i = 0; i < 180; i++) {
-          const theta = (i / 180) * Math.PI * 2
-          expect(contourRadius(island, level + 1, theta)).toBeLessThan(contourRadius(island, level, theta))
-        }
-      }
+describe('storm scope', () => {
+  it('reads bearings clockwise from north', () => {
+    expect(bearingOf(0, -1)).toBeCloseTo(0)
+    expect(bearingOf(1, 0)).toBeCloseTo(90)
+    expect(bearingOf(0, 1)).toBeCloseTo(180)
+    expect(bearingOf(-1, 0)).toBeCloseTo(270)
+    const east = polar(90, 0.5)
+    expect(east.x).toBeCloseTo(0.5)
+    expect(east.y).toBeCloseTo(0)
+  })
+
+  it('flashes each blip as the sweep reaches its bearing', () => {
+    for (const blip of BLIPS) {
+      const delay = sweepDelay(blip.bearing)
+      expect(delay).toBeLessThanOrEqual(0)
+      expect(delay).toBeGreaterThan(-SWEEP_SECONDS)
+      // The sweep is at angle (t / period) * 360; the flash plays at t = delay + period.
+      expect(((delay + SWEEP_SECONDS) / SWEEP_SECONDS) * 360).toBeCloseTo(blip.bearing)
+      expect(blip.range).toBeLessThan(1)
     }
   })
 
-  it('draws one closed, finite path per level', () => {
-    for (const island of ISLANDS) {
-      const contours = islandContours(island)
-      expect(contours.map((c) => c.level)).toEqual(Array.from({ length: LAND_LEVELS + DEPTH_LEVELS }, (_, i) => i - DEPTH_LEVELS))
-      for (const { d } of contours) {
-        expect(d).toMatch(/^M.*Z$/)
-        expect(d).not.toContain('NaN')
-      }
+  it('builds a held cell from light rain to extreme, then stops', () => {
+    expect(heldIntensity(0)).toBe(TAP_INTENSITY)
+    expect(bandFor(heldIntensity(0))).toBe('light')
+    expect(bandFor(heldIntensity(BUILD_SECONDS * 0.5))).toBe('heavy')
+    expect(heldIntensity(BUILD_SECONDS)).toBe(1)
+    expect(heldIntensity(BUILD_SECONDS * 4)).toBe(1)
+    expect(bandFor(1)).toBe('extreme')
+  })
+
+  it('keeps the dial inside the hero at desktop and phone sizes', () => {
+    for (const [width, height] of [
+      [1440, 900],
+      [1024, 700],
+      [375, 780],
+    ]) {
+      const { cx, cy, radius } = scopeFor(width, height)
+      expect(radius).toBeGreaterThan(100)
+      expect(cy - radius).toBeGreaterThan(0)
+      // On phones the dial may dip below the fold; most of it stays on screen.
+      expect(cy + radius * 0.72).toBeLessThanOrEqual(height)
+      expect(cx + radius).toBeLessThanOrEqual(width + radius * 0.5)
     }
   })
 
-  it('keeps the coastline of every island on the chart', () => {
-    for (const island of ISLANDS) {
-      for (let i = 0; i < 36; i++) {
-        const { x, y } = pointOn(island, 0, (i / 36) * Math.PI * 2)
-        expect(x).toBeGreaterThan(0)
-        expect(x).toBeLessThan(CHART.width)
-        expect(y).toBeGreaterThan(0)
-        expect(y).toBeLessThan(CHART.height)
-      }
+  it('draws the same closed echo for the same seed', () => {
+    const a = echoShape(7)
+    expect(echoShape(7)).toEqual(a)
+    expect(echoShape(8).light).not.toBe(a.light)
+    for (const band of ECHO_BANDS) {
+      expect(a[band.id]).toMatch(/^M[-\d. ]+(C[-\d. ]+)+Z$/)
     }
-  })
-
-  it('needs at least three points for a path', () => {
-    expect(closedPath([[0, 0], [1, 1]])).toBe('')
+    expect(blobPath(createRandom(1), 50).match(/C/g)).toHaveLength(9)
   })
 })
 

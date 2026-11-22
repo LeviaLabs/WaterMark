@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type AnimationEvent, type CSSProperties } from 'react'
 import { useInView } from '../../hooks/useInView'
 import { useScrollProgress } from '../../hooks/useScrollProgress'
-import { useMediaQuery, usePrefersReducedMotion } from '../../hooks/useMediaQuery'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { STATUS_LABELS, STORY_STEPS, activeStepIndex, type StoryStep } from '../../scripting/content/featureStory'
 import { PRIORITY_LABELS } from '../../scripting/content/features'
 import { CityScene } from '../city/CityScene'
 import { EvidenceTag } from '../common/EvidenceTag'
 import { Reveal } from '../common/Reveal'
+import { ScrollArea } from '../common/ScrollArea'
 import { SplitText } from '../common/SplitText'
 import { FeaturePreview } from './FeaturePreview'
 
@@ -84,7 +85,7 @@ function CompactStory() {
   // Writes --progress on the section; story.css turns it into the water level.
   useScrollProgress(sectionRef)
   return (
-    <section id="how" ref={sectionRef} className="story story--compact" aria-labelledby="story-title">
+    <section ref={sectionRef} className="story story--compact" aria-labelledby="story-title">
       <div className="story-backdrop" aria-hidden="true">
         <CityScene rain={STEP_RAIN[active] ?? 0} boat className="story-city" />
         <span className="story-scrim" />
@@ -104,30 +105,74 @@ function CompactStory() {
   )
 }
 
+type StepView = {
+  /** The step on screen. */
+  active: number
+  /** The step animating away, until its exit animation ends. */
+  leaving: number | null
+  /** 1 when scrolling down (new step rises from below), -1 when scrolling up. */
+  dir: 1 | -1
+}
+
 function StickyStory() {
   const sectionRef = useRef<HTMLElement>(null)
-  const [active, setActive] = useState(0)
-  const reducedMotion = usePrefersReducedMotion()
+  const stepsRef = useRef<HTMLOListElement>(null)
+  const pillRef = useRef<HTMLLIElement>(null)
+  const enteringRef = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState<StepView>({ active: 0, leaving: null, dir: 1 })
+  const [frameHeight, setFrameHeight] = useState(0)
 
-  useScrollProgress(sectionRef, (progress) => setActive(activeStepIndex(progress)))
+  useScrollProgress(sectionRef, (progress) => {
+    const next = activeStepIndex(progress)
+    setView((current) =>
+      next === current.active
+        ? current
+        : { active: next, leaving: current.active, dir: next > current.active ? 1 : -1 },
+    )
+  })
+
+  // Slide the highlight pill under the current step button.
+  useLayoutEffect(() => {
+    const list = stepsRef.current
+    const pill = pillRef.current
+    const button = list?.querySelectorAll<HTMLElement>('.story-step')[view.active]
+    // Keys keep each step's element alive while it leaves, so nothing replays.
+    if (!list || !pill || !button) return
+    pill.style.transform = `translateX(${button.offsetLeft}px)`
+    pill.style.width = `${button.offsetWidth}px`
+  }, [view.active])
+
+  // The frame follows the height of the panel coming in (and of its skeleton while it loads).
+  useEffect(() => {
+    const panel = enteringRef.current
+    if (!panel) return
+    const observer = new ResizeObserver(([entry]) => setFrameHeight(Math.ceil(entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height)))
+    observer.observe(panel)
+    return () => observer.disconnect()
+  }, [view.active])
 
   const focusStep = (index: number) => {
     const section = sectionRef.current
     if (!section) return
     const travel = section.offsetHeight - window.innerHeight
     const top = section.getBoundingClientRect().top + window.scrollY + (travel * (index + 0.5)) / STORY_STEPS.length
-    window.scrollTo({ top, behavior: reducedMotion ? 'auto' : 'smooth' })
+    window.scrollTo({ top, behavior: 'smooth' })
   }
 
+  const clearLeaving = (event: AnimationEvent<HTMLElement>) => {
+    if (event.target === event.currentTarget) setView((current) => ({ ...current, leaving: null }))
+  }
+
+  const { active, leaving, dir } = view
   const step = STORY_STEPS[active]
+  const leavingStep = leaving === null ? null : STORY_STEPS[leaving]
 
   return (
     <section
-      id="how"
       ref={sectionRef}
       className="story"
       aria-labelledby="story-title"
-      style={{ '--steps': STORY_STEPS.length } as CSSProperties}
+      style={{ '--steps': STORY_STEPS.length, '--dir': dir } as CSSProperties}
     >
       <div className="story-sticky">
         <CityScene rain={STEP_RAIN[active] ?? 0} boat className="story-city" />
@@ -141,16 +186,40 @@ function StickyStory() {
             </h2>
           </Reveal>
 
-          <div className="story-copy" key={step.id} aria-live="polite">
-            <StepCopy step={step} index={active} />
+          <div className="story-stage story-stage--copy">
+            {leavingStep && leaving !== null && (
+              <div className="story-copy is-leaving" key={leavingStep.id} aria-hidden="true" inert onAnimationEnd={clearLeaving}>
+                <StepCopy step={leavingStep} index={leaving} />
+              </div>
+            )}
+            <div className="story-copy is-entering" key={step.id} aria-live="polite">
+              <StepCopy step={step} index={active} />
+            </div>
           </div>
 
-          <div className="story-panel" key={`panel-${step.id}`}>
-            <FeaturePreview id={step.id} />
+          <div className="story-stage--panel">
+            {/* One glass frame stays put and resizes to each panel (plus its 1px borders) while the contents cross over inside it. */}
+            <div className="story-frame" style={frameHeight ? ({ '--frame-h': `${frameHeight + 2}px` } as CSSProperties) : undefined}>
+              <span className="story-frame-sweep" key={`sweep-${step.id}`} aria-hidden="true" />
+              <span className="story-frame-progress" aria-hidden="true" style={{ '--step': (active + 1) / STORY_STEPS.length } as CSSProperties} />
+              <ScrollArea className="story-frame-scroll">
+                <div className="story-stage">
+                  {leavingStep && (
+                    <div className="story-panel is-leaving" key={leavingStep.id} aria-hidden="true" inert>
+                      <FeaturePreview id={leavingStep.id} />
+                    </div>
+                  )}
+                  <div className="story-panel is-entering" key={step.id} ref={enteringRef}>
+                    <FeaturePreview id={step.id} />
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
           </div>
 
           <nav className="story-steps" aria-label="Features">
-            <ol>
+            <ol ref={stepsRef}>
+              <li ref={pillRef} className="story-step-pill" aria-hidden="true" />
               {STORY_STEPS.map((item, index) => (
                 <li key={item.id}>
                   <button

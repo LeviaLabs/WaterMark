@@ -10,7 +10,7 @@ const TITLE = ['Made for the people', '\n', { text: 'who respond first.', accent
 /** Who WaterMark is for. The features themselves are shown in the flood story above. */
 export function FeaturesSection() {
   return (
-    <section id="audiences" className="features section" aria-labelledby="audiences-title">
+    <section className="features section" aria-labelledby="audiences-title">
       <Reveal className="section-head">
         <p className="section-eyebrow">Who it’s for</p>
         <h2 id="audiences-title" className="section-title">

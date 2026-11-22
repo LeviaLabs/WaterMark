@@ -112,9 +112,53 @@ html::-webkit-scrollbar {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .scroll-glow,
-  .scroll-glow-thumb::after {
-    animation: none;
-  }
+/* ---- Inner scroll areas (components/common/ScrollArea.tsx) ---- */
+
+.scroll-area {
+  position: relative;
+  min-height: 0;
+}
+
+.scroll-area-viewport {
+  height: 100%;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.scroll-area-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-area-thumb {
+  position: absolute;
+  top: 8px;
+  right: 4px;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), var(--kind-forecast));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  opacity: 0.35;
+  cursor: grab;
+  touch-action: none;
+  transition:
+    opacity 0.3s var(--ease-out),
+    width 0.25s var(--ease-out),
+    right 0.25s var(--ease-out);
+}
+
+.scroll-area:hover .scroll-area-thumb,
+.scroll-area-thumb:active {
+  opacity: 0.9;
+  width: 6px;
+  right: 3px;
+}
+
+.scroll-area-thumb:active {
+  cursor: grabbing;
+}
+
+.scroll-area-thumb[data-hidden] {
+  opacity: 0;
+  pointer-events: none;
 }

@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react'
-import { useFinePointer, usePrefersReducedMotion } from './useMediaQuery'
+import { useFinePointer } from './useMediaQuery'
 
 /**
  * 3D tilt that follows the mouse. Sets `--tilt-x`, `--tilt-y` (degrees) and
@@ -9,8 +9,7 @@ import { useFinePointer, usePrefersReducedMotion } from './useMediaQuery'
  */
 export function usePointerTilt(ref: RefObject<HTMLElement | null>, maxDegrees = 8): void {
   const finePointer = useFinePointer()
-  const reducedMotion = usePrefersReducedMotion()
-  const enabled = finePointer && !reducedMotion
+  const enabled = finePointer
 
   useEffect(() => {
     const element = ref.current

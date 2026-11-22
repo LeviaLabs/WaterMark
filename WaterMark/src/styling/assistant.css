@@ -78,6 +78,13 @@
   animation: assistant-in 0.34s var(--ease-out);
 }
 
+@media (min-width: 701px) {
+  /* Leave room for the area data panel above when both are open. */
+  .map-page:has(.data-panel):has(.assistant) .assistant {
+    height: min(420px, calc(100% - 84px - 280px - var(--map-gap)));
+  }
+}
+
 .assistant.is-closing {
   pointer-events: none;
   animation: assistant-out 0.2s ease-in forwards;
@@ -486,7 +493,7 @@
 
 @media (max-width: 700px) {
   .assistant-tab {
-    bottom: 96px;
+    bottom: var(--map-side-ctrl-bottom, 96px);
     left: var(--map-gap);
     width: 48px;
     padding: 0;
@@ -502,12 +509,12 @@
     transform: translateY(12px);
   }
 
-  /* When the area sheet is open, sit just above it so cause bars and stats
-     are not covered. 55% matches the sheet's max-height on phones. */
+  /* When the area sheet is open, sit just above the role tabs, which sit
+     just above the 55% sheet, so cause bars and stats are not covered. */
   .map-page:has(.data-panel) .assistant-tab {
     left: auto;
     right: var(--map-gap);
-    bottom: calc(55% + 8px);
+    bottom: calc(55% + var(--map-dock-gap, 8px) + var(--aud-roles-h, 40px) + var(--map-dock-gap, 8px));
   }
 
   @keyframes assistant-tab-in {

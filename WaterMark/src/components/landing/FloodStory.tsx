@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState, type AnimationEvent, type CSSProperties } from 'react'
-import { useInView } from '../../hooks/useInView'
 import { useScrollProgress } from '../../hooks/useScrollProgress'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { STATUS_LABELS, STORY_STEPS, activeStepIndex, type StoryStep } from '../../scripting/content/featureStory'
@@ -42,24 +41,13 @@ function StepCopy({ step, index }: { step: StoryStep; index: number }) {
   )
 }
 
-/** One step in the phone / short-screen layout; raises the water when it reaches mid-screen. */
-function CompactStep({ step, index, onActive }: { step: StoryStep; index: number; onActive: (index: number) => void }) {
-  const ref = useRef<HTMLLIElement>(null)
-  const centered = useInView(ref, { rootMargin: '-45% 0px -45% 0px' })
-  useEffect(() => {
-    if (centered) onActive(index)
-  }, [centered, index, onActive])
-
-  return (
-    <li ref={ref} className={`story-item ${centered ? 'is-current' : ''}`}>
-      <Reveal className="story-copy story-copy--card">
-        <StepCopy step={step} index={index} />
-      </Reveal>
-      <Reveal className="story-panel" delay={120}>
-        <FeaturePreview id={step.id} />
-      </Reveal>
-    </li>
-  )
+type StepView = {
+  /** The step on screen. */
+  active: number
+  /** The step animating away, until its exit animation ends. */
+  leaving: number | null
+  /** 1 when scrolling down (new step rises from below), -1 when scrolling up. */
+  dir: 1 | -1
 }
 
 /**
@@ -70,65 +58,29 @@ function CompactStep({ step, index, onActive }: { step: StoryStep; index: number
  * smoothly between steps instead of jumping. The step buttons scroll to their
  * step.
  *
- * On phones and short windows (a desktop zoomed far in) one sticky screen
- * cannot hold a step and its panel, so the city becomes a sticky backdrop and
- * the steps scroll over it; the water still follows the scroll.
+ * Every breakpoint uses the same sticky stage: highlights crossfade in place
+ * as you scroll. Phones and short windows get a stacked layout in story.css
+ * (100svh, so the mobile URL bar does not jump). prefers-reduced-motion swaps
+ * steps instantly, without a leave animation.
  */
 export function FloodStory() {
-  const compact = useMediaQuery('(max-width: 860px), (max-height: 600px)')
-  return compact ? <CompactStory /> : <StickyStory />
-}
-
-function CompactStory() {
-  const sectionRef = useRef<HTMLElement>(null)
-  const [active, setActive] = useState(0)
-  // Writes --progress on the section; story.css turns it into the water level.
-  useScrollProgress(sectionRef)
-  return (
-    <section ref={sectionRef} className="story story--compact" aria-labelledby="story-title">
-      <div className="story-backdrop" aria-hidden="true">
-        <CityScene rain={STEP_RAIN[active] ?? 0} boat className="story-city" />
-        <span className="story-scrim" />
-      </div>
-      <Reveal className="story-intro story-intro--compact">
-        <p className="section-eyebrow">How it works</p>
-        <h2 id="story-title" className="story-heading">
-          <SplitText parts={INTRO_TITLE} />
-        </h2>
-      </Reveal>
-      <ol className="story-list">
-        {STORY_STEPS.map((item, index) => (
-          <CompactStep key={item.id} step={item} index={index} onActive={setActive} />
-        ))}
-      </ol>
-    </section>
-  )
-}
-
-type StepView = {
-  /** The step on screen. */
-  active: number
-  /** The step animating away, until its exit animation ends. */
-  leaving: number | null
-  /** 1 when scrolling down (new step rises from below), -1 when scrolling up. */
-  dir: 1 | -1
-}
-
-function StickyStory() {
   const sectionRef = useRef<HTMLElement>(null)
   const stepsRef = useRef<HTMLOListElement>(null)
   const pillRef = useRef<HTMLLIElement>(null)
   const enteringRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<StepView>({ active: 0, leaving: null, dir: 1 })
   const [frameHeight, setFrameHeight] = useState(0)
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 
   useScrollProgress(sectionRef, (progress) => {
     const next = activeStepIndex(progress)
-    setView((current) =>
-      next === current.active
-        ? current
-        : { active: next, leaving: current.active, dir: next > current.active ? 1 : -1 },
-    )
+    setView((current) => {
+      if (next === current.active) return current
+      const dir = next > current.active ? 1 : (-1 as const)
+      return reduceMotion
+        ? { active: next, leaving: null, dir }
+        : { active: next, leaving: current.active, dir }
+    })
   })
 
   // Slide the highlight pill under the current step button.

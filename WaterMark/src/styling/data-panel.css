@@ -24,6 +24,14 @@
   animation: panel-out 0.22s ease-in forwards;
 }
 
+@media (min-width: 701px) {
+  /* The assistant panel sits in the same lower-right corner; shorten this
+     panel so the two do not cover each other when both are open. */
+  .map-page:has(.data-panel):has(.assistant) .data-panel {
+    max-height: max(240px, calc(100% - 84px - min(420px, calc(100% - 84px - 280px - var(--map-gap))) - var(--map-gap) - 12px));
+  }
+}
+
 @keyframes panel-in {
   from {
     opacity: 0;
@@ -557,7 +565,7 @@
   .panel-collapsed {
     top: auto;
     right: 50%;
-    bottom: 24px;
+    bottom: var(--collapsed-bottom, 24px);
     width: max-content;
     transform: translateX(50%);
   }

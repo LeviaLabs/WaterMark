@@ -692,6 +692,11 @@
   .map-page .maplibregl-ctrl-attrib {
     max-width: calc(100vw - 360px - 3 * var(--map-gap));
   }
+
+  .map-page:has(.assistant) .maplibregl-ctrl-bottom-right {
+    visibility: hidden;
+    pointer-events: none;
+  }
 }
 
 .map-page .maplibregl-ctrl-attrib a {
@@ -884,11 +889,57 @@
   }
 }
 
-/* Phones: hints sit above the collapsed panel card instead of on top of it. */
+/* Phones: hints, zoom, and attribution sit above the bottom dock
+   (role tabs + collapsed card). When the area sheet is open, they sit above it. */
 @media (max-width: 700px) {
   .map-hint {
-    bottom: 104px;
+    bottom: calc(var(--map-side-ctrl-bottom, 104px) + 56px);
     max-width: calc(100vw - 2 * var(--map-gap));
     text-align: center;
+  }
+
+  .map-page .maplibregl-ctrl-bottom-right {
+    margin-bottom: var(--map-side-ctrl-bottom, 24px);
+  }
+
+  .map-page:has(.data-panel) .maplibregl-ctrl-bottom-right {
+    margin-bottom: calc(55% + var(--map-dock-gap, 8px) + var(--aud-roles-h, 40px) + var(--map-dock-gap, 8px));
+  }
+
+  /* The assistant sheet covers this corner; hide the layers/legend so they
+     are not trapped underneath. */
+  .map-page:has(.assistant) .layers {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Mid-width (tablets): the left legend/overlay and the right zoom/attribution
+   would otherwise run into the centered role tabs and assistant tab. */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .layers {
+    bottom: 140px;
+  }
+
+  .map-page .maplibregl-ctrl-bottom-right {
+    margin-bottom: 140px;
+  }
+
+  .map-page .maplibregl-ctrl-attrib {
+    max-width: 160px;
+  }
+
+  .map-page:has(.assistant) .assistant {
+    bottom: 140px;
+    height: min(640px, calc(100% - 120px - 100px));
+  }
+
+  .map-page:has(.data-panel):has(.assistant) .assistant {
+    bottom: 140px;
+    height: min(420px, calc(100% - 84px - 280px - 140px));
+  }
+
+  .map-page:has(.data-panel):has(.assistant) .data-panel {
+    max-height: max(240px, calc(100% - 84px - min(420px, calc(100% - 84px - 280px - 140px)) - 140px - 12px));
   }
 }

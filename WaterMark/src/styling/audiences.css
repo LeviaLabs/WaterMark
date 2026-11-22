@@ -9,15 +9,25 @@
   bottom: 84px;
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
   gap: 2px;
-  max-width: min(560px, calc(100% - 32px));
+  width: max-content;
+  max-width: min(560px, calc(100% - 24px));
   padding: 4px;
+  /* One row: shrink padding/font at narrow widths. Hide the scrollbar if a
+     very small phone still overflows; the strip stays swipeable. */
   overflow-x: auto;
+  scrollbar-width: none;
   pointer-events: auto;
 }
 
+.aud-roles::-webkit-scrollbar {
+  display: none;
+}
+
 .aud-role {
-  flex: none;
+  flex: 0 1 auto;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -26,6 +36,8 @@
   font-size: 0.82rem;
   font-weight: 650;
   padding: 6px 12px;
+  text-align: center;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -247,8 +259,31 @@
 }
 
 @media (max-width: 700px) {
+  .map-page {
+    --map-bottom-safe: 16px;
+    --aud-roles-h: 40px;
+    --map-dock-gap: 8px;
+    --collapsed-h: 68px;
+    --aud-roles-bottom: var(--map-bottom-safe);
+    /* Stack, from the bottom: role tabs, then the collapsed area card, then
+       the assistant button and zoom controls. */
+    --collapsed-bottom: calc(var(--map-bottom-safe) + var(--aud-roles-h) + var(--map-dock-gap));
+    --map-side-ctrl-bottom: calc(var(--collapsed-bottom) + var(--collapsed-h) + var(--map-dock-gap));
+  }
+
   .aud-roles {
-    bottom: 16px;
+    bottom: var(--aud-roles-bottom);
+    z-index: 6;
+  }
+
+  .aud-role {
+    padding: 5px 7px;
+    font-size: 0.7rem;
+  }
+
+  /* When the area sheet is open, sit just above it, not underneath. */
+  .map-page:has(.data-panel) .aud-roles {
+    bottom: calc(55% + var(--map-dock-gap));
   }
 }
 

@@ -1,0 +1,27 @@
+name: Agentboxd authentication CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/agentboxd-ci.yml'
+      - 'supabase/functions/agentboxd-auth/**'
+      - 'supabase/functions/auth-verify/**'
+      - 'supabase/tests/agentboxd-auth/**'
+      - 'supabase/tests/auth-verify/**'
+      - 'supabase/migrations/20261122150000_agentboxd_auth.sql'
+
+permissions:
+  contents: read
+
+jobs:
+  auth:
+    name: Agentboxd and MojoAuth regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Authentication security tests
+        run: node --test supabase/tests/agentboxd-auth/flow.test.ts supabase/tests/agentboxd-auth/limits.test.ts supabase/tests/auth-verify/verify.test.ts

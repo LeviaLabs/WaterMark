@@ -427,6 +427,11 @@ enabled = true
 [functions.auth-verify]
 verify_jwt = false
 
+# Sign in with Agentboxd (WM-CLAUDE-005). Anonymous browser callers; the function checks Origin,
+# state, PKCE and the Agentboxd ID token itself.
+[functions.agentboxd-auth]
+verify_jwt = false
+
 # Public environmental reads; all database writes remain server-only.
 [functions.watermark-v1]
 verify_jwt = false

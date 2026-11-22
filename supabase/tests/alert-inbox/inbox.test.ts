@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { decide, extractSiteId, senderAddress, senderAllowed, verifySignature } from '../../functions/alert-inbox/gate.ts'
-import { createHandler } from '../../functions/alert-inbox/handler.ts'
+import { createHandler, OBSERVATION_NOTICE } from '../../functions/alert-inbox/handler.ts'
 import { type AlertRow, type AlertStore, createRpcStore, type RecordInput, StoreError } from '../../functions/alert-inbox/store.ts'
 import { fetchSiteReading, USGS_IV_URL } from '../../functions/alert-inbox/usgs.ts'
 
@@ -169,6 +169,9 @@ for (const [name, over, reason] of [
   ['enrichment failed', { ai: { enrichment_error: 'timeout' }, analysis: { state: 'failed' } }, 'check-failed'],
   ['check skipped (AI off or quota)', { ai: null, analysis: { state: 'skipped', reason: 'ai_off' } }, 'not-checked'],
   ['check pending', { analysis: { state: 'pending' } }, 'not-checked'],
+  ['spoofed usgs.gov From that failed DMARC', { labels: ['ai:notification', 'dmarc-fail'] }, 'sender-auth-failed'],
+  ['allowlisted From that failed SPF', { from: 'ops@county.example', labels: ['spf-fail'] }, 'sender-auth-failed'],
+  ['auth_failed flag without a label', { ai: { risk: { injection: 0.01, phishing: 0.01 }, verification: { auth_failed: true } } }, 'sender-auth-failed'],
   ['sender not on the allowlist', { from: 'Flood Desk <alerts@usgs.gov.evil.example>' }, 'sender-not-allowed'],
   ['lookalike domain', { from: 'x@notusgs.gov' }, 'sender-not-allowed'],
   ['no sender address', { from: 'nobody' }, 'sender-not-allowed'],
@@ -297,3 +300,83 @@ test('RPC store calls service-role RPCs; errors become StoreError', async () => 
   const failing = createRpcStore('https://ref.supabase.co', 'k', () => Promise.resolve(new Response('{}', { status: 500 })))
   await assert.rejects(failing.recent(7, 10), StoreError)
 })
+
+// WM-GROK-008 fixes
+test('quarantined then message.released with clean scores stays quarantined (decision is final)', async () => {
+  const t = setup()
+  assert.equal((await t.deliver(event(message({ ai: { risk: { injection: 0.01, phishing: 0.91 } } })))).status, 204)
+  const released = { ...message(), released: { at: '2026-11-22T16:01:00Z', by: 'user:x', reason: 'phishing' } }
+  assert.equal((await t.deliver(event(released, 'message.released'))).status, 204)
+  assert.equal(t.store!.rows.size, 1)
+  const row = [...t.store!.rows.values()][0]
+  assert.equal(row.status, 'quarantined')
+  assert.equal(row.reason, 'phishing-risk')
+  assert.equal(t.usgsCalls.length, 0)
+  const a = (await (await t.feed()).json()).alerts[0]
+  assert.equal(a.site, null)
+  assert.deepEqual(a.readings, [])
+})
+
+test('a human release does not bypass the gate: released message failing DMARC is quarantined', () => {
+  const d = decide(event({ ...message({ labels: ['dmarc-fail'] }), released: { at: 'x', by: 'user:x', reason: 'r' } }, 'message.released'), ALLOW, NOW)
+  assert.equal(d.kind, 'record')
+  assert.equal(d.kind === 'record' && d.status, 'quarantined')
+  assert.equal(d.kind === 'record' && d.reason, 'sender-auth-failed')
+})
+
+test('received_at far in the future is replaced by now; missing received_at is now', () => {
+  const future = decide(event(message({ received_at: '2099-01-01T00:00:00Z' })), ALLOW, NOW)
+  assert.equal(future.kind === 'record' && future.receivedAt, new Date(NOW).toISOString())
+  const missing = decide(event(message({ received_at: undefined })), ALLOW, NOW)
+  assert.equal(missing.kind === 'record' && missing.receivedAt, new Date(NOW).toISOString())
+  const ok = decide(event(message()), ALLOW, NOW)
+  assert.equal(ok.kind === 'record' && ok.receivedAt, '2026-11-22T15:58:00.000Z')
+})
+
+/** A body of `chunks` x `size` bytes that counts how many chunks were actually pulled. */
+function stream(chunks: number, size: number, pulled = { n: 0 }) {
+  return new ReadableStream<Uint8Array>({
+    pull(c) {
+      if (pulled.n >= chunks) return c.close()
+      pulled.n++
+      c.enqueue(new Uint8Array(size).fill(0x78))
+    },
+  }, { highWaterMark: 0 })
+}
+
+test('webhook body without Content-Length (chunked) is capped while streaming -> 413', async () => {
+  const t = setup()
+  const pulled = { n: 0 }
+  const req = new Request(`${FN}/webhook`, {
+    method: 'POST',
+    headers: { 'X-Mailroom-Timestamp': String(Math.floor(NOW / 1000)), 'X-Mailroom-Signature': 'a'.repeat(64) },
+    body: stream(40, 64_000, pulled), // 2.56 MB, never declared
+    duplex: 'half',
+  } as RequestInit)
+  assert.equal(req.headers.get('content-length'), null)
+  assert.equal((await t.handler(req)).status, 413)
+  assert.equal(t.store!.rows.size, 0)
+  assert.ok(pulled.n < 40, `stopped reading at the cap (pulled ${pulled.n} of 40 chunks)`)
+})
+
+test('oversized USGS response is capped while streaming: alert stays accepted, no reading', async () => {
+  const t = setup({ usgs: () => new Response(stream(20, 64_000), { status: 200 }) })
+  assert.equal((await t.deliver(event(message()))).status, 204)
+  const a = (await (await t.feed()).json()).alerts[0]
+  assert.equal(a.status, 'accepted')
+  assert.deepEqual(a.readings, [])
+  const pulled = { n: 0 }
+  await assert.rejects(fetchSiteReading(SITE, () => Promise.resolve(new Response(stream(20, 64_000, pulled)))), /usgs-too-large/)
+  assert.ok(pulled.n < 20, `stopped reading at the cap (pulled ${pulled.n} of 20 chunks)`)
+})
+
+test('feed labels readings as USGS observations, not NWS warnings', async () => {
+  const t = setup()
+  await t.deliver(event(message()))
+  const body = await (await t.feed()).json()
+  assert.equal(body.kind, 'usgs-gauge-observation')
+  assert.equal(body.notice, OBSERVATION_NOTICE)
+  assert.match(body.notice, /Not official National Weather Service/)
+  assert.equal(body.alerts[0].kind, 'observation')
+})
+

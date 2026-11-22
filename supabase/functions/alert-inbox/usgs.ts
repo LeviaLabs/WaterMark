@@ -1,5 +1,7 @@
 // Official reading for a USGS monitoring location: USGS Water Services instantaneous values.
 // https://waterservices.usgs.gov/nwis/iv/ — public, no key. The email never supplies a number.
+// These are observations (provisional until USGS approves them), not National Weather Service warnings.
+import { readBounded } from './limits.ts'
 
 export const USGS_IV_URL = 'https://waterservices.usgs.gov/nwis/iv/'
 const PARAMETERS: Record<string, { label: string; unit: string }> = {
@@ -42,8 +44,8 @@ export async function fetchSiteReading(siteId: string, fetcher: Fetcher = (i, in
   const res = await fetcher(url, { headers: { Accept: 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(timeoutMs) })
   if (res.status === 404) return null
   if (!res.ok) throw new Error('usgs-unavailable')
-  const text = await res.text()
-  if (text.length > MAX_BYTES) throw new Error('usgs-too-large')
+  const text = await readBounded(res, MAX_BYTES, timeoutMs)
+  if (text === null) throw new Error('usgs-too-large')
   const series = at(JSON.parse(text), 'value', 'timeSeries')
   let site: Omit<SiteReading, 'readings'> | null = null
   const readings: Reading[] = []

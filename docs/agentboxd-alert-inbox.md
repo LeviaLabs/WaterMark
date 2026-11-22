@@ -53,10 +53,13 @@ sequenceDiagram
 | `risk.injection < 0.5`, no `ai:injection-risk` / `local:injection-risk` | `injection-risk` |
 | `risk.phishing < 0.5`, no `ai:phishing` | `phishing-risk` |
 | no `blocked` label | `blocked` |
+| No `spf-fail` / `dmarc-fail` label (Agentboxd's reserved sender-authentication labels; the From header alone is forgeable, and usgs.gov publishes DMARC `p=reject`) | `sender-auth-failed` |
 | Sender address or domain on `ALERT_SENDER_ALLOWLIST` (exact domain or subdomain; lookalikes fail) | `sender-not-allowed` |
 | A USGS site id (8–15 digits) appears in an unambiguous form (`monitoring-location/…`, `USGS 0164…`, `site_no=…`, `Site number: …`) in the subject or the first 3,000 characters of the new text | `no-usgs-site` |
 
-Messages that fail any of these checks are stored as `quarantined`, with only the reason and the scores. The `/alerts` page lists them under **Held back** so people can see the screening working.
+Messages that fail any of these checks are stored as `quarantined`, with only the reason and the scores. The decision is final: a database trigger rejects any update to a row's status, reason, site or scores, so a retry or a later `message.released` can never turn a quarantined row into an accepted one.
+
+Readings are USGS gauge **observations** (provisional data may be revised), not National Weather Service watches or warnings; the feed says so in `kind`/`notice` and the page shows the same notice. The `/alerts` page lists them under **Held back** so people can see the screening working.
 
 USGS doesn't publish the WaterAlert email layout, so nothing depends on it beyond finding the site id.
 
@@ -64,7 +67,7 @@ USGS doesn't publish the WaterAlert email layout, so nothing depends on it beyon
 
 ```text
 supabase/functions/alert-inbox/{index,handler,gate,usgs,store}.ts
-supabase/migrations/20261122180000_agentboxd_alert_inbox.sql   new table + 3 RPCs (service_role only)
+supabase/migrations/20261122183000_agentboxd_alert_inbox.sql   new table + 3 RPCs (service_role only)
 supabase/tests/alert-inbox/inbox.test.ts                        26 tests
 WaterMark/src/services/emailAlerts.ts                           validated client; map can plot site lat/lon
 WaterMark/src/components/pages/AlertsPage.tsx                   /alerts

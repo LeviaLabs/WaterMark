@@ -11,6 +11,15 @@ export const MAX_SKEW_S = 300
 export const RISK_THRESHOLD = 0.5
 const MAIL_EVENTS = new Set(['message.enriched', 'message.released'])
 const RISK_LABELS = ['ai:injection-risk', 'ai:phishing', 'local:injection-risk', 'blocked']
+/**
+ * Agentboxd's reserved sender-authentication labels (agentboxd.com/docs/api: "spf-fail and
+ * dmarc-fail (authentication failed)"; agents cannot add or remove them). The From header alone is
+ * forgeable, so an allowlisted From only counts when the sender did not fail SPF or DMARC.
+ * usgs.gov publishes DMARC p=reject, so a forged usgs.gov From is labelled dmarc-fail.
+ */
+export const AUTH_FAIL_LABELS = ['spf-fail', 'dmarc-fail']
+/** received_at more than this far in the future is replaced by now (keeps ordering and pruning honest). */
+const MAX_FUTURE_MS = 5 * 60_000
 const SITE_SCAN_CHARS = 3000
 
 const enc = new TextEncoder()
@@ -91,8 +100,8 @@ export type Decision =
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1 ? v : null)
 const obj = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
 
-/** Decide what one webhook event means for the map. Pure: same input, same output. */
-export function decide(event: unknown, allowlist: string): Decision {
+/** Decide what one webhook event means for the map. Pure: same input (and nowMs), same output. */
+export function decide(event: unknown, allowlist: string, nowMs: number = Date.now()): Decision {
   const e = obj(event)
   if (typeof e.type !== 'string' || !MAIL_EVENTS.has(e.type)) return { kind: 'ignore', why: 'event-type' }
   const m = obj(obj(e.data).message)
@@ -101,7 +110,8 @@ export function decide(event: unknown, allowlist: string): Decision {
   if (m.direction !== 'inbound') return { kind: 'ignore', why: 'not-inbound' }
   if (!('extracted_text' in m) && !('text' in m)) return { kind: 'ignore', why: 'envelope-payload' }
 
-  const received = typeof m.received_at === 'string' && !Number.isNaN(Date.parse(m.received_at)) ? new Date(m.received_at).toISOString() : new Date().toISOString()
+  const parsed = typeof m.received_at === 'string' ? Date.parse(m.received_at) : Number.NaN
+  const received = new Date(Number.isNaN(parsed) || parsed > nowMs + MAX_FUTURE_MS ? nowMs : parsed).toISOString()
   const ai = obj(m.ai)
   const risk = obj(ai.risk)
   const injection = num(risk.injection)
@@ -129,6 +139,8 @@ export function decide(event: unknown, allowlist: string): Decision {
   }
   if (phishing >= RISK_THRESHOLD || labels.includes('ai:phishing')) return quarantine('phishing-risk')
   if (RISK_LABELS.some((l) => labels.includes(l))) return quarantine('blocked')
+  // ai.verification.auth_failed is Agentboxd's second signal for the same failure (labels can be removed by inbox users).
+  if (AUTH_FAIL_LABELS.some((l) => labels.includes(l)) || obj(ai.verification).auth_failed === true) return quarantine('sender-auth-failed')
   if (!address || !senderAllowed(address, allowlist)) return quarantine('sender-not-allowed')
   const siteId = extractSiteId(m.subject, m.extracted_text ?? m.text)
   if (!siteId) return quarantine('no-usgs-site')

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@astryxdesign/core/Button'
 import { EvidenceTag } from '../common/EvidenceTag'
 import { RouterLink } from '../common/RouterLink'
-import { alertsUrlFromEnv, loadEmailAlerts, REASON_TEXT, type EmailAlert } from '../../services/emailAlerts'
+import { alertsUrlFromEnv, loadEmailAlerts, OBSERVATION_NOTICE, REASON_TEXT, type EmailAlert } from '../../services/emailAlerts'
 
 const ALERTS_URL = alertsUrlFromEnv(import.meta.env)
 
@@ -40,6 +40,10 @@ export function AlertsPage() {
           injection and phishing. We accept only approved senders, and every number below comes straight from USGS,
           not from the email.
         </p>
+        <p className="alerts-notice">
+          {OBSERVATION_NOTICE} For warnings, see{' '}
+          <a href="https://www.weather.gov/" target="_blank" rel="noopener noreferrer">weather.gov</a>.
+        </p>
       </header>
 
       <p className="alerts-status" role="status" aria-live="polite">
@@ -68,7 +72,7 @@ export function AlertsPage() {
                 <dl className="alert-readings">
                   {a.readings.map((r) => (
                     <div key={r.parameter}>
-                      <dt>{r.label}</dt>
+                      <dt>{r.label} (observed)</dt>
                       <dd>
                         {r.value} {r.unit}
                         <span className="alert-reading-time">
@@ -79,10 +83,10 @@ export function AlertsPage() {
                   ))}
                 </dl>
               ) : (
-                <p className="alert-meta">USGS reading not available yet.</p>
+                <p className="alert-meta">USGS reading unavailable.</p>
               )}
               <p className="alert-screen">
-                {REASON_TEXT[a.reason]} · injection {pct(a.screening.injection)} · phishing {pct(a.screening.phishing)}
+                {REASON_TEXT[a.reason] ?? 'Accepted'} · injection {pct(a.screening.injection)} · phishing {pct(a.screening.phishing)}
               </p>
               {a.site && (
                 <a className="alert-link" href={`https://waterdata.usgs.gov/monitoring-location/${a.site.id}/`} target="_blank" rel="noopener noreferrer">

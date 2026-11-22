@@ -235,6 +235,16 @@ export function gridAt(at: LngLat, d: RegionData): Grid | null {
   return country?.k === 'USA' ? d.grids.us : d.grids.world
 }
 
+/** The focus trail for a point from the loaded outlines: its country, and its state in the US. */
+export function regionPathAt(at: LngLat, d: RegionData): RegionPick[] {
+  const country = featureAt(d.countries, at)
+  if (!country) return []
+  const path: RegionPick[] = [{ level: 'country', props: country }]
+  const state = country.k === 'USA' ? featureAt(d.states, at) : null
+  if (state) path.push({ level: 'state', props: state })
+  return path
+}
+
 let hover: { source: string; id: string } | null = null
 
 /** Outlines the region a click would pick; returns whether there is one (for the cursor). */

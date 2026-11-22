@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict'
-import { describe, it } from 'vitest'
+import { afterEach, describe, it, vi } from 'vitest'
 import {
   ACCOUNT_FEATURES,
   canUse,
@@ -9,6 +9,7 @@ import {
   guestAdapter,
   PUBLIC_FEATURES,
   sanitizeState,
+  watchExpiry,
   type AuthState,
 } from '../src/services/auth/session.ts'
 
@@ -57,6 +58,80 @@ describe('session lifecycle', () => {
   })
 })
 
+describe('watchExpiry (AuthProvider uses it to end a session on time)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('fires once at the expiry time, not before', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    let fired = 0
+    watchExpiry(NOW + 60_000, () => fired++)
+    vi.advanceTimersByTime(59_999)
+    assert.equal(fired, 0)
+    vi.advanceTimersByTime(1)
+    assert.equal(fired, 1)
+    vi.advanceTimersByTime(600_000)
+    assert.equal(fired, 1, 'only once')
+  })
+
+  it('fires immediately for a session that is already over', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    let fired = 0
+    watchExpiry(NOW, () => fired++)
+    assert.equal(fired, 1)
+  })
+
+  it('catches a missed timer when the tab wakes up (sleep or hidden tab)', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    const page = new EventTarget()
+    let fired = 0
+    watchExpiry(NOW + 60_000, () => fired++, [page])
+    // The clock jumps past expiry while timers are frozen, as in a laptop waking from sleep.
+    vi.setSystemTime(NOW + 120_000)
+    assert.equal(fired, 0)
+    page.dispatchEvent(new Event('visibilitychange'))
+    assert.equal(fired, 1)
+    page.dispatchEvent(new Event('focus'))
+    assert.equal(fired, 1, 'only once')
+  })
+
+  it('a wake-up before expiry changes nothing', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    const page = new EventTarget()
+    let fired = 0
+    watchExpiry(NOW + 60_000, () => fired++, [page])
+    vi.setSystemTime(NOW + 30_000)
+    page.dispatchEvent(new Event('pageshow'))
+    assert.equal(fired, 0)
+    vi.advanceTimersByTime(30_000)
+    assert.equal(fired, 1)
+  })
+
+  it('stop() cancels the timer and the listeners', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    const page = new EventTarget()
+    let fired = 0
+    const stop = watchExpiry(NOW + 1_000, () => fired++, [page])
+    stop()
+    vi.advanceTimersByTime(5_000)
+    page.dispatchEvent(new Event('focus'))
+    assert.equal(fired, 0)
+  })
+
+  it('protected features close at the expiry instant even before any timer runs', () => {
+    const s = signedIn(NOW + 1_000)
+    assert.equal(canUse(s, 'savedPlaces', NOW + 999), true)
+    assert.equal(canUse(s, 'savedPlaces', NOW + 1_000), false)
+    assert.equal(canUse(s, 'map', NOW + 1_000), true, 'public features stay open')
+  })
+})
+
 describe('sanitizeState', () => {
   it('rejects malformed adapter output', () => {
     for (const bad of [null, 'signed-in', 42, {}, { status: 'admin' }]) {
@@ -88,6 +163,6 @@ describe('guest adapter', () => {
   it('restores as guest and cannot sign in', async () => {
     assert.equal(guestAdapter.canSignIn, false)
     assert.deepEqual(await guestAdapter.restore(), GUEST)
-    assert.equal((await guestAdapter.signIn()).error, 'sign-in-disabled')
+    assert.equal((await guestAdapter.signIn('a.b.c')).error, 'sign-in-disabled')
   })
 })

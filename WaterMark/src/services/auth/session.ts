@@ -1,6 +1,6 @@
-// Optional sign-in, guest first. No provider is connected: MojoAuth is not integrated and this
-// file makes no network requests. It defines the session shape, the access rules, and the
-// guest-only adapter the app uses today. A future MojoAuth adapter plugs into `AuthAdapter`.
+// Optional sign-in, guest first. This file makes no network requests. It defines the session
+// shape, the access rules, and the guest-only adapter. The MojoAuth adapter that does make
+// requests lives in ./mojoAuth.ts and plugs into `AuthAdapter`.
 
 export type AuthStatus = 'loading' | 'guest' | 'signed-in' | 'expired' | 'error'
 
@@ -23,15 +23,15 @@ export interface AuthState {
 export const GUEST: AuthState = { status: 'guest', account: null, expiresAt: null, error: null }
 
 /**
- * A sign-in provider. A real MojoAuth adapter must send the MojoAuth token to a server-side
- * verification function (planned Supabase Edge Function) and return only the account fields
- * above. The browser never holds a provider secret or keeps the raw token.
+ * A sign-in provider. `signIn` receives the provider token from the login page, must have it
+ * verified server-side (Supabase Edge Function `auth-verify`), and returns only the account
+ * fields above. The browser never holds a provider secret.
  */
 export interface AuthAdapter {
   /** False when no provider is configured; the UI then shows no sign-in button. */
   readonly canSignIn: boolean
   restore(): Promise<AuthState>
-  signIn(): Promise<AuthState>
+  signIn(providerToken: string): Promise<AuthState>
   signOut(): Promise<void>
 }
 
@@ -56,6 +56,41 @@ export function evaluateSession(state: AuthState, now: number = Date.now()): Aut
     return { status: 'expired', account: null, expiresAt: null, error: null }
   }
   return state
+}
+
+/** Longest delay setTimeout accepts (about 24.8 days). */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
+
+/** Events after which a page may have missed its expiry timer (hidden tab, sleep, back/forward cache). */
+const WAKE_EVENTS = ['visibilitychange', 'focus', 'pageshow'] as const
+
+/**
+ * Calls `onExpire` once, as soon as `expiresAt` (epoch ms) is reached: from a timer, and from a
+ * clock check whenever one of `targets` reports the page waking up, because browsers delay timers
+ * in hidden tabs and while the computer sleeps. Returns a function that stops watching.
+ */
+export function watchExpiry(expiresAt: number, onExpire: () => void, targets: readonly EventTarget[] = []): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let stopped = false
+  const stop = () => {
+    stopped = true
+    clearTimeout(timer)
+    for (const t of targets) for (const e of WAKE_EVENTS) t.removeEventListener(e, check)
+  }
+  function check() {
+    if (stopped) return
+    const left = expiresAt - Date.now()
+    if (left <= 0) {
+      stop()
+      onExpire()
+      return
+    }
+    clearTimeout(timer)
+    timer = setTimeout(check, Math.min(left, MAX_TIMEOUT_MS))
+  }
+  for (const t of targets) for (const e of WAKE_EVENTS) t.addEventListener(e, check)
+  check()
+  return stop
 }
 
 export function canUse(state: AuthState, feature: Feature, now: number = Date.now()): boolean {

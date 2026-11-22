@@ -99,9 +99,11 @@ Without both frontend values the page shows "Sign-in is not set up" and the app 
 
 Codex owns the Supabase project setup. `auth-verify` deploys into the same project as `watermark-v1`.
 
-**Deployed 2026-11-22** to `watermark-dev` (ref `gcfcpmqeegywnddusgfl`, us-east-1), commit `83223c5`, version 1:
-`https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/auth-verify`. Only `auth-verify` was deployed; `watermark-v1`,
-the database and migrations were not touched. The frontend production deploy has not happened.
+**Deployed 2026-11-22** to `watermark-dev` (ref `gcfcpmqeegywnddusgfl`, us-east-1):
+`https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/auth-verify`. Version 1 came from commit `83223c5`; version 2
+(bounded reads, rate limits, local claim pre-checks) was deployed from this branch's review fixes the same day. Only
+`auth-verify` was deployed each time; `watermark-v1` (still v5), shared secrets, the database and migrations were not
+touched. The frontend production deploy has not happened.
 
 ### What is already in the repo
 
@@ -137,26 +139,33 @@ Always name the function. Without a name the CLI deploys every function, and `--
 `config.toml` also turns off the Supabase JWT check for `auth-verify`. The function verifies MojoAuth tokens itself.
 Its only success path requires MojoAuth `isValid: true`, an unexpired token, a valid `nbf`, and `aud` = `MOJOAUTH_API_KEY`.
 
-### Frontend build env (to confirm with Ryan B)
+### Frontend build env (GitHub Pages)
 
-Cloudflare Pages (`*.watermark-a4q.pages.dev`) builds every PR. No Amplify config is in the repo. On 2026-11-22,
-`watermark.works` had no A record (DNS at name.com) and `www.watermark.works` did not exist, so neither host
-served the production domain yet. Set these in whichever host Ryan confirms, for Production builds:
+Production is **GitHub Pages at `https://watermark.works`** (confirmed by Ryan B, 2026-11-22). Checked 2026-11-22:
+the apex resolves to GitHub Pages, HTTPS is enforced, and `https://www.watermark.works` redirects (301) to the apex,
+so the app's origin is always `https://watermark.works`.
+
+`.github/workflows/deploy-pages.yml` passes both values from repository **variables** into `npm run build`:
 
 ```text
-VITE_MOJOAUTH_API_KEY=<api key>
-VITE_WATERMARK_AUTH_VERIFY_URL=https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/auth-verify
+VITE_MOJOAUTH_API_KEY=<MojoAuth public API key>      # set 2026-11-22 (repo variable)
+VITE_WATERMARK_AUTH_VERIFY_URL=https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/auth-verify   # set 2026-11-22
 ```
 
-Cloudflare preview URLs (`https://<branch>.watermark-a4q.pages.dev`) are not in `WATERMARK_ALLOWED_ORIGINS`, so
-sign-in fails there by design unless Codex and the team agree to add an exact preview origin.
+Both are public by design: every `VITE_` value ends up in the JavaScript bundle. Never add the MojoAuth API secret,
+a Supabase service-role key or any other server credential as a `VITE_` value or repo variable.
+
+Cloudflare Pages (`*.watermark-a4q.pages.dev`) still builds PR previews. Those origins are not in
+`WATERMARK_ALLOWED_ORIGINS`, so sign-in fails there by design unless Codex and the team agree to add an exact origin.
 
 These are baked in at build time. A production build ignores an `http://` or localhost verify URL and stays
 guest-only, so the deployed site can never depend on a developer machine.
 
 ### MojoAuth dashboard
 
-Add `https://watermark.works` (and any other production origin) to the allowed domains, if the dashboard has that setting.
+Add `https://watermark.works` and `https://www.watermark.works` to the allowed domains. Checked 2026-11-22: MojoAuth's
+REST endpoints (`/users/emailotp`, `/resend`) answered 200 for any `Origin`, including an unlisted one, so this list does
+not gate the calls this app makes. The origin gate that does apply is `auth-verify`'s exact `WATERMARK_ALLOWED_ORIGINS`.
 
 ### Hosted end-to-end check
 
@@ -178,8 +187,8 @@ It checks:
 
 Result on 2026-11-22 against `watermark-dev`: 18 of 18 passed.
 
-Then sign in on the deployed site. Optionally, copy `sessionStorage["wm-auth"]` into
-`$env:WATERMARK_TEST_TOKEN` and rerun: it checks that a real token returns only `id`, `displayName` and
+Then sign in on the deployed site. Optionally, copy the `token` field of `sessionStorage["wm-auth"]` (a JSON
+object `{ token, expiresAt }`) into `$env:WATERMARK_TEST_TOKEN` and rerun: it checks that a real token returns only `id`, `displayName` and
 `expiresAt`. Clear the variable afterwards.
 
 ### Backend authorization (checked in the repo, 2026-11-22)
@@ -217,8 +226,22 @@ Reload: still signed in (the token is re-verified). Close the tab: signed out. "
 
 ## Security notes
 
-- The browser holds only MojoAuth's public API key. That key lets anyone request codes for any email from an allowed domain;
-  MojoAuth's domain whitelist and rate limits are the protection.
+- The browser holds only MojoAuth's public API key. That key lets anyone request codes for any email, from any origin
+  (MojoAuth did not check `Origin` on 2026-11-22); MojoAuth's own rate limits are the protection.
+- `auth-verify` abuse limits (`supabase/functions/auth-verify/limits.ts`):
+  - request and provider bodies are read through `readBounded`, which stops at 8 KB / 64 KB (or a declared larger
+    `Content-Length`) and after 5 s, instead of `text()` buffering everything first;
+  - 30 verifications per minute per client address and 600 per minute per instance, checked before the body is read
+    or MojoAuth is called; over the limit it answers 429 with `Retry-After`. The counters are in memory, so they apply
+    per Edge Runtime instance, not globally;
+  - expired, wrong-audience and undecodable tokens are rejected locally, without a MojoAuth call;
+  - the MojoAuth call has a 5 s timeout and refuses redirects.
+- "Send a new code" uses MojoAuth's resend call (`POST /users/emailotp/resend { state_id }`), not a second first send.
+  Live on 2026-11-22 it returned 200 with the same `state_id`; a bogus `state_id` returned 400, shown as "code expired".
+- Expiry: `AuthProvider` ends the session at `expiresAt` (timer, plus a clock check on `visibilitychange`, `focus` and
+  `pageshow`), deletes the stored token at once, and the nav switches to "Log in". `canUse()` checks the clock on every
+  call, so account features close at the expiry instant even before the timer runs. A stored token past its expiry is
+  deleted on load without a network call.
 - The app treats a user as signed in only after `auth-verify` gets `isValid: true` from MojoAuth, the token is not expired,
   and its `aud` claim equals the function's `MOJOAUTH_API_KEY`. MojoAuth sets `aud` to the project's API key, so a token
   from a different MojoAuth project is rejected even if MojoAuth calls it valid.
@@ -237,9 +260,9 @@ Reload: still signed in (the token is re-verified). Close the tab: signed out. "
   `identifier, email, user_id, auth_type, token_type, aud, exp, jti, iat, iss, nbf, sub`. Setting `MOJOAUTH_ISSUER` to that
   issuer is optional; the `aud` check already ties tokens to this project.
 - **Remaining before a public launch:**
-  - Ryan has to confirm the frontend host and set the two `VITE_*` production variables there.
-  - `watermark.works` DNS has to point at that host.
-  - `https://watermark.works` has to be added in MojoAuth, if the dashboard has an allowed-domains setting.
-  - A sign-in has to be run on the deployed site itself.
+  - Merge this PR (Ryan B reviews); the next Pages deploy then ships sign-in with the variables above.
+  - Add `https://watermark.works` and `https://www.watermark.works` in the MojoAuth dashboard (owner; not a gate for
+    the REST calls, see above).
+  - Run a real email-code sign-in, reload, expiry and sign-out on `https://watermark.works` itself.
 - No profile table: saving places needs a migration with RLS, coordinated with Codex.
 - Nothing in the app needs an account yet (`savedPlaces`, `notificationPrefs` are planned).

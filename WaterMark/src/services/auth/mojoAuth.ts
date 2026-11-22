@@ -33,6 +33,7 @@ export type MojoAuthErrorCode =
   | 'network'
   | 'verify-failed'
   | 'misconfigured'
+  | 'code-expired'
 
 /** MojoAuth error codes (HTTP 400 body `code`) for a missing or invalid API key. */
 const API_KEY_ERRORS = new Set([904, 905])
@@ -99,13 +100,19 @@ export async function sendEmailCode(config: MojoAuthConfig, email: string, local
   return stateId(body)
 }
 
+/**
+ * "Send a new code": MojoAuth's dedicated resend call for the same sign-in attempt. Returns the
+ * state id to verify against (live, MojoAuth returned the same one; the spec allows a new one).
+ * A 400 means the attempt itself is no longer valid.
+ */
 export async function resendEmailCode(config: MojoAuthConfig, state: string, locale: LocaleCode): Promise<string> {
+  if (!state) throw new MojoAuthError('code-expired')
   const url = `${MOJOAUTH_API}/users/emailotp/resend?language=${encodeURIComponent(MOJOAUTH_LANGUAGE[locale])}`
   const body = await call(config, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
     body: JSON.stringify({ state_id: state }),
-  }, 'invalid-code')
+  }, 'code-expired')
   return stateId(body)
 }
 
@@ -124,6 +131,29 @@ export async function verifyEmailCode(config: MojoAuthConfig, state: string, cod
   return token
 }
 
+/**
+ * One sign-in attempt as the login page runs it: send the first code once, resend on request
+ * (MojoAuth's resend call), then verify against the state id the latest call returned.
+ */
+export interface EmailCodeAttempt {
+  send(email: string): Promise<void>
+  resend(): Promise<void>
+  verify(code: string): Promise<string>
+}
+
+export function createEmailCodeAttempt(config: MojoAuthConfig, locale: LocaleCode): EmailCodeAttempt {
+  let state = ''
+  return {
+    async send(email) {
+      state = await sendEmailCode(config, email, locale)
+    },
+    async resend() {
+      state = await resendEmailCode(config, state, locale)
+    },
+    verify: (code) => verifyEmailCode(config, state, code),
+  }
+}
+
 /** Step 3: our Edge Function verifies the token with MojoAuth and returns the account. */
 export async function verifyWithBackend(config: MojoAuthConfig, token: string): Promise<AuthState> {
   const fetcher = config.fetcher ?? fetch
@@ -140,6 +170,7 @@ export async function verifyWithBackend(config: MojoAuthConfig, token: string): 
     throw new MojoAuthError('network')
   }
   if (response.status === 401) return { ...GUEST, status: 'expired' }
+  if (response.status === 429) throw new MojoAuthError('rate-limited')
   if (!response.ok) throw new MojoAuthError('verify-failed')
   const body = (await response.json().catch(() => null)) as { account?: Record<string, unknown> } | null
   const account = body?.account
@@ -150,32 +181,60 @@ export async function verifyWithBackend(config: MojoAuthConfig, token: string): 
   })
 }
 
+/** What sessionStorage holds: the verified token and when it expires (epoch ms, null if unknown). */
+interface StoredSession {
+  token: string
+  expiresAt: number | null
+}
+
+function parseStored(raw: string | null): StoredSession | null {
+  if (!raw) return null
+  try {
+    const v = JSON.parse(raw) as Partial<StoredSession>
+    const expiresAt = v.expiresAt === null || (typeof v.expiresAt === 'number' && Number.isFinite(v.expiresAt)) ? v.expiresAt : undefined
+    if (typeof v.token === 'string' && v.token.length > 0 && expiresAt !== undefined) return { token: v.token, expiresAt }
+  } catch {
+    // not ours or corrupted
+  }
+  return null
+}
+
 /**
- * AuthAdapter backed by MojoAuth + auth-verify. Keeps the verified token in sessionStorage so a
- * reload stays signed in until the tab closes or the token expires. Nothing goes in localStorage.
+ * AuthAdapter backed by MojoAuth + auth-verify. Keeps the verified token and its expiry in
+ * sessionStorage so a reload stays signed in until the tab closes or the token expires. Nothing
+ * goes in localStorage. A stored token that is past its expiry is deleted without a network call.
  */
 export function createMojoAuthAdapter(config: MojoAuthConfig): AuthAdapter {
   const storage = config.storage === undefined ? safeSessionStorage() : config.storage
   const read = () => { try { return storage?.getItem(SESSION_STORAGE_KEY) ?? null } catch { return null } }
-  const write = (v: string) => { try { storage?.setItem(SESSION_STORAGE_KEY, v) } catch { /* private mode */ } }
+  const write = (v: StoredSession) => { try { storage?.setItem(SESSION_STORAGE_KEY, JSON.stringify(v)) } catch { /* private mode */ } }
   const clear = () => { try { storage?.removeItem(SESSION_STORAGE_KEY) } catch { /* private mode */ } }
 
   return {
     canSignIn: true,
     async restore() {
-      const token = read()
-      if (!token) return GUEST
+      const raw = read()
+      if (!raw) return GUEST
+      const stored = parseStored(raw)
+      if (!stored) {
+        clear()
+        return GUEST
+      }
+      if (stored.expiresAt !== null && stored.expiresAt <= Date.now()) {
+        clear()
+        return { ...GUEST, status: 'expired' }
+      }
       try {
-        const state = await verifyWithBackend(config, token)
+        const state = await verifyWithBackend(config, stored.token)
         if (state.status !== 'signed-in') clear()
-        return state.status === 'expired' ? GUEST : state
+        return state
       } catch {
         return GUEST // keep the token; the backend may just be unreachable right now
       }
     },
     async signIn(token: string) {
       const state = await verifyWithBackend(config, token)
-      if (state.status === 'signed-in') write(token)
+      if (state.status === 'signed-in') write({ token, expiresAt: state.expiresAt })
       else clear()
       return state
     },

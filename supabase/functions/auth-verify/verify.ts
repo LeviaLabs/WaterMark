@@ -7,6 +7,8 @@
 //
 // No Deno globals here, so the same file runs in the Supabase Edge Runtime and in Node tests.
 
+import { clientKey, RateLimiter, readBounded } from './limits.ts'
+
 export const MOJOAUTH_VERIFY_URL = 'https://api.mojoauth.com/token/verify'
 
 const MAX_TOKEN_LENGTH = 4096
@@ -36,6 +38,7 @@ export type ErrorCode =
   | 'not-configured'
   | 'origin-not-allowed'
   | 'method-not-allowed'
+  | 'rate-limited'
 
 export interface VerifyOptions {
   apiKey: string
@@ -81,6 +84,16 @@ export async function verifyMojoAuthToken(token: string, options: VerifyOptions)
   const { apiKey, expectedIssuer = '', fetcher = fetch, now = Date.now(), timeoutMs = 5000 } = options
   if (!apiKey) return { ok: false, status: 503, code: 'not-configured' }
 
+  // Cheap local checks first, so a junk, expired or foreign-project token never costs a MojoAuth
+  // call. The claims are not trusted yet; MojoAuth still has to accept the token below.
+  const claims = decodeClaims(token)
+  if (!claims) return { ok: false, status: 401, code: 'invalid-token' }
+  const claimedExp = num(claims.exp)
+  if (claimedExp !== null && claimedExp * 1000 <= now) return { ok: false, status: 401, code: 'expired-token' }
+  if (claims.aud !== undefined && !(Array.isArray(claims.aud) ? claims.aud : [claims.aud]).includes(apiKey)) {
+    return { ok: false, status: 401, code: 'invalid-token' }
+  }
+
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   let body: Record<string, unknown>
@@ -91,10 +104,15 @@ export async function verifyMojoAuthToken(token: string, options: VerifyOptions)
       redirect: 'error',
       signal: controller.signal,
     })
-    const text = await response.text()
-    if (response.status >= 500) return { ok: false, status: 502, code: 'provider-unavailable' }
-    if (!response.ok) return { ok: false, status: 401, code: 'invalid-token' }
-    if (text.length > MAX_PROVIDER_BYTES) return { ok: false, status: 502, code: 'provider-unavailable' }
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {})
+      return response.status >= 500
+        ? { ok: false, status: 502, code: 'provider-unavailable' }
+        : { ok: false, status: 401, code: 'invalid-token' }
+    }
+    // Bounded: stops at MAX_PROVIDER_BYTES instead of buffering whatever the provider sends.
+    const text = await readBounded(response, MAX_PROVIDER_BYTES, timeoutMs)
+    if (text === null) return { ok: false, status: 502, code: 'provider-unavailable' }
     const parsed: unknown = JSON.parse(text)
     if (!parsed || typeof parsed !== 'object') return { ok: false, status: 502, code: 'provider-unavailable' }
     body = parsed as Record<string, unknown>
@@ -107,8 +125,6 @@ export async function verifyMojoAuthToken(token: string, options: VerifyOptions)
   if (body.isValid !== true) return { ok: false, status: 401, code: 'invalid-token' }
 
   const user = body.user && typeof body.user === 'object' ? (body.user as Record<string, unknown>) : {}
-  const claims = decodeClaims(token)
-  if (!claims) return { ok: false, status: 401, code: 'invalid-token' }
 
   const exp = num(user.exp) ?? num(claims.exp)
   if (exp === null) return { ok: false, status: 401, code: 'invalid-token' }
@@ -138,7 +154,26 @@ export async function verifyMojoAuthToken(token: string, options: VerifyOptions)
 export interface HandlerConfig extends VerifyOptions {
   /** Exact comma-separated browser origins, e.g. "http://localhost:5173,https://watermark.xyz". */
   allowedOrigins: string
+  /** Rate limits. Defaults to this instance's shared limits; tests pass their own. */
+  limits?: Limits
 }
+
+export interface Limits {
+  /** Per client address. */
+  perClient: RateLimiter
+  /** Whole instance, so spoofed addresses still cannot burn the MojoAuth quota. */
+  global: RateLimiter
+}
+
+/**
+ * 30 verifications a minute per address is far above one person's use (one per sign-in or page
+ * load) and leaves room for a shared venue network. 600 a minute caps the whole instance.
+ */
+export const createLimits = (): Limits => ({
+  perClient: new RateLimiter(30, 60_000),
+  global: new RateLimiter(600, 60_000),
+})
+const sharedLimits = createLimits()
 
 function corsHeaders(origin: string | null, allowed: readonly string[]): Record<string, string> {
   if (!origin || !allowed.includes(origin)) return {}
@@ -166,10 +201,24 @@ export async function handleRequest(request: Request, config: HandlerConfig): Pr
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...cors, Vary: 'Origin' } })
   if (request.method !== 'POST') return reply(405, { error: 'method-not-allowed' })
 
+  // Rate limit before reading the body or calling MojoAuth.
+  const limits = config.limits ?? sharedLimits
+  const at = config.now ?? Date.now()
+  const wait = Math.max(limits.global.hit('*', at), limits.perClient.hit(clientKey(request), at))
+  if (wait > 0) {
+    await request.body?.cancel().catch(() => {})
+    console.warn('auth-verify rejected: rate-limited')
+    return new Response(JSON.stringify({ error: 'rate-limited' }), {
+      status: 429,
+      headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store', Vary: 'Origin', 'Retry-After': String(wait) },
+    })
+  }
+
   let token: string | null = null
   try {
-    const raw = await request.text()
-    if (raw.length <= MAX_BODY_BYTES) token = parseToken((JSON.parse(raw) as { token?: unknown })?.token)
+    // Bounded: stops at MAX_BODY_BYTES (or after 5 s) instead of buffering the whole body.
+    const raw = await readBounded(request, MAX_BODY_BYTES)
+    if (raw !== null) token = parseToken((JSON.parse(raw) as { token?: unknown })?.token)
   } catch {
     token = null
   }

@@ -1,7 +1,8 @@
 // MojoAuth email-code client and adapter (WM-CLAUDE-002). Fake fetch only: no network.
-import { test } from 'vitest'
+import { afterEach, test, vi } from 'vitest'
 import assert from 'node:assert/strict'
 import {
+  createEmailCodeAttempt,
   createMojoAuthAdapter,
   isEmail,
   isOtp,
@@ -77,10 +78,52 @@ test('verifyEmailCode sends a form body and returns the access token', async () 
   await rejectsWith(verifyEmailCode(cfg([]), 's', '12'), 'invalid-code')
 })
 
-test('resendEmailCode returns the new state id', async () => {
+test('resendEmailCode posts the state id to the resend endpoint and returns the new state id', async () => {
   const calls: Call[] = []
   assert.equal(await resendEmailCode(cfg([[200, { state_id: 'state-2' }]], calls), 'state-1', 'es'), 'state-2')
   assert.equal(calls[0].url, 'https://api.mojoauth.com/users/emailotp/resend?language=es')
+  assert.equal(calls[0].init.method, 'POST')
+  assert.equal((calls[0].init.headers as Record<string, string>)['x-api-key'], base.apiKey)
+  assert.deepEqual(JSON.parse(String(calls[0].init.body)), { state_id: 'state-1' })
+  assert.equal(calls[0].init.redirect, 'error')
+})
+
+test('resendEmailCode: expired attempt, rate limit, outage and bad key map to codes', async () => {
+  const calls: Call[] = []
+  await rejectsWith(resendEmailCode(cfg([], calls), '', 'en'), 'code-expired')
+  assert.equal(calls.length, 0, 'no state id: nothing to resend, no request')
+  await rejectsWith(resendEmailCode(cfg([[400, { code: 1 }]]), 'state-1', 'en'), 'code-expired')
+  await rejectsWith(resendEmailCode(cfg([[429, {}]]), 'state-1', 'en'), 'rate-limited')
+  await rejectsWith(resendEmailCode(cfg([[503, {}]]), 'state-1', 'en'), 'network')
+  await rejectsWith(resendEmailCode(cfg([[400, { code: 904 }]]), 'state-1', 'en'), 'misconfigured')
+})
+
+test('regression: "Send a new code" resends for the same attempt instead of a second first send', async () => {
+  const calls: Call[] = []
+  const attempt = createEmailCodeAttempt(cfg([
+    [200, { state_id: 'state-1' }],
+    [200, { state_id: 'state-2' }],
+    [200, { authenticated: true, oauth: { access_token: 'a.b.c' } }],
+  ], calls), 'en')
+  await attempt.send('river@example.test')
+  await attempt.resend()
+  assert.equal(await attempt.verify('123456'), 'a.b.c')
+  assert.deepEqual(calls.map((c) => new URL(c.url).pathname), ['/users/emailotp', '/users/emailotp/resend', '/users/emailotp/verify'])
+  assert.deepEqual(JSON.parse(String(calls[1].init.body)), { state_id: 'state-1' }, 'resend names the first attempt')
+  assert.equal(String(calls[2].init.body), 'OTP=123456&state_id=state-2', 'verify uses the state id from the resend')
+})
+
+test('regression: a failed resend keeps the previous state id', async () => {
+  const calls: Call[] = []
+  const attempt = createEmailCodeAttempt(cfg([
+    [200, { state_id: 'state-1' }],
+    [429, {}],
+    [200, { authenticated: true, oauth: { access_token: 'a.b.c' } }],
+  ], calls), 'en')
+  await attempt.send('river@example.test')
+  await rejectsWith(attempt.resend(), 'rate-limited')
+  await attempt.verify('123456')
+  assert.equal(String(calls[2].init.body), 'OTP=123456&state_id=state-1')
 })
 
 test('verifyWithBackend keeps only account fields; 401 means expired', async () => {
@@ -90,6 +133,7 @@ test('verifyWithBackend keeps only account fields; 401 means expired', async () 
   assert.equal(calls[0].url, base.verifyUrl)
   assert.deepEqual(JSON.parse(String(calls[0].init.body)), { token: 'a.b.c' })
   assert.equal((await verifyWithBackend(cfg([[401, { error: 'invalid-token' }]]), 'a.b.c')).status, 'expired')
+  await rejectsWith(verifyWithBackend(cfg([[429, { error: 'rate-limited' }]]), 'a.b.c'), 'rate-limited')
   await rejectsWith(verifyWithBackend(cfg([[502, {}]]), 'a.b.c'), 'verify-failed')
   assert.equal((await verifyWithBackend(cfg([[200, { account: { id: '' } }]]), 'a.b.c')).error, 'invalid-state')
 })
@@ -102,7 +146,7 @@ test('adapter: stores the token in sessionStorage only after the backend verifie
 
   const good = createMojoAuthAdapter(cfg([[200, { account: ACCOUNT }]], [], storage))
   assert.equal((await good.signIn('a.b.c')).status, 'signed-in')
-  assert.equal(storage.map.get(SESSION_STORAGE_KEY), 'a.b.c')
+  assert.deepEqual(JSON.parse(storage.map.get(SESSION_STORAGE_KEY) ?? ''), { token: 'a.b.c', expiresAt: ACCOUNT.expiresAt })
   await good.signOut()
   assert.equal(storage.map.size, 0)
 })
@@ -111,14 +155,49 @@ test('adapter.restore: re-verifies a stored token; clears it when rejected; keep
   const storage = memoryStorage()
   assert.equal((await createMojoAuthAdapter(cfg([], [], storage)).restore()).status, 'guest')
 
-  storage.setItem(SESSION_STORAGE_KEY, 'a.b.c')
-  assert.equal((await createMojoAuthAdapter(cfg([[200, { account: ACCOUNT }]], [], storage)).restore()).status, 'signed-in')
+  const stored = JSON.stringify({ token: 'a.b.c', expiresAt: ACCOUNT.expiresAt })
+  storage.setItem(SESSION_STORAGE_KEY, stored)
+  const calls: Call[] = []
+  assert.equal((await createMojoAuthAdapter(cfg([[200, { account: ACCOUNT }]], calls, storage)).restore()).status, 'signed-in')
+  assert.deepEqual(JSON.parse(String(calls[0].init.body)), { token: 'a.b.c' })
 
   assert.equal((await createMojoAuthAdapter(cfg([[503, {}]], [], storage)).restore()).status, 'guest')
-  assert.equal(storage.map.get(SESSION_STORAGE_KEY), 'a.b.c')
+  assert.equal(storage.map.get(SESSION_STORAGE_KEY), stored)
 
-  assert.equal((await createMojoAuthAdapter(cfg([[401, {}]], [], storage)).restore()).status, 'guest')
+  assert.equal((await createMojoAuthAdapter(cfg([[401, {}]], [], storage)).restore()).status, 'expired')
+  assert.equal(storage.map.size, 0, 'a token the backend rejects is deleted')
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+test('adapter.restore: a stored token past its expiry is deleted without a network call', async () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(Date.UTC(2026, 10, 22, 12))
+  const storage = memoryStorage()
+  storage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ token: 'a.b.c', expiresAt: Date.now() - 1 }))
+  const calls: Call[] = []
+  const state = await createMojoAuthAdapter(cfg([[200, { account: ACCOUNT }]], calls, storage)).restore()
+  assert.equal(state.status, 'expired')
+  assert.equal(state.account, null)
   assert.equal(storage.map.size, 0)
+  assert.equal(calls.length, 0)
+
+  storage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ token: 'a.b.c', expiresAt: Date.now() }))
+  assert.equal((await createMojoAuthAdapter(cfg([], calls, storage)).restore()).status, 'expired', 'the expiry instant counts as expired')
+  assert.equal(calls.length, 0)
+})
+
+test('adapter.restore: corrupted or foreign storage is cleared, never sent anywhere', async () => {
+  const storage = memoryStorage()
+  for (const junk of ['a.b.c', '{"token":5}', '{"token":"a.b.c","expiresAt":"soon"}', '[]', '{']) {
+    storage.setItem(SESSION_STORAGE_KEY, junk)
+    const calls: Call[] = []
+    assert.equal((await createMojoAuthAdapter(cfg([[200, { account: ACCOUNT }]], calls, storage)).restore()).status, 'guest', junk)
+    assert.equal(storage.map.size, 0, junk)
+    assert.equal(calls.length, 0, junk)
+  }
 })
 
 test('config from env: both values required, verify URL must be http(s)', () => {

@@ -58,6 +58,41 @@ export function evaluateSession(state: AuthState, now: number = Date.now()): Aut
   return state
 }
 
+/** Longest delay setTimeout accepts (about 24.8 days). */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
+
+/** Events after which a page may have missed its expiry timer (hidden tab, sleep, back/forward cache). */
+const WAKE_EVENTS = ['visibilitychange', 'focus', 'pageshow'] as const
+
+/**
+ * Calls `onExpire` once, as soon as `expiresAt` (epoch ms) is reached: from a timer, and from a
+ * clock check whenever one of `targets` reports the page waking up, because browsers delay timers
+ * in hidden tabs and while the computer sleeps. Returns a function that stops watching.
+ */
+export function watchExpiry(expiresAt: number, onExpire: () => void, targets: readonly EventTarget[] = []): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let stopped = false
+  const stop = () => {
+    stopped = true
+    clearTimeout(timer)
+    for (const t of targets) for (const e of WAKE_EVENTS) t.removeEventListener(e, check)
+  }
+  function check() {
+    if (stopped) return
+    const left = expiresAt - Date.now()
+    if (left <= 0) {
+      stop()
+      onExpire()
+      return
+    }
+    clearTimeout(timer)
+    timer = setTimeout(check, Math.min(left, MAX_TIMEOUT_MS))
+  }
+  for (const t of targets) for (const e of WAKE_EVENTS) t.addEventListener(e, check)
+  check()
+  return stop
+}
+
 export function canUse(state: AuthState, feature: Feature, now: number = Date.now()): boolean {
   if ((PUBLIC_FEATURES as readonly string[]).includes(feature)) return true
   const s = evaluateSession(state, now)

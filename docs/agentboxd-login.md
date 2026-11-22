@@ -5,8 +5,31 @@
 WaterMark is registered in the owner's existing Shakehand workspace as an enabled **public**
 app with **pairwise** subjects, `openid profile`, homepage `https://watermark.works`, and only
 `https://watermark.works/agentboxd-callback.html` as redirect. There is no client secret.
-The GitHub variable `VITE_AGENTBOXD_AUTH_URL` is configured. Supabase activation still needs
-explicit owner approval; registration and a successful local build do not establish hosted login.
+The GitHub variable `VITE_AGENTBOXD_AUTH_URL` is configured. With explicit owner approval,
+the authentication migration and two Agentboxd settings are applied, and **agentboxd-auth v1**
+is ACTIVE at `https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/agentboxd-auth`.
+The deployed source is security commit `87351370dc44b0c1871acbfc6eb3736a24036733`.
+Registration and backend activation do not establish a successful browser sign-in.
+
+Hosted checks passed **14/14** in the existing suite and **15/15** in the bounded supplementary
+suite: PKCE mismatch, state replay, unknown sessions, malformed/oversized requests, exact CORS,
+the shared start limit (ten admitted, then HTTP 429), an anonymous RPC denial, and preservation
+of existing endpoints. One forged-IP-header probe was denied with HTTP 403; that sample is not
+proof of every gateway trust property. A harness initially required 429 for that denial; its
+expectation was corrected to accept either rejection status, with initial evidence retained.
+The hosted catalog verifies RLS on all three new tables, browser CRUD/EXECUTE denial and six
+service-only security-invoker RPCs. Security advisors report no warnings/errors. Migration dry
+run is now up to date; PR #21's migration remains absent.
+
+Existing `auth-verify` and `watermark-v1` code hashes, entrypoints, deployment timestamps and JWT
+settings are unchanged. Their metadata version counters advanced during secret updates; no
+deployment of either function was performed. The Gemini key is configured on a separate Free
+tier Google project and verified using model listing only. The public Gemini assistant stays
+undeployed pending bounded reads and verified abuse controls.
+
+PR #20 remains unmerged; independent review and the frontend release findings below remain
+pending. Production callback routing, real consent, session restoration, logout, valid human
+OTP and guest map browser behavior are still UNVERIFIED in this task.
 
 Security corrections in this revision:
 
@@ -185,7 +208,7 @@ Supabase secrets:
 7. Copy the client_id and set it as `AGENTBOXD_CLIENT_ID`.
 8. For testing, create a test inbox or identity and an API key with the **Sign in only** preset, limited to that inbox. Don't give the key whole-workspace access.
 
-## Deploy (needs approval; not done)
+## Reproduce or update the deployment (explicit approval required)
 
 ```sh
 npx supabase@3.2.0 db push --remote=gcfcpmqeegywnddusgfl --workdir <reviewed-deployment-directory> --dry-run --skip-vault

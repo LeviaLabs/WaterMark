@@ -297,12 +297,8 @@
   display: none;
 }
 
+/* Results sit right under the box, in the flow, so the panel grows to fit them (and scrolls if it must). */
 .place-search-list {
-  position: absolute;
-  top: calc(100% - 4px);
-  left: 0;
-  right: 0;
-  z-index: 5;
   display: grid;
   gap: 2px;
   margin-top: 0;
@@ -351,10 +347,95 @@
   transform: translateX(4px);
 }
 
-.place-search-none {
+.place-search-status {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+/* The live region stays in the page for screen readers; empty, it takes no room. */
+.place-search-status:empty {
+  margin-top: -10px;
+}
+
+/* A ring that turns at the end of the box while a search is on its way. */
+.place-search-spinner {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.2s,
+    transform 0.3s var(--ease-spring);
+}
+
+.place-search-box.is-loading .place-search-spinner {
+  opacity: 1;
+  transform: scale(1);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* Old results dim while newer ones load, instead of disappearing. */
+.place-search-list.is-stale .place-search-option {
+  opacity: 0.55;
+}
+
+.place-search-coords {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.place-search-credit {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: 0.74rem;
+}
+
+.place-search-credit a {
+  color: inherit;
+}
+
+.place-result-copy {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-family: var(--font-body, inherit);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    transform 0.35s var(--ease-spring);
+}
+
+.place-result-copy:hover,
+.place-result-copy:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .place-search-coords {
+    display: none;
+  }
 }
 
 .place-coverage {

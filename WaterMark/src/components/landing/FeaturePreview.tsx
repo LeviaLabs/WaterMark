@@ -10,21 +10,30 @@ import {
 import { chunk, type Chunk } from '../../scripting/lazy/chunk'
 import type { StoryPreview } from '../../scripting/content/featureStory'
 
+/** Search ranks places near the New York pilot area first; it still finds places anywhere. */
+const NYC = { lat: 40.7128, lon: -74.006 }
+
 /**
  * Each panel's code loads the first time its step comes up (a few kB each),
  * with a skeleton in its place until it arrives.
  */
 const PREVIEWS: Record<StoryPreview, Chunk<ReactElement>> = {
   search: chunk(() =>
-    import('../features/PlaceSearch').then((m) => (
+    Promise.all([import('../features/PlaceSearch'), import('../../services/geocoding/photon')]).then(([m, photon]) => (
       <article className="evidence-panel" aria-label="Place search">
         <header className="evidence-panel-head">
           <h3>Find a place</h3>
           <span className="evidence-panel-tags">
-            <span className="example-badge">Pilot neighborhoods</span>
+            <span className="example-badge">Live search · OpenStreetMap</span>
           </span>
         </header>
-        <m.PlaceSearch places={PILOT_PLACES} />
+        <m.PlaceSearch
+          places={PILOT_PLACES}
+          lookup={(query, signal) => photon.searchPlaces(query, signal, { near: NYC })}
+          credit={photon.PHOTON_ATTRIBUTION}
+          minLength={photon.MIN_QUERY_LENGTH}
+          hint="Any place, address or ZIP code"
+        />
       </article>
     )),
   ),

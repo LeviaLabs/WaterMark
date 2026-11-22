@@ -30,7 +30,8 @@ src/
   scripting/       pure logic: theme rules, city/ geometry, evidence/ API contract mirror + formatting, text/, content/
   context/         React contexts and providers
   hooks/           custom hooks
-  services/        integrations with outside tools (none yet)
+  services/        integrations with outside tools: geocoding/photon.ts (place search through Photon,
+                   keyless, OpenStreetMap data, credited in the panel)
   assets/          images imported by code
   themes/          generated Astryx theme (do not edit by hand)
 tests/             Vitest tests

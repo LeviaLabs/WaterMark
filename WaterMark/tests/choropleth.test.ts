@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { childLevel, classOf, fillColor, legendLabels, maskAround, pathTo } from '../src/scripting/choropleth'
+import { childLevel, classOf, fillColor, focusAtDepth, focusVeil, legendLabels, maskAround, pathTo, stepUpFocus } from '../src/scripting/choropleth'
 import type { RegionLevel, RegionPick } from '../src/scripting/types'
 
 const pick = (level: RegionLevel, k: string): RegionPick => ({ level, props: { k, n: k, e: 0, py: 0, y: [], b: [0, 0, 1, 1] } })
@@ -45,6 +45,38 @@ describe('drill-down focus', () => {
     expect(pathTo(pick('county', '06037'), [usa, ca], find).map((p) => p.props.k)).toEqual(['USA', '06', '06037'])
     expect(pathTo(pick('county', '06037'), [], find).map((p) => p.props.k)).toEqual(['USA', '06', '06037'])
     expect(pathTo(pick('state', '06'), [], find).map((p) => p.props.k)).toEqual(['USA', '06'])
+  })
+  it('clears a selected square by stepping back to its region, then up to the world', () => {
+    const usa = pick('country', 'USA')
+    const ca = pick('state', '06')
+    const la = pick('county', '06037')
+    const bosnia = pick('country', 'BIH')
+    const keys = (path: { props: { k: string } }[]) => path.map((p) => p.props.k)
+
+    const square = stepUpFocus([usa, ca, la], true)
+    expect(keys(square.path)).toEqual(['USA', '06', '06037'])
+    expect(square.selection).toBeNull()
+
+    expect(keys(stepUpFocus(square.path, false).path)).toEqual(['USA', '06'])
+    expect(keys(stepUpFocus([usa, ca], false).path)).toEqual(['USA'])
+    expect(stepUpFocus([usa], false)).toEqual({ path: [], selection: null })
+
+    // Choosing World, or stepping up from a country, drops the country and the spot.
+    expect(focusAtDepth([bosnia], 0)).toEqual({ path: [], selection: null })
+    expect(focusAtDepth([usa, ca, la], 0).selection).toBeNull()
+    expect(keys(focusAtDepth([usa, ca, la], 2).path)).toEqual(['USA', '06'])
+    expect(focusAtDepth([usa, ca, la], 2).selection).toBeNull()
+
+    // A searched or drawn spot has no region. Back still clears it and returns to the world.
+    expect(stepUpFocus([], true)).toEqual({ path: [], selection: null })
+  })
+  it('drops the dark veil when focus returns to the world', () => {
+    expect(focusVeil({ level: 'country', k: 'BIH' }, null)).toBe('clear')
+    expect(focusVeil({ level: 'state', k: '06' }, null)).toBe('clear')
+    expect(focusVeil({ level: 'county', k: '06037' }, { level: 'state', k: '06' })).toBe('show')
+    expect(focusVeil({ level: 'country', k: 'BIH' }, { level: 'country', k: 'BIH' })).toBe('keep')
+    expect(focusVeil(null, null)).toBe('keep')
+    expect(focusVeil(null, { level: 'country', k: 'BIH' })).toBe('show')
   })
   it('cuts every piece of the focused region out of a world-sized mask', () => {
     const sq = (x: number) => [[[x, 0], [x + 1, 0], [x + 1, 1], [x, 1], [x, 0]]]

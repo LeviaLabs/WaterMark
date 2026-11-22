@@ -139,7 +139,8 @@ export function decide(event: unknown, allowlist: string, nowMs: number = Date.n
   }
   if (phishing >= RISK_THRESHOLD || labels.includes('ai:phishing')) return quarantine('phishing-risk')
   if (RISK_LABELS.some((l) => labels.includes(l))) return quarantine('blocked')
-  if (AUTH_FAIL_LABELS.some((l) => labels.includes(l))) return quarantine('sender-auth-failed')
+  // ai.verification.auth_failed is Agentboxd's second signal for the same failure (labels can be removed by inbox users).
+  if (AUTH_FAIL_LABELS.some((l) => labels.includes(l)) || obj(ai.verification).auth_failed === true) return quarantine('sender-auth-failed')
   if (!address || !senderAllowed(address, allowlist)) return quarantine('sender-not-allowed')
   const siteId = extractSiteId(m.subject, m.extracted_text ?? m.text)
   if (!siteId) return quarantine('no-usgs-site')

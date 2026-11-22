@@ -171,6 +171,7 @@ for (const [name, over, reason] of [
   ['check pending', { analysis: { state: 'pending' } }, 'not-checked'],
   ['spoofed usgs.gov From that failed DMARC', { labels: ['ai:notification', 'dmarc-fail'] }, 'sender-auth-failed'],
   ['allowlisted From that failed SPF', { from: 'ops@county.example', labels: ['spf-fail'] }, 'sender-auth-failed'],
+  ['auth_failed flag without a label', { ai: { risk: { injection: 0.01, phishing: 0.01 }, verification: { auth_failed: true } } }, 'sender-auth-failed'],
   ['sender not on the allowlist', { from: 'Flood Desk <alerts@usgs.gov.evil.example>' }, 'sender-not-allowed'],
   ['lookalike domain', { from: 'x@notusgs.gov' }, 'sender-not-allowed'],
   ['no sender address', { from: 'nobody' }, 'sender-not-allowed'],

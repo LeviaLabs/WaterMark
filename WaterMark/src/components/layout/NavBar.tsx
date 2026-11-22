@@ -4,13 +4,14 @@ import { Button } from '@astryxdesign/core/Button'
 import { useInView } from '../../hooks/useInView'
 import { Icon } from '../common/Icon'
 import { Logo } from '../common/Logo'
+import { RollText } from '../common/RollText'
 import { RouterLink } from '../common/RouterLink'
 import { ThemeToggle } from './ThemeToggle'
 
 const SECTIONS = [
   { hash: '#how', label: 'How it works' },
   { hash: '#data', label: 'Data' },
-  { hash: '#features', label: 'Features' },
+  { hash: '#audiences', label: 'Who it’s for' },
   { hash: '#team', label: 'Team' },
 ]
 
@@ -40,11 +41,11 @@ export function NavBar() {
   const sectionLinks = SECTIONS.map(({ hash, label }) =>
     onLanding ? (
       <a key={hash} href={hash} className="nav-link" onClick={closeMenu}>
-        {label}
+        <RollText text={label} />
       </a>
     ) : (
       <Link key={hash} to={`/${hash}`} className="nav-link" onClick={closeMenu}>
-        {label}
+        <RollText text={label} />
       </Link>
     ),
   )
@@ -59,8 +60,12 @@ export function NavBar() {
           <div className="nav-actions">
             <ThemeToggle />
             <span className="nav-auth">
-              <Button label="Log in" variant="ghost" size="sm" href="/login" as={RouterLink} />
-              <Button label="Sign up" variant="primary" size="sm" href="/signup" as={RouterLink} />
+              <Button label="Log in" variant="ghost" size="sm" href="/login" as={RouterLink}>
+                <RollText text="Log in" />
+              </Button>
+              <Button label="Sign up" variant="primary" size="sm" href="/signup" as={RouterLink}>
+                <RollText text="Sign up" />
+              </Button>
             </span>
             <button
               type="button"

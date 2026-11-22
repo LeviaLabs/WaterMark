@@ -1,40 +1,55 @@
+import type { BuildStatus } from './featureStory'
+
 /**
- * Team credits, from the Assignments tab of the EvoHacks2.0 planning doc
- * (README Section 10). Update this list, not the components, when roles change.
+ * Team credits. Cross-referenced on 2026-11-21 against two sources:
+ *   1. the Assignments tab of the EvoHacks2.0 planning doc (highlight colors:
+ *      green Ryan B, pink Ryan L, blue Decong; README Section 10), and
+ *   2. what each person has actually pushed to the repository.
+ * `status` says which: built (merged on main), review (on a branch, not merged
+ * yet) or planned (assigned, not started). Update this list, not the
+ * components, when work lands.
  */
+
+export type WorkItem = { text: string; status: BuildStatus }
 
 export type TeamMember = {
   name: string
   role: string
-  work: readonly string[]
+  work: readonly WorkItem[]
 }
 
 export const TEAM: readonly TeamMember[] = [
   {
     name: 'Ryan Bergman',
-    role: 'Frontend & AI experience',
+    role: 'Frontend, AI & deployment',
     work: [
-      'Landing page, routing and visual design',
-      'AI assistant and ElevenLabs voice',
-      'AWS Amplify automatic deployments',
+      { text: 'Landing page design, theme, routing and frontend conventions', status: 'built' },
+      { text: 'Vite + React app setup and the Astryx design system for the team', status: 'built' },
+      { text: 'AI assistant (Gemini or OpenRouter) and ElevenLabs voice', status: 'planned' },
+      { text: 'AWS Amplify automatic deployments', status: 'planned' },
+      { text: 'Decodo scraping research, only if the public APIs fall short', status: 'planned' },
     ],
   },
   {
     name: 'Ryan Lin',
-    role: 'Map & data visualization',
+    role: 'Map, data panel & charts',
     work: [
-      '2D world map and demo page',
-      'Draggable data panel and circle-area statistics',
-      'Forecast charts and the resources bibliography',
+      { text: '2D flood map with light and dark map styles', status: 'review' },
+      { text: 'Draggable, stowable data panel and circle-area report', status: 'review' },
+      { text: 'Global layers: NASA rainfall and GDACS floods', status: 'review' },
+      { text: 'FloodNet and NFIP claims starter data, and the sources list', status: 'review' },
+      { text: '“Move Your Car” concept, research only', status: 'planned' },
     ],
   },
   {
     name: 'Decong Huang',
-    role: 'Backend, data & localization',
+    role: 'Backend, data & languages',
     work: [
-      'Supabase PostGIS database and Edge Functions',
-      'Multilingual support and MojoAuth sign-in',
-      'Agentboxd alert digests and the .xyz domain',
+      { text: 'Supabase Edge Function data API: NWS, Open-Meteo, GloFAS, FloodNet', status: 'built' },
+      { text: 'PostGIS area queries, request budgets and provider health', status: 'built' },
+      { text: 'Five-language localization and the voice language contract', status: 'review' },
+      { text: 'Optional MojoAuth email-code sign-in', status: 'review' },
+      { text: 'Agentboxd alert digests, the .xyz domain and SMS research', status: 'planned' },
     ],
   },
 ]

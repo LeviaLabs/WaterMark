@@ -2,14 +2,20 @@ import { useEffect, useRef, type RefObject } from 'react'
 
 /**
  * Scroll progress through a tall section, 0 when its top reaches the top of
- * the viewport and 1 when its bottom reaches the bottom.
+ * the viewport and 1 when its bottom reaches the bottom. With `exit`, it is
+ * instead how far a screen-high section has scrolled off the top: 0 at rest,
+ * 1 once it has left (the hero uses this).
  *
  * Writes the value to the `--progress` CSS variable on the element so CSS
  * does the parallax, and calls `onProgress` (at most once per frame). The
  * scroll listener exists only while the section is on screen, guarded by an
  * IntersectionObserver, and is passive so it never blocks scrolling.
  */
-export function useScrollProgress(ref: RefObject<HTMLElement | null>, onProgress?: (progress: number) => void): void {
+export function useScrollProgress(
+  ref: RefObject<HTMLElement | null>,
+  onProgress?: (progress: number) => void,
+  { exit = false }: { exit?: boolean } = {},
+): void {
   const callback = useRef(onProgress)
   useEffect(() => {
     callback.current = onProgress
@@ -23,7 +29,7 @@ export function useScrollProgress(ref: RefObject<HTMLElement | null>, onProgress
     const measure = () => {
       frame = 0
       const rect = element.getBoundingClientRect()
-      const travel = rect.height - window.innerHeight
+      const travel = exit ? rect.height : rect.height - window.innerHeight
       const progress = travel > 0 ? Math.min(Math.max(-rect.top / travel, 0), 1) : 0
       element.style.setProperty('--progress', progress.toFixed(4))
       callback.current?.(progress)
@@ -54,5 +60,5 @@ export function useScrollProgress(ref: RefObject<HTMLElement | null>, onProgress
       window.removeEventListener('resize', schedule)
       cancelAnimationFrame(frame)
     }
-  }, [ref])
+  }, [ref, exit])
 }

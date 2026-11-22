@@ -16,7 +16,5 @@ export function useMediaQuery(query: string): boolean {
   )
 }
 
-export const usePrefersReducedMotion = () => useMediaQuery('(prefers-reduced-motion: reduce)')
-
 /** True on devices with a mouse or trackpad (hover tilt makes no sense on touch). */
 export const useFinePointer = () => useMediaQuery('(hover: hover) and (pointer: fine)')

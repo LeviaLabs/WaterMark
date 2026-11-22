@@ -3,17 +3,27 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import '@astryxdesign/core/reset.css'
 import '@astryxdesign/core/astryx.css'
 import '@fontsource-variable/fraunces/index.css'
+import '@fontsource-variable/figtree/index.css'
 import './styling/tokens.css'
 import './styling/base.css'
 import './styling/glass.css'
 import './styling/nav.css'
 import './styling/hero.css'
+import './styling/droplet.css'
 import './styling/sections.css'
-import './styling/stack.css'
+import './styling/motion.css'
+import './styling/city.css'
+import './styling/story.css'
+import './styling/features.css'
 import './styling/data.css'
 import './styling/footer.css'
 import './styling/pages.css'
+import './styling/scrollbar.css'
+import './styling/sea.css'
+import './styling/transitions.css'
+import './styling/lazy.css'
 import { ThemeProvider } from './context/ThemeProvider'
+import { ScrollGlow } from './components/layout/ScrollGlow'
 import { SiteLayout } from './components/layout/SiteLayout'
 import { LandingPage } from './components/pages/LandingPage'
 
@@ -39,6 +49,7 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
+        <ScrollGlow />
       </BrowserRouter>
     </ThemeProvider>
   )

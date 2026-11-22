@@ -1,4 +1,4 @@
-/* "Accurate data": principles, evidence rules, provenance card and source list. */
+/* "Accurate data": principles and the source list (the raindrops live in rain.css). */
 
 .principles {
   display: flex;
@@ -18,147 +18,96 @@
   font-weight: 600;
 }
 
+.principle {
+  transition:
+    transform 0.45s var(--ease-spring),
+    border-color 0.25s;
+}
+
 .principle svg {
   color: var(--accent);
+  transition: transform 0.6s var(--ease-spring);
 }
 
-.data-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
+.principle:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
 }
 
-.rules {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+.principle:hover svg {
+  transform: rotate(-14deg) scale(1.2);
 }
 
-.rules > li,
-.rules .reveal {
-  height: 100%;
+/* The sea itself is the section, so it does not slide in; its contents arrive in turn. */
+.reveal.data-sea {
+  opacity: 1;
+  transform: none;
 }
 
-.rule {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 22px;
+.data-sea .sea-content > *,
+.data-sea .principle {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.8s var(--ease-out),
+    transform 0.9s var(--ease-spring);
 }
 
-.rule p {
-  margin: 0;
-  font-size: 0.93rem;
-  line-height: 1.5;
+.data-sea.is-visible .sea-content > *,
+.data-sea.is-visible .principle {
+  opacity: 1;
+  transform: none;
 }
 
-.rule-is {
-  color: var(--text);
+.data-sea .sea-content > :nth-child(2) {
+  transition-delay: 0.1s;
 }
 
-.rule-not {
-  margin-top: auto !important;
-  padding-top: 12px;
-  border-top: 1px dashed var(--line-strong);
-  color: var(--text-muted);
+.data-sea .sea-content > :nth-child(3) {
+  transition-delay: 0.22s;
 }
 
-.rule-not span {
-  color: var(--kind-official);
-  font-weight: 700;
+.data-sea .sea-content > :nth-child(4) {
+  transition-delay: 0.4s;
 }
 
-.data-provenance {
-  position: sticky;
-  top: 100px;
+.data-sea .principle {
+  transition-delay: calc(0.5s + var(--i, 0) * 80ms);
 }
 
-.provenance {
-  padding: 26px;
+.data-sea .principle:hover {
+  transform: translateY(-3px);
+  transition-delay: 0s;
 }
 
-.provenance-header {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  margin-bottom: 18px;
+/* The fish swim in from the edges once the section is on screen. */
+.data-sea .sea-fish-lanes {
+  opacity: 0;
+  transition: opacity 1.2s 0.3s var(--ease-out);
 }
 
-.provenance-header h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 500;
-  line-height: 1.2;
+.data-sea.is-visible .sea-fish-lanes {
+  opacity: 1;
 }
 
-.provenance-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--accent-soft);
-  color: var(--accent);
+.data-sources {
+  display: block;
+  padding-top: 0;
 }
 
-.provenance-caption {
-  margin: 4px 0 0;
-  color: var(--kind-historical);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+/* Source rows slide in one after another. */
+.sources-list li {
+  opacity: 0;
+  transform: translateX(-18px);
+  transition:
+    opacity 0.6s var(--ease-out),
+    transform 0.7s var(--ease-spring);
+  transition-delay: calc(0.15s + var(--i, 0) * 55ms);
 }
 
-.provenance-fields {
-  margin: 0;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg-deep) 55%, transparent);
-  overflow: hidden;
-}
-
-.provenance-row {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 12px;
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--line);
-  transition: background-color 0.2s;
-}
-
-.provenance-row:last-child {
-  border-bottom: 0;
-}
-
-.provenance-row:hover {
-  background: var(--accent-soft);
-}
-
-.provenance-row dt {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.provenance-row code {
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-}
-
-.provenance-hint {
-  color: var(--text-subtle);
-  font-size: 0.74rem;
-}
-
-.provenance-row dd {
-  margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.4;
+.sources.is-visible .sources-list li {
+  opacity: 1;
+  transform: none;
 }
 
 /* ---- Sources ---- */
@@ -184,16 +133,40 @@
   align-items: center;
   gap: 16px;
   padding: 14px 8px;
+  position: relative;
   border-bottom: 1px solid var(--line);
   text-decoration: none;
-  transition:
-    background-color 0.2s,
-    padding 0.3s var(--ease-out);
 }
 
-.source-row:hover {
-  padding-left: 16px;
-  background: var(--accent-soft);
+/* A waterline slides under the row on hover; the name rolls (RollText). */
+.source-row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--kind-forecast));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s var(--ease-out);
+}
+
+.source-row:hover::after,
+.source-row:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.source-row > * {
+  transition: transform 0.5s var(--ease-spring);
+}
+
+.source-row:hover .source-provider {
+  transform: translateX(6px);
+}
+
+.source-row:hover .source-coverage {
+  transform: translateX(10px);
 }
 
 .source-name {
@@ -205,11 +178,14 @@
 
 .source-name svg {
   opacity: 0.4;
-  transition: opacity 0.2s;
+  transition:
+    opacity 0.2s,
+    transform 0.45s var(--ease-spring);
 }
 
 .source-row:hover .source-name svg {
   opacity: 1;
+  transform: translate(3px, -3px);
 }
 
 .source-provider,
@@ -222,21 +198,7 @@
   justify-self: end;
 }
 
-@media (max-width: 960px) {
-  .data-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .data-provenance {
-    position: static;
-  }
-}
-
 @media (max-width: 640px) {
-  .rules {
-    grid-template-columns: 1fr;
-  }
-
   .source-row {
     grid-template-columns: 1fr auto;
     gap: 4px 12px;
@@ -258,10 +220,5 @@
   .source-row .evidence-tag {
     grid-column: 2;
     grid-row: 1 / span 2;
-  }
-
-  .provenance-row {
-    grid-template-columns: 1fr;
-    gap: 4px;
   }
 }

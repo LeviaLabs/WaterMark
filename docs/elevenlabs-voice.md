@@ -88,14 +88,16 @@ npx deno lint functions/watermark-tts tests/unit/tts_test.ts tests/tts/concurren
 (`watermark_tts_test`); it tests 20 callers against the same monthly cap. CI creates a network-isolated,
 portless PostgreSQL fixture. Never run fixture setup or the concurrency test on the hosted project.
 
-Observed local results: 210 frontend tests; 88 backend tests; one 20-caller database regression;
+Observed local results after synchronizing main: 231 frontend tests; 88 backend tests; one 20-caller database regression;
 SQL input/grant/RLS/UTC/kill-switch and cap assertions; frontend lint/typecheck/build and voice Deno checks.
 Existing Astryx doctor theme-module failures remain (theme files unchanged); existing large map bundle warning remains.
 
 Hosted inspection found only `agentboxd-auth`, `auth-verify`, `watermark-v1`; no `assistant` or TTS function.
 The assistant budget migration and frontend assistant URL are also absent remotely.
 Full production chat therefore needs the existing reviewed Gemini assistant activated as a separate explicit part
-of deployment approval. Its source/guardrails are unchanged by this PR.
+of deployment approval. Its implementation/guardrails are unchanged by this PR. Its unapplied budget migration
+was renamed, with byte-identical SQL, to `20261122181132_watermark_assistant_budget.sql`: the old
+`20261122170000` version collided with the newly merged alert-inbox migration. The inbox migration is untouched.
 
 Before approval: no production function/migration/frontend changes. ElevenLabs key storage is separately approved.
 After approval, inspect fresh migration history; apply **only** the approved assistant budget and voice budget migrations

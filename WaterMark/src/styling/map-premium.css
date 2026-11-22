@@ -381,9 +381,27 @@
 }
 
 .map-crumb--back {
-  width: 30px;
-  padding: 0;
-  justify-content: center;
+  gap: 2px;
+  width: auto;
+  padding: 0 12px 0 8px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 18%, var(--map-surface));
+}
+
+.map-crumb--back:hover {
+  color: var(--text);
+}
+
+.map-crumb--back + .map-crumb:not(.map-crumb--back)::before {
+  content: none;
+  margin: 0;
+}
+
+.map-crumb--here {
+  cursor: default;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .map-crumb--back svg {
@@ -408,6 +426,12 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
+  }
+
+  .map-crumb--back {
+    position: sticky;
+    left: 0;
+    z-index: 1;
   }
 
   /* On phones the layers button sits under the top bar: move it below the breadcrumb. */

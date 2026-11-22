@@ -7,6 +7,7 @@ import { getJSON } from './http'
 import { MINUTE, pointKey, shared } from './shared'
 import { markFetched } from '../scripting/freshness'
 import type { Feature, Polygon } from 'geojson'
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { HIGH_RISK_ZONES } from '../scripting/mapTheme'
 import type { FloodZone, LngLat, WeatherAlert, ZoneReport } from '../scripting/types'
 
@@ -62,6 +63,56 @@ export function fetchFloodZones(center: LngLat, circle: Feature<Polygon>, signal
       center: atCenter.features?.[0]?.attributes ?? null,
       inArea: [...codes].sort((a, b) => Number(HIGH_RISK_ZONES.has(b)) - Number(HIGH_RISK_ZONES.has(a)) || a.localeCompare(b)),
     }
+  }, signal)
+}
+
+interface EsriZone {
+  exceededTransferLimit?: boolean
+  features?: { attributes?: { FLD_ZONE?: string }; geometry?: { rings?: number[][][] } }[]
+}
+
+/**
+ * Whether each point sits in a FEMA high-risk zone (AE, A, AO, VE).
+ * `true` means a high-risk polygon contains the point. `false` means a mapped zone contains it
+ * and that zone is not high-risk. `null` means no zone polygon was hit, or the query was truncated:
+ * unmapped is not the same as outside a floodplain.
+ */
+export function fetchHighRiskAtPoints(points: readonly LngLat[], circle: Feature<Polygon>, signal: AbortSignal): Promise<(boolean | null)[]> {
+  if (!points.length) return Promise.resolve([])
+  const ring = circle.geometry.coordinates[0].map(([x, y]) => [Number(x.toFixed(5)), Number(y.toFixed(5))])
+  return shared(`fema-pts:${pointKey(points[0])}:${points.length}:${ring.length}`, STATIC_TTL, async () => {
+    const j = await arcgisQuery<EsriZone>(ENDPOINTS.femaQuery, {
+      geometry: JSON.stringify({ rings: [ring], spatialReference: { wkid: 4326 } }),
+      geometryType: 'esriGeometryPolygon', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+      outFields: 'FLD_ZONE', returnGeometry: 'true', outSR: '4326', maxAllowableOffset: '0.0001',
+    })
+    markFetched('fema')
+    if (j.exceededTransferLimit) return points.map(() => null)
+    const zones = (j.features ?? []).flatMap((f) => {
+      const rings = f.geometry?.rings
+      const code = f.attributes?.FLD_ZONE
+      if (!rings?.length || typeof code !== 'string') return []
+      const coordinates = rings.map((r) => {
+        const ringPts = r.map(([x, y]) => [x, y] as [number, number])
+        const first = ringPts[0]
+        const last = ringPts[ringPts.length - 1]
+        if (first && last && (first[0] !== last[0] || first[1] !== last[1])) ringPts.push(first)
+        return ringPts
+      }).filter((r) => r.length >= 4)
+      if (!coordinates[0]) return []
+      const feature: Feature<Polygon> = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates } }
+      return [{ feature, high: HIGH_RISK_ZONES.has(code) }]
+    })
+    return points.map((point) => {
+      let seen = false
+      let high = false
+      for (const zone of zones) {
+        if (!booleanPointInPolygon(point, zone.feature)) continue
+        seen = true
+        high ||= zone.high
+      }
+      return seen ? high : null
+    })
   }, signal)
 }
 

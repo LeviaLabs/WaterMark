@@ -46,8 +46,9 @@ export function MapLegend({ grid, index, year, onYearChange }: Props) {
   const isAll = year == null
   const rows = cellLegend(isAll ? meta.breaks : meta.yearBreaks)
   const what = 'Floods per square'
+  const km = Math.round(meta.size * 111)
   const sub = isAll
-    ? `${meta.size}° squares · ${grid === 'us' ? 'NOAA' : 'GDACS'}, ${range[0]}–${range[1]}`
+    ? `${meta.size}° squares, about ${km} km north to south · ${grid === 'us' ? 'NOAA' : 'GDACS'}, ${range[0]}–${range[1]}`
     : `${meta.size}° squares · ${grid === 'us' ? 'NOAA' : 'GDACS'}, in ${year} · same scale every year`
   const usStart = index.cells.us.years[0]
   const usNote = grid === 'world' && year != null && year < usStart

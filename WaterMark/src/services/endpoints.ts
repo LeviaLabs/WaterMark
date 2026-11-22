@@ -11,7 +11,9 @@ export const ENDPOINTS = {
   // Our own static vector tiles of the official NYC layer (built by `npm run tiles:stormwater`).
   stormIndex: '/data/stormwater/index.json',
   stormTiles: '/data/stormwater',
-  femaTiles: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:28&f=image',
+  // 512 px images on the standard 256 px tile grid: one image pixel per device pixel at a 2× map,
+  // so flood-zone edges stay sharp as you zoom instead of stretching a 256 px picture.
+  femaTiles: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png32&transparent=true&layers=show:28&f=image',
   femaQuery: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query',
   // NASA IMERG 30-minute rain rate. "default" asks GIBS for its newest available image.
   imergTiles: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/IMERG_Precipitation_Rate_30min/default/default/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png',

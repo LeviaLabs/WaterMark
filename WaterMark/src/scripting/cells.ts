@@ -100,6 +100,69 @@ export function cellAt(at: LngLat, grid: Grid): CellProps {
   return { k: `${i}_${j}`, grid: grid.kind, e: 0, n: 0, wy: y1, wn: 0, a: 0, b: 0, bounds: cellBounds(i, j, grid.size) }
 }
 
+/**
+ * How fine a *selection* square should be at this zoom.
+ * The stored flood count still belongs to the data square (`dataSize`, 0.5° in the US
+ * and 1° elsewhere). This only picks a smaller block to inspect. It never goes below
+ * 0.05° (about 4–6 km), and it never pretends that block has its own flood count.
+ */
+export function selectionStep(dataSize: number, zoom: number): number {
+  if (!(dataSize > 0) || zoom < 8) return dataSize
+  const cuts = zoom >= 14 ? 4 : zoom >= 12 ? 3 : zoom >= 10 ? 2 : 1
+  return Math.max(dataSize / 2 ** cuts, 0.05)
+}
+
+/** Bounds of the selection square containing `at` at `step` degrees. */
+export function selectionBounds(at: LngLat, step: number): [number, number, number, number] {
+  const [i, j] = cellIndex(at, step)
+  return cellBounds(i, j, step)
+}
+
+/**
+ * Step for the on-screen selection grid, or null when the view is still at the
+ * data square's own size. Uses the US square (0.5°) when the view meets the
+ * contiguous states, and the world square (1°) otherwise.
+ */
+export function selectionStepForView(view: [number, number, number, number], zoom: number): number | null {
+  if (zoom < 8) return null
+  const [w, s, e, n] = view
+  const overlapsUS = w < -66 && e > -125 && s < 50 && n > 24
+  const data = overlapsUS ? 0.5 : 1
+  const step = selectionStep(data, zoom)
+  return step < data - 1e-9 ? step : null
+}
+
+/**
+ * Lines of a selection grid over `view`. Null when that would be more than
+ * `maxCells` blocks (a zoomed-out world must not build thousands of lines).
+ * The lines are a picking aid. They are not a finer flood dataset.
+ */
+export function selectionGrid(view: [number, number, number, number], step: number, maxCells = 240): [number, number][][] | null {
+  if (!(step > 0)) return null
+  const [w, s, e, n] = view
+  const i0 = Math.floor((w + 180) / step)
+  const i1 = Math.floor((e + 180) / step)
+  const j0 = Math.floor((s + 90) / step)
+  const j1 = Math.floor((n + 90) / step)
+  const cols = i1 - i0 + 1
+  const rows = j1 - j0 + 1
+  if (cols < 1 || rows < 1 || cols * rows > maxCells) return null
+  const lines: [number, number][][] = []
+  const south = j0 * step - 90
+  const north = (j1 + 1) * step - 90
+  const west = i0 * step - 180
+  const east = (i1 + 1) * step - 180
+  for (let i = i0; i <= i1 + 1; i++) {
+    const x = i * step - 180
+    lines.push([[x, south], [x, north]])
+  }
+  for (let j = j0; j <= j1 + 1; j++) {
+    const y = j * step - 90
+    lines.push([[west, y], [east, y]])
+  }
+  return lines
+}
+
 /** Distance across a square at its middle latitude, km (east-west). */
 export function cellWidthKm([w, s, e, n]: [number, number, number, number]): number {
   const lat = ((s + n) / 2) * (Math.PI / 180)

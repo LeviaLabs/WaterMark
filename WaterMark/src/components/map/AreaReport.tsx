@@ -9,7 +9,7 @@ import { EvidenceTag } from '../common/EvidenceTag'
 import { RainOutlookChart, FlowChart, YearBars } from './Charts'
 import type { EvidenceKind } from '../../scripting/content/dataSources'
 import { fmtDate, fmtDepthIn, fmtDistance, fmtRadius, fmtRain, fmtTime, fmtUsd, pct, UNITS } from '../../scripting/format'
-import { countIn, howOften, type CellProps } from '../../scripting/cells'
+import { cellWidthKm, countIn, howOften, type CellProps } from '../../scripting/cells'
 import { causeRows } from '../../scripting/causes'
 import type { CellMeta } from '../../services/floodHistory'
 import { nearestFlood, summarizeSensors } from '../../scripting/geo'
@@ -107,7 +107,7 @@ function Tile({ label, value, note }: { label: string; value: ReactNode; note?: 
 const pending = (v: Coverable<unknown>) => (v === null ? <span className="report-loading">…</span> : v === 'error' ? '—' : null)
 
 /** The flood record of a picked grid square, like the reference's "square you picked". */
-function CellRecord({ cell, meta, year }: { cell: CellProps; meta: CellMeta; year: number | null }) {
+function CellRecord({ cell, meta, year, finer }: { cell: CellProps; meta: CellMeta; year: number | null; finer: boolean }) {
   const span = meta.years[1] - meta.years[0] + 1
   const isUS = cell.grid === 'us'
   const unit = 'floods'
@@ -149,6 +149,7 @@ function CellRecord({ cell, meta, year }: { cell: CellProps; meta: CellMeta; yea
         A {meta.size}° square (about {Math.round(meta.size * 111 * Math.cos(((s0 + meta.size / 2) * Math.PI) / 180))} km across).
         Counts {isUS ? 'NOAA flood episodes (each storm once, however many reports it has here)' : 'GDACS flood events'} by
         where they were reported, {meta.years[0]} to {meta.years[1]}.{isUS ? '' : ' GDACS does not record causes.'}
+        {finer ? ' The smaller block on the map is only the spot being inspected. These counts still belong to the whole square.' : ''}
       </p>
     </section>
   )
@@ -184,9 +185,9 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
 
   return (
     <RetryContext.Provider value={onRetry}>
-      {selection.cell && cellMeta ? <CellRecord cell={selection.cell} meta={cellMeta} year={year} /> : null}
+      {selection.cell && cellMeta ? <CellRecord cell={selection.cell} meta={cellMeta} year={year} finer={radiusKm * 2 < cellWidthKm(selection.cell.bounds) * 0.75} /> : null}
       <p className="map-meta report-where">
-        {selection.cell ? 'Forecasts and history at the middle of the square' : <>{center[1].toFixed(4)}, {center[0].toFixed(4)} · circle of {fmtRadius(radiusKm, UNITS)} radius</>}
+        {selection.cell ? 'Forecasts and history at the middle of the block you picked' : <>{center[1].toFixed(4)}, {center[0].toFixed(4)} · circle of {fmtRadius(radiusKm, UNITS)} radius</>}
         {ready(s.elevation) && s.elevation != null ? <> · {height(s.elevation)} above sea level</> : null}
       </p>
 

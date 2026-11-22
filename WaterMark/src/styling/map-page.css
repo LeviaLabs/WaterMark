@@ -543,8 +543,8 @@
   position: absolute;
   z-index: 7;
   left: 50%;
-  /* Above the assistant tab. */
-  bottom: 84px;
+  /* Above the assistant tab and the audience picker. */
+  bottom: 140px;
   margin: 0;
   padding: 10px 18px;
   border: 1px solid var(--accent);

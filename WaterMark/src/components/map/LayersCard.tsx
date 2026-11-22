@@ -10,10 +10,10 @@ import type { GlobalFloodCollection, LayerId, LayerVisibility, Loadable } from '
 
 // Swatch colors live in map-page.css (.layer-swatch--<id>) so they follow the theme tokens.
 const LAYERS: { id: LayerId; label: string; where: string }[] = [
-  { id: 'rain', label: 'Rain falling now', where: 'Worldwide · NASA satellite, a few hours old' },
+  { id: 'rain', label: 'Rain falling now', where: 'Worldwide · NASA IMERG, native about 0.1° (zoom 6). Fades out closer in.' },
   { id: 'floods', label: 'Floods happening now', where: 'Worldwide · GDACS, past 30 days' },
-  { id: 'fema', label: 'Flood zones (insurance maps)', where: 'US · FEMA, zoom in to a town' },
-  { id: 'storm', label: 'Heavy-rain flooding model', where: 'New York City · scenario, not today' },
+  { id: 'fema', label: 'Flood zones (insurance maps)', where: 'US · FEMA NFHL, redrawn as you zoom. Not one building.' },
+  { id: 'storm', label: 'Heavy-rain flooding model', where: 'New York City · scenario tiles through zoom 14, then enlarged. Not a finer model.' },
   { id: 'sensors', label: 'Street flood sensors', where: 'New York City · FloodNet, zoom in' },
 ]
 

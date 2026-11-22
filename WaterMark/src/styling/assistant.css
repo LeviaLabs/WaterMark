@@ -502,6 +502,14 @@
     transform: translateY(12px);
   }
 
+  /* When the area sheet is open, sit just above it so cause bars and stats
+     are not covered. 55% matches the sheet's max-height on phones. */
+  .map-page:has(.data-panel) .assistant-tab {
+    left: auto;
+    right: var(--map-gap);
+    bottom: calc(55% + 8px);
+  }
+
   @keyframes assistant-tab-in {
     from {
       opacity: 0;
@@ -535,6 +543,12 @@
 
   .assistant-input {
     font-size: 1rem;
+  }
+
+  /* Keep the conversation and composer visible when the longer notice is open. */
+  .assistant-note-more {
+    max-height: 22vh;
+    overflow-y: auto;
   }
 }
 

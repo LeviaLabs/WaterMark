@@ -160,7 +160,7 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
               </button>
             </div>
-            <p>Unverified AI summary of browser lookups, not a server-checked flood report. Check official warnings before you act.</p>
+            <p>Unverified AI summary. Check official warnings before you act.</p>
             {isNoteOpen ? (
               <div id={`${id}-note`} className="assistant-note-more">
                 <p>

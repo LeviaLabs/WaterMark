@@ -103,6 +103,7 @@ export const REASON_TEXT: Record<string, string> = {
   'not-checked': 'Held: not checked by Agentboxd',
   blocked: 'Blocked by the inbox block list',
   'sender-auth-failed': 'Held: sender failed email authentication (SPF or DMARC)',
+  'sender-auth-unverified': 'Held: sender authentication could not be verified',
   'sender-not-allowed': 'Held: sender is not an approved alert source',
   'no-usgs-site': 'Held: no USGS monitoring location in the alert',
 }

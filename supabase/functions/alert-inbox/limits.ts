@@ -15,7 +15,8 @@ export async function readBounded(
 ): Promise<string | null> {
   const declared = Number(source.headers.get('content-length'))
   if (Number.isFinite(declared) && declared > maxBytes) {
-    await source.body?.cancel().catch(() => {})
+    // Cancellation may wait on the remote transport indefinitely. Request it without delaying rejection.
+    void source.body?.cancel().catch(() => {})
     return null
   }
   if (!source.body) return ''
@@ -30,13 +31,13 @@ export async function readBounded(
     for (;;) {
       const step = await Promise.race([reader.read(), deadline])
       if (step === 'timeout') {
-        await reader.cancel().catch(() => {})
+        void reader.cancel().catch(() => {})
         return null
       }
       if (step.done) break
       total += step.value.byteLength
       if (total > maxBytes) {
-        await reader.cancel().catch(() => {})
+        void reader.cancel().catch(() => {})
         return null
       }
       chunks.push(step.value)

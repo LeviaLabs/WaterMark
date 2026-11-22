@@ -13,9 +13,8 @@ const MAIL_EVENTS = new Set(['message.enriched', 'message.released'])
 const RISK_LABELS = ['ai:injection-risk', 'ai:phishing', 'local:injection-risk', 'blocked']
 /**
  * Agentboxd's reserved sender-authentication labels (agentboxd.com/docs/api: "spf-fail and
- * dmarc-fail (authentication failed)"; agents cannot add or remove them). The From header alone is
- * forgeable, so an allowlisted From only counts when the sender did not fail SPF or DMARC.
- * usgs.gov publishes DMARC p=reject, so a forged usgs.gov From is labelled dmarc-fail.
+ * dmarc-fail (authentication failed)"; agents cannot add or remove them). These are failure
+ * signals, not proof that absent authentication results pass.
  */
 export const AUTH_FAIL_LABELS = ['spf-fail', 'dmarc-fail']
 /** received_at more than this far in the future is replaced by now (keeps ordering and pruning honest). */
@@ -100,6 +99,38 @@ export type Decision =
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1 ? v : null)
 const obj = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
 
+/**
+ * Agentboxd's MX adds this header before storage, as documented at
+ * https://agentboxd.com/blog/prompt-injection-email-ai-agents (and observed in a real delivery).
+ * Only its own authserv-id and a DMARC pass for the visible From domain count. A signed webhook
+ * authenticates the delivery, not arbitrary sender-supplied Authentication-Results headers.
+ * Unsupported or ambiguous header syntax fails closed; no email header text is persisted.
+ */
+function senderAuthenticated(headers: unknown, address: string): boolean {
+  const candidates = Object.entries(obj(headers)).filter(([name]) => name.toLowerCase() === 'authentication-results')
+  if (candidates.length !== 1) return false
+  const raw = candidates[0][1]
+  if (typeof raw !== 'string' || raw.length > 16_384 || /["\r\n]/.test(raw)) return false
+  // Remove balanced comments before reading methods: a claimed pass inside a comment is not a result.
+  let clean = ''
+  let depth = 0
+  let escaped = false
+  for (const char of raw) {
+    if (depth && escaped) { escaped = false; continue }
+    if (depth && char === '\\') { escaped = true; continue }
+    if (char === '(') { if (++depth > 8) return false; continue }
+    if (char === ')') { if (!depth) return false; depth--; clean += ' '; continue }
+    if (!depth) clean += char
+  }
+  if (depth) return false
+  const parts = clean.toLowerCase().split(';').map((part) => part.trim())
+  if (parts.shift() !== 'mx.agentboxd.com') return false
+  const dmarc = parts.filter((part) => /^dmarc\s*=/.test(part))
+  if (dmarc.length !== 1 || !/^dmarc=pass(?:\s|$)/.test(dmarc[0])) return false
+  const from = dmarc[0].split(/\s+/).filter((part) => part.startsWith('header.from='))
+  return from.length === 1 && from[0] === `header.from=${address.split('@')[1]}`
+}
+
 /** Decide what one webhook event means for the map. Pure: same input (and nowMs), same output. */
 export function decide(event: unknown, allowlist: string, nowMs: number = Date.now()): Decision {
   const e = obj(event)
@@ -142,6 +173,7 @@ export function decide(event: unknown, allowlist: string, nowMs: number = Date.n
   // ai.verification.auth_failed is Agentboxd's second signal for the same failure (labels can be removed by inbox users).
   if (AUTH_FAIL_LABELS.some((l) => labels.includes(l)) || obj(ai.verification).auth_failed === true) return quarantine('sender-auth-failed')
   if (!address || !senderAllowed(address, allowlist)) return quarantine('sender-not-allowed')
+  if (!senderAuthenticated(m.headers, address)) return quarantine('sender-auth-unverified')
   const siteId = extractSiteId(m.subject, m.extracted_text ?? m.text)
   if (!siteId) return quarantine('no-usgs-site')
   return { ...base, status: 'accepted', reason: 'screened-usgs-alert', siteId }

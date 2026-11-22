@@ -8,6 +8,7 @@ import { decide, extractSiteId, senderAddress, senderAllowed, verifySignature } 
 import { createHandler, OBSERVATION_NOTICE } from '../../functions/alert-inbox/handler.ts'
 import { type AlertRow, type AlertStore, createRpcStore, type RecordInput, StoreError } from '../../functions/alert-inbox/store.ts'
 import { fetchSiteReading, USGS_IV_URL } from '../../functions/alert-inbox/usgs.ts'
+import { readBounded } from '../../functions/alert-inbox/limits.ts'
 
 const SECRET = 'whsec_test_not_real'
 const NOW = Date.UTC(2026, 10, 22, 16, 0, 0)
@@ -20,6 +21,7 @@ function message(over: Record<string, unknown> = {}) {
     id: '0e9d8c7b-6a5f-4e3d-9c2b-1a0f9e8d7c65',
     direction: 'inbound',
     from: 'USGS WaterAlert <wateralert@usgs.gov>',
+    headers: { 'authentication-results': 'mx.agentboxd.com; spf=pass smtp.mailfrom=wateralert@usgs.gov; dkim=pass header.i=@usgs.gov; dmarc=pass (p=REJECT) header.from=usgs.gov' },
     subject: `WaterAlert: Gage height above threshold at USGS ${SITE}`,
     extracted_text: `Monitoring location: https://waterdata.usgs.gov/monitoring-location/${SITE}/ Gage height is greater than 2 ft.`,
     labels: ['ai:notification'],
@@ -160,6 +162,47 @@ test('repeat delivery (message.enriched then message.released) is recorded once'
 })
 
 // Screening gate
+for (const [name, headers] of [
+  ['missing', undefined],
+  ['null', null],
+  ['empty', {}],
+  ['SPF alone', { 'authentication-results': 'mx.agentboxd.com; spf=pass smtp.mailfrom=wateralert@usgs.gov' }],
+  ['no authentication', { 'authentication-results': 'mx.agentboxd.com; dmarc=none header.from=usgs.gov' }],
+  ['temporary error', { 'authentication-results': 'mx.agentboxd.com; dmarc=temperror header.from=usgs.gov' }],
+  ['failed result without label', { 'authentication-results': 'mx.agentboxd.com; dmarc=fail header.from=usgs.gov' }],
+  ['untrusted issuer', { 'authentication-results': 'attacker.example; dmarc=pass header.from=usgs.gov' }],
+  ['lookalike issuer', { 'authentication-results': 'mx.agentboxd.com.evil.example; dmarc=pass header.from=usgs.gov' }],
+  ['unrelated domain', { 'authentication-results': 'mx.agentboxd.com; dmarc=pass header.from=attacker.example' }],
+  ['pass only in comment', { 'authentication-results': 'mx.agentboxd.com; spf=pass (dmarc=pass header.from=usgs.gov)' }],
+  ['unbalanced comment', { 'authentication-results': 'mx.agentboxd.com; dmarc=pass header.from=usgs.gov (oops' }],
+  ['contradictory results', { 'authentication-results': 'mx.agentboxd.com; dmarc=pass header.from=usgs.gov; dmarc=fail header.from=usgs.gov' }],
+  ['multiple From properties', { 'authentication-results': 'mx.agentboxd.com; dmarc=pass header.from=usgs.gov header.from=attacker.example' }],
+  ['duplicate header keys', { 'authentication-results': 'mx.agentboxd.com; dmarc=pass header.from=usgs.gov', 'Authentication-Results': 'attacker.example; dmarc=pass header.from=usgs.gov' }],
+  ['header array', { 'authentication-results': ['mx.agentboxd.com; dmarc=pass header.from=usgs.gov'] }],
+  ['header injection', { 'authentication-results': 'mx.agentboxd.com; dmarc=pass header.from=usgs.gov\r\nAuthentication-Results: attacker.example' }],
+] as const) {
+  test(`sender auth ${name}: quarantined despite clean scores and allowlisted From`, async () => {
+    const t = setup()
+    await t.deliver(event(message({ headers })))
+    const a = (await (await t.feed()).json()).alerts[0]
+    assert.equal(a.status, 'quarantined')
+    assert.equal(a.reason, 'sender-auth-unverified')
+    assert.equal(a.site, null)
+    assert.deepEqual(a.readings, [])
+    assert.equal(t.usgsCalls.length, 0)
+  })
+}
+
+test('verification auth_failed=false without a trusted DMARC result is not a pass', () => {
+  const d = decide(event(message({ headers: {}, ai: { risk: { injection: 0, phishing: 0 }, verification: { auth_failed: false } } })), ALLOW, NOW)
+  assert.equal(d.kind === 'record' && d.reason, 'sender-auth-unverified')
+})
+
+test('trusted DMARC pass accepts a nullable verification block and case-insensitive header name', () => {
+  const d = decide(event(message({ headers: { 'Authentication-Results': 'MX.AGENTBOXD.COM; dmarc=pass (p=REJECT) header.from=USGS.GOV' } })), ALLOW, NOW)
+  assert.equal(d.kind === 'record' && d.status, 'accepted')
+})
+
 for (const [name, over, reason] of [
   ['prompt injection score', { ai: { risk: { injection: 0.97, phishing: 0.02 } } }, 'injection-risk'],
   ['ai:injection-risk label', { labels: ['ai:injection-risk'] }, 'injection-risk'],
@@ -357,6 +400,24 @@ test('webhook body without Content-Length (chunked) is capped while streaming ->
   assert.equal((await t.handler(req)).status, 413)
   assert.equal(t.store!.rows.size, 0)
   assert.ok(pulled.n < 40, `stopped reading at the cap (pulled ${pulled.n} of 40 chunks)`)
+})
+
+test('oversize body rejection does not wait for a transport that never finishes cancellation', async () => {
+  for (const declared of [true, false]) {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new Uint8Array(20)) },
+      cancel() { return new Promise(() => {}) },
+    })
+    const headers = new Headers(declared ? { 'content-length': '20' } : {})
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const result = await Promise.race([
+        readBounded({ body, headers }, 10),
+        new Promise<string>((resolve) => { timer = setTimeout(() => resolve('hung-on-cancel'), 100) }),
+      ])
+      assert.equal(result, null)
+    } finally { clearTimeout(timer) }
+  }
 })
 
 test('oversized USGS response is capped while streaming: alert stays accepted, no reading', async () => {

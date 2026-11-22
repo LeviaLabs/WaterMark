@@ -3,6 +3,7 @@ import { AuthContext, type AuthValue } from '../hooks/useAuth.ts'
 import {
   canUse,
   evaluateSession,
+  expireStoredSession,
   GUEST,
   guestAdapter,
   sanitizeState,
@@ -28,14 +29,22 @@ export function AuthProvider({ children, adapter = guestAdapter }: { children: R
     return () => { active = false }
   }, [adapter])
 
-  // One timer at the session's expiry time, so the status text changes to "expired" on time.
+  // One timer at the session's expiry time, so the status text changes to "expired" on time
+  // and the stored token is cleared in this tab (not only on the next reload).
   // Access checks do not depend on it: canUse() compares against the clock on every call.
   useEffect(() => {
     if (state.status !== 'signed-in' || state.expiresAt === null) return
-    const delay = Math.min(Math.max(state.expiresAt - Date.now(), 0), MAX_TIMEOUT_MS)
-    const id = window.setTimeout(() => setState((s) => evaluateSession(s)), delay)
+    const snapshot = state
+    const expiresAt = snapshot.expiresAt
+    if (expiresAt === null) return
+    const delay = Math.min(Math.max(expiresAt - Date.now(), 0), MAX_TIMEOUT_MS)
+    const id = window.setTimeout(() => {
+      void expireStoredSession(adapter, snapshot).then((next) => {
+        setState((s) => (s.status === 'signed-in' ? next : s))
+      })
+    }, delay)
     return () => window.clearTimeout(id)
-  }, [state.status, state.expiresAt])
+  }, [adapter, state])
 
   const signIn = useCallback(async (providerToken: string) => {
     if (!adapter.canSignIn) return { ...GUEST, status: 'error', error: 'sign-in-disabled' } satisfies AuthState

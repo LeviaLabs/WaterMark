@@ -58,6 +58,26 @@ export function evaluateSession(state: AuthState, now: number = Date.now()): Aut
   return state
 }
 
+/**
+ * When a signed-in session reaches expiresAt, clear any stored token through the
+ * adapter and return the expired state. A live session is left unchanged.
+ */
+export async function expireStoredSession(
+  adapter: Pick<AuthAdapter, 'signOut'>,
+  state: AuthState,
+  now: number = Date.now(),
+): Promise<AuthState> {
+  const next = evaluateSession(state, now)
+  if (state.status === 'signed-in' && next.status === 'expired') {
+    try {
+      await adapter.signOut()
+    } catch {
+      // Storage may be blocked; the UI still moves to expired.
+    }
+  }
+  return next
+}
+
 export function canUse(state: AuthState, feature: Feature, now: number = Date.now()): boolean {
   if ((PUBLIC_FEATURES as readonly string[]).includes(feature)) return true
   const s = evaluateSession(state, now)

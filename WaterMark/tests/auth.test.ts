@@ -5,6 +5,7 @@ import {
   ACCOUNT_FEATURES,
   canUse,
   evaluateSession,
+  expireStoredSession,
   GUEST,
   guestAdapter,
   PUBLIC_FEATURES,
@@ -89,5 +90,38 @@ describe('guest adapter', () => {
     assert.equal(guestAdapter.canSignIn, false)
     assert.deepEqual(await guestAdapter.restore(), GUEST)
     assert.equal((await guestAdapter.signIn('a.b.c')).error, 'sign-in-disabled')
+  })
+})
+
+describe('expireStoredSession', () => {
+  const signed = signedIn(NOW - 1)
+
+  it('clears the stored session when expiry has passed', async () => {
+    let signedOut = 0
+    const next = await expireStoredSession({ signOut: async () => { signedOut += 1 } }, signed, NOW)
+    assert.equal(signedOut, 1)
+    assert.equal(next.status, 'expired')
+    assert.equal(next.account, null)
+  })
+
+  it('leaves a live session and its stored token alone', async () => {
+    let signedOut = 0
+    const live = signedIn(NOW + 60_000)
+    const next = await expireStoredSession({ signOut: async () => { signedOut += 1 } }, live, NOW)
+    assert.equal(signedOut, 0)
+    assert.equal(next, live)
+  })
+
+  it('still expires the UI if clearing storage fails', async () => {
+    const next = await expireStoredSession({ signOut: async () => { throw new Error('blocked') } }, signed, NOW)
+    assert.equal(next.status, 'expired')
+  })
+
+  it('does not sign out a session that is already expired or a guest', async () => {
+    let signedOut = 0
+    const adapter = { signOut: async () => { signedOut += 1 } }
+    await expireStoredSession(adapter, { ...GUEST, status: 'expired' }, NOW)
+    await expireStoredSession(adapter, GUEST, NOW)
+    assert.equal(signedOut, 0)
   })
 })

@@ -444,9 +444,16 @@ verify_jwt = false
 # Public read-aloud proxy; atomic Postgres character budgets are mandatory, even for direct calls.
 [functions.watermark-tts]
 verify_jwt = false
+
+[functions.outlook-summary]
+verify_jwt = false
 # Directory under `supabase/` where declarative files are written.
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting. When omitted, SQL is
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Agentboxd alert inbox. Agentboxd signs the webhook (HMAC); GET /alerts is public evidence.
+[functions.alert-inbox]
+verify_jwt = false

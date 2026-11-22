@@ -47,12 +47,13 @@ export function MapLegend({ grid, index, year, onYearChange }: Props) {
   const rows = cellLegend(isAll ? meta.breaks : meta.yearBreaks)
   const what = 'Floods per square'
   const km = Math.round(meta.size * 111)
+  const source = grid === 'us' ? 'NOAA flood episodes' : 'GDACS flood events'
   const sub = isAll
-    ? `${meta.size}° squares, about ${km} km north to south · ${grid === 'us' ? 'NOAA' : 'GDACS'}, ${range[0]}–${range[1]}`
-    : `${meta.size}° squares · ${grid === 'us' ? 'NOAA' : 'GDACS'}, in ${year} · same scale every year`
+    ? `${meta.size}° squares, about ${km} km north to south · native size of this count · ${source}, ${range[0]}–${range[1]}`
+    : `${meta.size}° squares, about ${km} km north to south · native size of this count · ${source}, in ${year} · same scale every year`
   const usStart = index.cells.us.years[0]
   const usNote = grid === 'world' && year != null && year < usStart
-    ? `US squares (NOAA) start in ${usStart}.`
+    ? `US squares (NOAA flood episodes) start in ${usStart}.`
     : null
 
   const togglePlay = () => {

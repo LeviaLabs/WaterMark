@@ -9,10 +9,10 @@ export function ResponderView({ model, onFocus }: { model: ResponderModel | null
       <h3 className="aud-title">Squares with the most mapped evidence</h3>
       <p>
         Ranked from what is mapped, not from a flood probability. {ranked.source}, {ranked.years[0]}–{ranked.years[1]}, in {ranked.size}° squares
-        {ranked.focused ? ' inside the region in focus' : ' (the squares with the most reports, until a region is focused)'}.
+        {ranked.focused ? ' inside the region in focus' : ' (the squares with the most recorded floods, until a region is focused)'}.
         An empty list is not an all-clear.
       </p>
-      <AreaList title="Response" areas={ranked.response} onFocus={onFocus} empty="No flood reports in the squares checked." />
+      <AreaList title="Response" areas={ranked.response} onFocus={onFocus} empty="No recorded floods in the squares checked." />
       <AreaList title="Fewer records nearby" areas={ranked.staging} onFocus={onFocus} empty="No neighboring square was available." />
       {ranked.sensors.recorded.length ? (
         <>

@@ -40,6 +40,16 @@ const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 const LEVELS: RegionLevel[] = ['country', 'admin1', 'state', 'county']
 const GRIDS: GridKind[] = ['world', 'us']
 const SOURCE: Record<RegionLevel, string> = { country: 'countries', admin1: 'admin1', state: 'states', county: 'counties' }
+// GeoJSON is cut into vector tiles in the browser. maxzoom is the last tile that keeps its own
+// vertices; past that, MapLibre enlarges the last tile. Local borders use a higher maxzoom and a
+// tighter tolerance so a county line stays the census shape when you zoom in. Countries stay
+// coarser because the world file is large and is only read zoomed out.
+const OUTLINE: Record<RegionLevel, { maxzoom: number; tolerance: number }> = {
+  country: { maxzoom: 6, tolerance: 0.5 },
+  state: { maxzoom: 9, tolerance: 0.25 },
+  admin1: { maxzoom: 12, tolerance: 0.12 },
+  county: { maxzoom: 13, tolerance: 0.04 },
+}
 const lineId = (l: RegionLevel) => `${SOURCE[l]}-line`
 const cellSource = (g: GridKind) => `cells-${g}`
 const hovered = ['boolean', ['feature-state', 'hover'], false] as ExpressionSpecification
@@ -59,8 +69,8 @@ function isShown(d: RegionData, level: RegionLevel): boolean {
   return !inUS // admin1: a focused country outside the US, or one of its provinces
 }
 
-/** The squares stay until street zoom, then fade so the streets and detailed layers show. */
-const CELL_OPACITY = ['interpolate', ['linear'], ['zoom'], 11, 0.92, 13, 0] as ExpressionSpecification
+/** The squares are 0.5° or 1° of real counts. They fade once streets are readable so a coarse fill is not mistaken for block-level data. */
+const CELL_OPACITY = ['interpolate', ['linear'], ['zoom'], 10, 0.9, 12.5, 0] as ExpressionSpecification
 /** Thin gaps between squares: a hairline zoomed out, a clear gap up close. */
 const GAP_WIDTH = ['interpolate', ['linear'], ['zoom'], 1, 0.15, 4, 0.5, 8, 1.4, 11, 2] as ExpressionSpecification
 
@@ -88,7 +98,7 @@ function regionBeforeId(map: maplibregl.Map): string | undefined {
 export function addRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionData): void {
   const beforeId = regionBeforeId(map)
   for (const g of GRIDS) {
-    map.addSource(cellSource(g), { type: 'geojson', data: d.grids[g]?.cells ?? EMPTY, maxzoom: 10, tolerance: 0, buffer: 4 })
+    map.addSource(cellSource(g), { type: 'geojson', data: d.grids[g]?.cells ?? EMPTY, maxzoom: 12, tolerance: 0, buffer: 4 })
     map.addLayer({ id: `${cellSource(g)}-fill`, type: 'fill', source: cellSource(g), paint: {
       'fill-color': cellColor(d, t, g), 'fill-opacity': CELL_OPACITY, 'fill-antialias': false,
     } }, beforeId)
@@ -97,8 +107,7 @@ export function addRegionLayers(map: maplibregl.Map, t: MapPalette, d: RegionDat
     } }, beforeId)
   }
   for (const level of LEVELS) {
-    // geojson-vt tiles stop at zoom 9 and are overzoomed beyond; a coarser tolerance keeps world tiles small.
-    map.addSource(SOURCE[level], { type: 'geojson', data: collectionOf(d, level) ?? EMPTY, promoteId: 'k', maxzoom: 9, tolerance: 0.5 })
+    map.addSource(SOURCE[level], { type: 'geojson', data: collectionOf(d, level) ?? EMPTY, promoteId: 'k', ...OUTLINE[level] })
     map.addLayer({ id: lineId(level), type: 'line', source: SOURCE[level], layout: { 'line-join': 'round' }, paint: {
       'line-color': ['case', hovered, t.hoverLine, t.regionLine] as ExpressionSpecification,
       'line-width': ['case', hovered, 2, level === 'country' ? 0.8 : 0.7] as ExpressionSpecification,

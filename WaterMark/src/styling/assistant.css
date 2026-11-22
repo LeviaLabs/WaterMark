@@ -1,0 +1,539 @@
+/*
+ * The flood assistant (components/map/Assistant.tsx): a tab at the bottom of the map and the chat
+ * panel it opens, bottom right on desktop and a full-width sheet on phones. Colors come from the
+ * map tokens (map-premium.css remaps them per theme), so both themes follow automatically.
+ */
+
+/* ---- The tab ---- */
+
+.assistant-tab {
+  position: absolute;
+  z-index: 7;
+  bottom: 24px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 20px 0 16px;
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background:
+    linear-gradient(180deg, var(--accent-soft), transparent),
+    var(--map-surface);
+  border-radius: 999px;
+  transform: translateX(-50%);
+  transition:
+    transform 0.3s var(--ease-out),
+    opacity 0.2s,
+    border-color 0.2s;
+  animation: assistant-tab-in 0.4s var(--ease-out);
+}
+
+.assistant-tab svg {
+  color: var(--accent);
+}
+
+.assistant-tab:hover {
+  border-color: var(--accent);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.assistant-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.assistant-tab.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(12px);
+}
+
+@keyframes assistant-tab-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+}
+
+/* ---- The panel ---- */
+
+.assistant {
+  position: absolute;
+  z-index: 8;
+  right: var(--map-gap);
+  bottom: var(--map-gap);
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 2 * var(--map-gap)));
+  height: min(640px, calc(100% - 120px));
+  overflow: hidden;
+  background: var(--bg-raised);
+  border-radius: 18px;
+  transform-origin: bottom right;
+  animation: assistant-in 0.34s var(--ease-out);
+}
+
+.assistant.is-closing {
+  pointer-events: none;
+  animation: assistant-out 0.2s ease-in forwards;
+}
+
+@keyframes assistant-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+
+@keyframes assistant-out {
+  to {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+
+.assistant-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px 10px 18px;
+}
+
+.assistant-title {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-map-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.assistant-title svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.assistant-where {
+  overflow: hidden;
+  font-family: var(--font-map-body);
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+}
+
+.assistant-link {
+  flex: none;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.assistant-link:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.assistant-link:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.assistant-icon-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.assistant-icon-btn:hover,
+.assistant-icon-btn.is-on {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.assistant-icon-btn.is-on {
+  color: var(--accent);
+}
+
+.assistant-link:focus-visible,
+.assistant-icon-btn:focus-visible,
+.assistant-switch:focus-visible,
+.assistant-suggestion:focus-visible,
+.assistant-send:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.assistant-note {
+  display: grid;
+  gap: 6px;
+  padding: 0 18px 12px;
+  /* Room to read the conversation: the full notice shows only before the first question. */
+  border-bottom: 1px solid var(--line);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.assistant-note p {
+  margin: 0;
+}
+
+.assistant-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.assistant-switch-track {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background-color 0.2s;
+}
+
+.assistant-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  transition: transform 0.25s var(--ease-out);
+}
+
+.assistant-switch[aria-checked='true'] .assistant-switch-track {
+  background: var(--accent);
+}
+
+.assistant-switch[aria-checked='true'] .assistant-switch-thumb {
+  transform: translateX(12px);
+}
+
+/* ---- Conversation ---- */
+
+.assistant-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.assistant-log {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 12px;
+}
+
+.assistant-intro {
+  margin: 0 0 18px;
+  font-family: var(--font-map-display);
+  font-size: 1.02rem;
+  font-weight: 550;
+  line-height: 1.45;
+}
+
+.assistant-try {
+  margin: 0 0 10px;
+  font-family: var(--font-map-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.assistant-suggestions {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assistant-suggestion {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 550;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s, transform 0.2s var(--ease-out);
+}
+
+.assistant-suggestion:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateX(2px);
+}
+
+.assistant-msg {
+  max-width: 100%;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  animation: assistant-msg-in 0.3s var(--ease-out);
+}
+
+@keyframes assistant-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.assistant-msg p {
+  margin: 0 0 8px;
+}
+
+.assistant-msg p:last-child {
+  margin-bottom: 0;
+}
+
+.assistant-msg ul {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.assistant-msg li::marker {
+  color: var(--accent);
+}
+
+.assistant-msg strong {
+  font-weight: 650;
+}
+
+.assistant-msg--user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 9px 14px;
+  border-radius: 14px 14px 4px;
+  background: var(--accent-soft);
+}
+
+.assistant-msg--assistant {
+  padding-right: 4px;
+}
+
+.assistant-msg.is-error {
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--text-muted);
+}
+
+.assistant-used {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.assistant-used summary {
+  width: fit-content;
+  font-family: var(--font-map-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.assistant-used ul {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+
+.assistant-activity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.assistant-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.assistant-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: assistant-dot 1s ease-in-out infinite;
+}
+
+.assistant-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.assistant-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes assistant-dot {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* ---- Question box ---- */
+
+.assistant-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.assistant-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--map-surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  transition: border-color 0.2s;
+}
+
+.assistant-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.assistant-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.assistant-send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s var(--ease-out);
+}
+
+.assistant-send:hover:not(:disabled) {
+  transform: translateX(2px);
+}
+
+.assistant-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---- Phones: the tab is a round button on the left, the panel a full-width sheet ---- */
+
+@media (max-width: 700px) {
+  .assistant-tab {
+    bottom: 96px;
+    left: var(--map-gap);
+    width: 48px;
+    padding: 0;
+    justify-content: center;
+    transform: none;
+  }
+
+  .assistant-tab:hover {
+    transform: translateY(-2px);
+  }
+
+  .assistant-tab.is-hidden {
+    transform: translateY(12px);
+  }
+
+  @keyframes assistant-tab-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+
+  .assistant-tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .assistant {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    height: min(78%, calc(100% - 64px));
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    transform-origin: bottom center;
+  }
+
+  .assistant-where {
+    display: none;
+  }
+
+  .assistant-input {
+    font-size: 1rem;
+  }
+}

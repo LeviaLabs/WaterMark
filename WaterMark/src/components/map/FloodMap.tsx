@@ -32,7 +32,9 @@ const TILE_CACHE = 96
 // NASA IMERG is a 0.1-degree (about 10 km) grid: zoom 5 tiles already show every pixel, so asking
 // for closer tiles only adds requests and a blurry-then-sharp flash while they load.
 const RAIN_MAX_ZOOM = 5
-const RAIN_OPACITY: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 3, 0.8, 8, 0.6, 12, 0.4]
+// Light at world and country zoom, gone by city zoom: there one 10 km satellite pixel covers the
+// whole view, which only tints the map and hides the street-level layers.
+const RAIN_OPACITY: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.45, 8, 0.2, 9.5, 0]
 
 /** Points within the view plus half a screen on every side; the rest are dropped from the map. */
 function nearView<T extends FeatureCollection>(fc: T, map: maplibregl.Map): T {

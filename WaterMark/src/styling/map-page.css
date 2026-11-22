@@ -53,14 +53,17 @@
 
 /* ---- Top bar ---- */
 
+/* One row at every width: the search shrinks first, then the circle button and the logo
+   drop their words (see the breakpoints at the end of this file). */
 .map-topbar {
+  --bar-h: 52px;
   position: absolute;
   z-index: 5;
   top: var(--map-gap);
   left: var(--map-gap);
   right: var(--map-gap);
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   align-items: center;
   pointer-events: none;
@@ -72,8 +75,9 @@
 
 .map-brand {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  height: 52px;
+  height: var(--bar-h);
   padding: 0 18px 0 14px;
 }
 
@@ -86,8 +90,10 @@
 .map-search {
   position: relative;
   display: flex;
+  flex: 0 1 420px;
+  min-width: 0;
   align-items: center;
-  height: 52px;
+  height: var(--bar-h);
   padding: 0 16px;
   color: var(--text-muted);
   transition: border-color 0.2s, box-shadow 0.25s;
@@ -207,8 +213,9 @@
 .map-search-input {
   flex: 1;
   min-width: 0;
-  width: min(340px, 40vw);
-  height: 48px;
+  width: 100%;
+  height: calc(var(--bar-h) - 4px);
+  text-overflow: ellipsis;
   border: 0;
   background: transparent;
   outline: none;
@@ -230,20 +237,45 @@
 
 .map-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
   gap: 10px;
   align-items: center;
 }
 
 .draw-btn {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--bar-h);
+  min-width: var(--bar-h);
+  padding: 0 20px 0 16px;
+  border: 0;
   border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
   box-shadow: var(--glass-shadow);
-  transition: box-shadow 0.25s, transform 0.2s var(--ease-out);
+  transition:
+    box-shadow 0.25s,
+    background-color 0.2s,
+    transform 0.2s var(--ease-out);
+}
+
+.draw-btn:hover {
+  background: var(--accent-strong);
 }
 
 .draw-btn:active {
   transform: scale(0.96);
+}
+
+.draw-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .draw-btn.is-active {
@@ -255,9 +287,10 @@
 
 .map-theme {
   display: inline-grid;
+  flex: none;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  width: var(--bar-h);
+  height: var(--bar-h);
   border-radius: 50%;
 }
 
@@ -676,35 +709,18 @@
   }
 
   .map-topbar {
+    --bar-h: 44px;
     gap: 8px;
   }
 
-  .map-brand,
-  .map-search,
-  .map-theme {
-    height: 44px;
-  }
-
-  .map-theme {
-    width: 44px;
-  }
-
   .map-search {
-    flex: 1 1 100%;
-    order: 3;
-  }
-
-  .map-search-input {
-    width: auto;
-    height: 42px;
-  }
-
-  .map-search {
+    flex: 1 1 auto;
     padding: 0 12px;
   }
 
+  /* Directly under the one-row top bar. */
   .layers {
-    top: 176px;
+    top: calc(var(--map-gap) + 44px + 10px);
     bottom: auto;
   }
 
@@ -745,3 +761,37 @@
   }
 }
 
+/* ---- Narrow windows: compact the top bar one step at a time, never wrapping ---- */
+
+@media (max-width: 1000px) {
+  .draw-btn {
+    padding: 0;
+  }
+
+  .draw-btn-label {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .map-brand {
+    width: var(--bar-h);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .map-brand .logo-word {
+    display: none;
+  }
+
+  .map-search-input::placeholder {
+    font-size: 0.875rem;
+  }
+}
+
+/* Short windows: the scale bar goes, so the panel keeps room for its rows. */
+@media (max-height: 560px) {
+  .map-page .maplibregl-ctrl-scale {
+    display: none;
+  }
+}

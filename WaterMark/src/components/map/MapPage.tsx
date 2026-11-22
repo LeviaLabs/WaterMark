@@ -146,7 +146,7 @@ export default function MapPage() {
           handleProps={panel.handleProps}
           onCollapse={() => panel.setMode('stowed')}
           isClosing={panelPresence.isClosing}
-          onAnimationEnd={panelPresence.onAnimationEnd}
+          presence={panelPresence.bind}
           area={<AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods} />}
           alerts={<AlertsList alerts={report.alerts} />}
           sources={<SourcesList isToggleable={false} />}
@@ -154,7 +154,7 @@ export default function MapPage() {
       ) : null}
       {cardPresence.isMounted ? (
         <CollapsedPanel title={selection.label} alertCount={alertCount} onOpen={openPanel}
-          isClosing={cardPresence.isClosing} onAnimationEnd={cardPresence.onAnimationEnd} />
+          isClosing={cardPresence.isClosing} presence={cardPresence.bind} />
       ) : null}
       <span className={isMapBusy || isReportLoading ? 'map-progress is-busy' : 'map-progress'} aria-hidden="true" />
       {hint ? <p className="map-hint" role="status">{hint.text}</p> : null}

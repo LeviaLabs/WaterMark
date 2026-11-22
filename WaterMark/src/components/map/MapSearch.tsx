@@ -5,6 +5,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../common/Icon'
 import { MIN_QUERY_LENGTH, PHOTON_ATTRIBUTION, searchPlaces, type GeocodedPlace } from '../../services/geocoding/photon'
+import { searchNominatim } from '../../services/geocoding/nominatim'
 import { markFetched } from '../../scripting/freshness'
 import type { LngLat } from '../../scripting/types'
 
@@ -15,6 +16,8 @@ interface Props {
 }
 
 type Results = { query: string; places: GeocodedPlace[]; error: string | null }
+
+const TYPING_PAUSE_MS = 300
 
 export function MapSearch({ near, onPick }: Props) {
   const id = useId()
@@ -29,36 +32,51 @@ export function MapSearch({ near, onPick }: Props) {
 
   const q = text.trim()
   const isSearchable = q.length >= MIN_QUERY_LENGTH
-  const isLoading = isSearchable && results.query !== q
+  // The text a pick put in the box; it is not searched again.
+  const [picked, setPicked] = useState<string | null>(null)
+  const isLoading = isSearchable && results.query !== q && q !== picked
   const [nearLon, nearLat] = near
 
+
   useEffect(() => {
-    if (!isSearchable) return
+    if (!isSearchable || q === picked) return
     const ctl = new AbortController()
-    searchPlaces(q, ctl.signal, { near: { lat: nearLat, lon: nearLon } }).then(
-      (places) => {
-        markFetched('geocode')
-        setResults({ query: q, places, error: null })
-        if (pendingPick.current === q && places[0]) {
-          pendingPick.current = null
-          setText(places[0].label)
-          setIsOpen(false)
-          onPickRef.current(places[0])
-        }
-      },
-      (e: unknown) => {
-        if (ctl.signal.aborted) return
-        const limited = e instanceof Error && 'code' in e && e.code === 'rate-limited'
-        setResults({ query: q, places: [], error: limited ? 'Too many searches at once. Pause, then keep typing.' : "Place search isn't responding. Try again in a moment." })
-      },
-    )
-    return () => ctl.abort()
-  }, [q, isSearchable, nearLat, nearLon])
+    // Wait for a pause in typing before asking: one request per settled query keeps us under
+    // Photon's rate limit (its public server cuts off busy clients, and the browser then reports
+    // the refusal as a CORS error). The timer is cleared on the next keystroke.
+    const pause = setTimeout(() => {
+      searchPlaces(q, ctl.signal, { near: { lat: nearLat, lon: nearLon } })
+        // Photon down or rate-limiting: fall back to Nominatim for this one settled query.
+        .catch((e: unknown) => (ctl.signal.aborted ? Promise.reject(e) : searchNominatim(q, ctl.signal)))
+        .then(
+          (places) => {
+            markFetched('geocode')
+            setResults({ query: q, places, error: null })
+            if (pendingPick.current === q && places[0]) {
+              pendingPick.current = null
+              setPicked(places[0].label)
+              setText(places[0].label)
+              setIsOpen(false)
+              onPickRef.current(places[0])
+            }
+          },
+          () => {
+            if (ctl.signal.aborted) return
+            pendingPick.current = null
+            setResults({ query: q, places: [], error: "Place search isn't responding. Check your connection, or try again in a moment." })
+          },
+        )
+    }, q === results.query ? 0 : TYPING_PAUSE_MS)
+    return () => { clearTimeout(pause); ctl.abort() }
+    // results.query only picks the delay; it must not restart the search.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, isSearchable, nearLat, nearLon, picked])
 
   const places = isSearchable ? results.places : []
   const showList = isOpen && isSearchable
 
   const pick = (place: GeocodedPlace) => {
+    setPicked(place.label)
     setText(place.label)
     setIsOpen(false)
     pendingPick.current = null
@@ -98,7 +116,7 @@ export function MapSearch({ near, onPick }: Props) {
           onFocus={() => setIsOpen(true)}
           onBlur={() => setIsOpen(false)}
           onKeyDown={onKeyDown}
-          placeholder="Search a ZIP code, neighborhood or address"
+          placeholder="Search a place or ZIP code"
           autoComplete="off"
           spellCheck={false}
         />

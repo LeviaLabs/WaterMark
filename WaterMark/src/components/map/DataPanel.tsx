@@ -1,7 +1,8 @@
 // Floating data panel: drag it by its header, or collapse it into a small card (CollapsedPanel)
 // that keeps the area's name and alert count in view. Both scale in and out of the same corner. The body scrolls with the site's glowing
 // scrollbar (common/ScrollArea).
-import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject, type AnimationEvent } from 'react'
+import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import type { PresenceBind } from '../../hooks/usePresence'
 import { IconButton } from '@astryxdesign/core/IconButton'
 import { Tab, TabList } from '@astryxdesign/core/TabList'
 import { ScrollArea } from '../common/ScrollArea'
@@ -26,17 +27,18 @@ interface Props {
   onCollapse: () => void
   /** Plays the closing animation; the panel unmounts when it ends (hooks/usePresence). */
   isClosing: boolean
-  onAnimationEnd: (e: AnimationEvent<HTMLElement>) => void
+  presence: PresenceBind
   area: ReactNode
   alerts: ReactNode
   sources: ReactNode
 }
 
-export function DataPanel({ title, alertCount, panelRef, style, handleProps, onCollapse, isClosing, onAnimationEnd, area, alerts, sources }: Props) {
+export function DataPanel({ title, alertCount, panelRef, style, handleProps, onCollapse, isClosing, presence, area, alerts, sources }: Props) {
   const [tab, setTab] = useState<TabId>('area')
   return (
-    <aside ref={panelRef} className={isClosing ? 'map-card data-panel is-closing' : 'map-card data-panel'} style={style}
-      aria-label="Area data" onAnimationEnd={onAnimationEnd} inert={isClosing}>
+    <aside className={isClosing ? 'map-card data-panel is-closing' : 'map-card data-panel'} style={style}
+      aria-label="Area data" inert={isClosing} {...presence}
+      ref={(el) => { panelRef.current = el; presence.ref(el) }}>
       <header className="panel-head">
         <div className="panel-handle" tabIndex={0} {...handleProps}
           aria-label="Data panel header. Drag, or use the arrow keys, to move it. Double-click to reset its position.">
@@ -64,13 +66,13 @@ export function DataPanel({ title, alertCount, panelRef, style, handleProps, onC
 }
 
 /** The panel folded away: a small card in the panel's place that opens it again. */
-export function CollapsedPanel({ title, alertCount, onOpen, isClosing, onAnimationEnd }: {
+export function CollapsedPanel({ title, alertCount, onOpen, isClosing, presence }: {
   title: string; alertCount: number; onOpen: () => void
-  isClosing: boolean; onAnimationEnd: (e: AnimationEvent<HTMLElement>) => void
+  isClosing: boolean; presence: PresenceBind
 }) {
   return (
     <button type="button" className={isClosing ? 'map-card panel-collapsed is-closing' : 'map-card panel-collapsed'}
-      onClick={onOpen} onAnimationEnd={onAnimationEnd} tabIndex={isClosing ? -1 : 0} aria-label={`Open area data for ${title}`}>
+      onClick={onOpen} {...presence} tabIndex={isClosing ? -1 : 0} aria-label={`Open area data for ${title}`}>
       <span className="panel-collapsed-text">
         <span className="panel-eyebrow">Area data</span>
         <span className="panel-collapsed-title">{title}</span>

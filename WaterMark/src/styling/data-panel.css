@@ -11,9 +11,10 @@
   right: var(--map-gap);
   display: flex;
   flex-direction: column;
-  width: 400px;
-  /* Ends above the zoom buttons and scale, so opening the panel never moves them. */
-  max-height: calc(100% - 84px - 170px);
+  width: min(400px, calc(100% - 2 * var(--map-gap)));
+  /* Ends above the zoom buttons and scale, so opening the panel never moves them;
+     in a very short window it keeps enough height to be usable. */
+  max-height: max(240px, calc(100% - 84px - 170px));
   overflow: hidden;
   transform-origin: top right;
   animation: panel-in 0.34s var(--ease-out);

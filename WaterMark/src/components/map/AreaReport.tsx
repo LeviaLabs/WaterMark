@@ -63,7 +63,7 @@ function Section({ title, kind, summary, children }: { title: string; kind: Evid
         <span className="report-line">{summary}</span>
       </button>
       {body.isMounted ? (
-        <div id={id} className={body.isClosing ? 'report-body is-closing' : 'report-body'} onAnimationEnd={body.onAnimationEnd}>
+        <div id={id} className={body.isClosing ? 'report-body is-closing' : 'report-body'} {...body.bind}>
           {children}
         </div>
       ) : null}

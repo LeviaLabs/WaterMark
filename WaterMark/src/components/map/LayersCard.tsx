@@ -33,7 +33,7 @@ export function LayersCard({ layers, onToggle, floods, stormNote, isOpen, onOpen
   if (floods === 'error') globalNote = "Worldwide flood reports didn't load. GDACS may be busy; reload to try again."
   else if (floods) {
     const active = floods.features.filter((f) => f.properties.active).length
-    globalNote = `${active} active floods worldwide, ${floods.features.length} in the past 30 days. Rain shows the newest NASA image, a few hours old.`
+    globalNote = `${active} active floods worldwide, ${floods.features.length} in the past 30 days. Rain shows the newest NASA image, a few hours old, and fades out at city zoom, where its 10 km pixels would cover the view.`
   }
 
   return (
@@ -46,7 +46,7 @@ export function LayersCard({ layers, onToggle, floods, stormNote, isOpen, onOpen
         <span className="layers-chev" aria-hidden="true" />
       </button>
       {presence.isMounted ? (
-        <section id={id} aria-label="Map layers" onAnimationEnd={presence.onAnimationEnd}
+        <section id={id} aria-label="Map layers" {...presence.bind}
           className={presence.isClosing ? 'map-card layers-panel is-closing' : 'map-card layers-panel'}>
           <ul className="layers-list">
             {LAYERS.map((l) => (

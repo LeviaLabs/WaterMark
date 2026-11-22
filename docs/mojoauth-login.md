@@ -98,7 +98,10 @@ Without both frontend values the page shows "Sign-in is not set up" and the app 
 ## Production deployment (`watermark-dev`)
 
 Codex owns the Supabase project setup. `auth-verify` deploys into the same project as `watermark-v1`.
-Nothing below has been run yet: each step needs the project to exist and the owner's go-ahead.
+
+**Deployed 2026-11-22** to `watermark-dev` (ref `gcfcpmqeegywnddusgfl`, us-east-1), commit `83223c5`, version 1:
+`https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/auth-verify`. Only `auth-verify` was deployed; `watermark-v1`,
+the database and migrations were not touched. The frontend production deploy has not happened.
 
 ### What is already in the repo
 
@@ -112,31 +115,41 @@ Nothing below has been run yet: each step needs the project to exist and the own
 | Name | Value | Notes |
 |---|---|---|
 | `MOJOAUTH_API_KEY` | MojoAuth "API Key / Client ID" | The same public key the browser uses. Also the required token `aud`. |
-| `WATERMARK_ALLOWED_ORIGINS` | `https://watermark.works` plus any other exact site origins | **Shared with `watermark-v1`.** No `localhost` in production. Exact origins only, no wildcards. |
-| `MOJOAUTH_ISSUER` | `https://api.mojoauth.com` | Optional. |
+| `WATERMARK_ALLOWED_ORIGINS` | on `watermark-dev`: `http://localhost:5173`, `https://watermark.works`, `https://www.watermark.works` | **Shared with `watermark-v1`; set by Codex, not changed here.** Exact origins only, no wildcards. A real production project should drop localhost. |
+| `MOJOAUTH_ISSUER` | `https://api.mojoauth.com` | Optional; set on `watermark-dev`. |
 
 Never set: the MojoAuth **API Secret**, or any Supabase service-role / secret key for this function.
 
-Set them from a git-ignored file so values stay out of shell history and chat:
+Set only the MojoAuth names, from a git-ignored file holding just those two lines, so values stay out of shell
+history and chat and the shared `WATERMARK_ALLOWED_ORIGINS` is not overwritten (Supabase CLI 3.2.0 syntax):
 
 ```powershell
-supabase secrets set --project-ref <project-ref> --env-file supabase/.env.production
+npx supabase@3.2.0 secrets set --remote=gcfcpmqeegywnddusgfl --env-file <path to the 2-line file> --yes
 ```
 
 ### Deploy (needs approval)
 
 ```powershell
-supabase functions deploy auth-verify --project-ref <project-ref>
+npx supabase@3.2.0 functions deploy auth-verify --remote=gcfcpmqeegywnddusgfl --no-verify-jwt --use-api --yes
 ```
 
-`config.toml` already turns off the Supabase JWT check for this function; `--no-verify-jwt` is the same thing as a flag.
+Always name the function. Without a name the CLI deploys every function, and `--prune` would delete others.
+`config.toml` also turns off the Supabase JWT check for `auth-verify`. The function verifies MojoAuth tokens itself.
+Its only success path requires MojoAuth `isValid: true`, an unexpired token, a valid `nbf`, and `aud` = `MOJOAUTH_API_KEY`.
 
-### Frontend build env (Cloudflare Pages, Production)
+### Frontend build env (to confirm with Ryan B)
+
+Cloudflare Pages (`*.watermark-a4q.pages.dev`) builds every PR. No Amplify config is in the repo. On 2026-11-22,
+`watermark.works` had no A record (DNS at name.com) and `www.watermark.works` did not exist, so neither host
+served the production domain yet. Set these in whichever host Ryan confirms, for Production builds:
 
 ```text
 VITE_MOJOAUTH_API_KEY=<api key>
-VITE_WATERMARK_AUTH_VERIFY_URL=https://<project-ref>.supabase.co/functions/v1/auth-verify
+VITE_WATERMARK_AUTH_VERIFY_URL=https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/auth-verify
 ```
+
+Cloudflare preview URLs (`https://<branch>.watermark-a4q.pages.dev`) are not in `WATERMARK_ALLOWED_ORIGINS`, so
+sign-in fails there by design unless Codex and the team agree to add an exact preview origin.
 
 These are baked in at build time. A production build ignores an `http://` or localhost verify URL and stays
 guest-only, so the deployed site can never depend on a developer machine.
@@ -148,16 +161,22 @@ Add `https://watermark.works` (and any other production origin) to the allowed d
 ### Hosted end-to-end check
 
 ```powershell
-$env:AUTH_VERIFY_URL = 'https://<project-ref>.supabase.co/functions/v1/auth-verify'
+$env:AUTH_VERIFY_URL = 'https://gcfcpmqeegywnddusgfl.supabase.co/functions/v1/auth-verify'
 $env:AUTH_VERIFY_ORIGIN = 'https://watermark.works'
-npx --yes deno@2.9.6 run --allow-env=AUTH_VERIFY_URL,AUTH_VERIFY_ORIGIN,WATERMARK_TEST_TOKEN,AUTH_VERIFY_ALLOW_HTTP --allow-net supabase/tests/auth-verify/hosted.ts
+$env:AUTH_VERIFY_LOCALHOST_ALLOWED = '1'   # watermark-dev keeps localhost; omit for a production project
+npx --yes deno@2.9.6 run --allow-env=AUTH_VERIFY_URL,AUTH_VERIFY_ORIGIN,WATERMARK_TEST_TOKEN,AUTH_VERIFY_ALLOW_HTTP,AUTH_VERIFY_LOCALHOST_ALLOWED --allow-net=gcfcpmqeegywnddusgfl.supabase.co supabase/tests/auth-verify/hosted.ts
 ```
 
 It checks:
 - the URL and origin are HTTPS and not localhost;
-- the site origin gets CORS, while `http://localhost:5173` and other sites get 403;
-- GET returns 405, a malformed body 400, and a forged token 401;
+- the site origin gets CORS (and localhost, as configured), while other sites and `Origin: null` get 403;
+- a POST from another site gets 403;
+- GET returns 405;
+- a malformed body, a missing token, a non-JWT and an over-long token return 400;
+- forged, expired, not-yet-valid and wrong-audience tokens return 401;
 - responses carry `no-store`.
+
+Result on 2026-11-22 against `watermark-dev`: 18 of 18 passed.
 
 Then sign in on the deployed site. Optionally, copy `sessionStorage["wm-auth"]` into
 `$env:WATERMARK_TEST_TOKEN` and rerun: it checks that a real token returns only `id`, `displayName` and
@@ -212,14 +231,15 @@ Reload: still signed in (the token is re-verified). Close the tab: signed out. "
 ## Open items
 
 - Live sign-in was completed locally on 2026-11-21 (Deno-served `auth-verify`, Vite dev), first on the old dev page and
-  again on `/login` after the move. Not yet run against hosted Supabase.
+  again on `/login` after the move. On 2026-11-22 a real sign-in ran against the hosted `watermark-dev` function, from
+  local Vite.
 - A live token showed `iss` = `https://api.mojoauth.com`, `aud` = the project API key, a 60-minute lifetime, and claims
   `identifier, email, user_id, auth_type, token_type, aud, exp, jti, iat, iss, nbf, sub`. Setting `MOJOAUTH_ISSUER` to that
   issuer is optional; the `aud` check already ties tokens to this project.
-- **Deployment blockers:**
-  - No `watermark-dev` Supabase project is visible to the Supabase account connected here; only an inactive, unrelated one is. Codex has to create it, or share access to it.
-  - Owner approval is needed to set secrets and deploy.
-  - The Cloudflare Pages production variables must be set.
-  - `https://watermark.works` must be added in MojoAuth.
+- **Remaining before a public launch:**
+  - Ryan has to confirm the frontend host and set the two `VITE_*` production variables there.
+  - `watermark.works` DNS has to point at that host.
+  - `https://watermark.works` has to be added in MojoAuth, if the dashboard has an allowed-domains setting.
+  - A sign-in has to be run on the deployed site itself.
 - No profile table: saving places needs a migration with RLS, coordinated with Codex.
 - Nothing in the app needs an account yet (`savedPlaces`, `notificationPrefs` are planned).

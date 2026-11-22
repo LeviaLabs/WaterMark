@@ -194,10 +194,17 @@ export default function MapPage() {
 
   const openPanel = () => {
     panel.setMode('open')
-    if (isPhone()) setIsLayersOpen(false)
+    if (isPhone()) {
+      setIsLayersOpen(false)
+      setIsAssistantOpen(false)
+    }
   }
   const onLayersOpenChange = (isOpen: boolean) => {
     setIsLayersOpen(isOpen)
+    if (isOpen && isPhone() && panel.mode === 'open') panel.setMode('stowed')
+  }
+  const onAssistantOpenChange = (isOpen: boolean) => {
+    setIsAssistantOpen(isOpen)
     if (isOpen && isPhone() && panel.mode === 'open') panel.setMode('stowed')
   }
   const choose = (s: Selection) => { setSelection(s); if (panel.mode !== 'open') openPanel() }
@@ -450,7 +457,7 @@ export default function MapPage() {
         <CollapsedPanel title={title} alertCount={alertCount} onOpen={openPanel}
           isClosing={cardPresence.isClosing} presence={cardPresence.bind} />
       ) : null}
-      <Assistant isOpen={isAssistantOpen} onOpenChange={setIsAssistantOpen}
+      <Assistant isOpen={isAssistantOpen} onOpenChange={onAssistantOpenChange}
         placeName={region ? crumbName(region) : null}
         isUS={path[0]?.props.k === 'USA'}
         getContext={() => contextText({

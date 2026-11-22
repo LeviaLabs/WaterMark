@@ -422,8 +422,18 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [experimental.pgdelta]
 enabled = true
 
+# Callers send a MojoAuth access token, not a Supabase JWT; the function verifies it itself
+# (MojoAuth /token/verify, expiry and aud = MOJOAUTH_API_KEY). It touches no database.
+[functions.auth-verify]
+verify_jwt = false
+
 # Public environmental reads; all database writes remain server-only.
 [functions.watermark-v1]
+verify_jwt = false
+
+# Public map chat. verify_jwt stays false so a guest can ask. CORS does not authenticate
+# callers. The Postgres budget (watermark_take_assistant_budget) and WATERMARK_ASSISTANT_DISABLED do.
+[functions.assistant]
 verify_jwt = false
 # Directory under `supabase/` where declarative files are written.
 # declarative_schema_path = "./schemas"

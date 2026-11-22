@@ -5,7 +5,8 @@
   position: absolute;
   z-index: 5;
   left: 50%;
-  bottom: 28px;
+  /* Above the flood-assistant tab, which sits at the bottom center. */
+  bottom: 84px;
   transform: translateX(-50%);
   display: flex;
   gap: 2px;
@@ -247,7 +248,7 @@
 
 @media (max-width: 700px) {
   .aud-roles {
-    bottom: 64px;
+    bottom: 16px;
   }
 }
 

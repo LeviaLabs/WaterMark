@@ -133,7 +133,7 @@ The following providers are named in the team plan. **They are candidate integra
 
 ## 7. Proposed architecture (not yet a claim of deployed infrastructure)
 
-The team has chosen to pursue **AWS + Supabase**, with **Ryan B** responsible for AWS deployment and **Decong** responsible for Supabase and `.xyz` domain coordination. This is a planned architecture, not a claim that services are already provisioned or deployed. Cloudflare is not part of the current MVP stack.
+The team has chosen to pursue **Supabase** for the API and database, with **Decong** responsible for that backend and `.xyz` domain coordination. The public frontend is **GitHub Pages at [https://watermark.works](https://watermark.works)**, built by [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml). An earlier plan used AWS Amplify for hosting. Cloudflare is not part of the current MVP stack.
 
 ```text
 Browser (React + TypeScript + Vite + 2D MapLibre map)
@@ -150,11 +150,11 @@ Supabase PostgreSQL + PostGIS
   v
 Structured responses to the frontend (source, timestamp, quality, scope)
 
-AWS Amplify Hosting: deploy the frontend from the approved GitHub branch.
-.xyz domain: optional custom domain pointed at the deployed frontend.
+GitHub Pages (https://watermark.works): the Vite build from .github/workflows/deploy-pages.yml.
+.xyz domain: optional custom domain pointed at that Pages site.
 ```
 
-**Why this split:** Amplify handles web hosting and Git-connected deployment; Supabase Edge Functions integrate APIs and protect secrets; PostgreSQL/PostGIS stores selected structured and geospatial information. Domain registration and DNS are separate from web application hosting. Avoid introducing Lambda, API Gateway, Cloudflare Workers, or additional databases unless a documented requirement justifies them.
+**Why this split:** The frontend is a static Vite build on GitHub Pages. Supabase Edge Functions integrate APIs and protect secrets; PostgreSQL/PostGIS stores selected structured and geospatial information. Domain registration and DNS are separate from web application hosting. Avoid introducing Lambda, API Gateway, Cloudflare Workers, or additional databases unless a documented requirement justifies them.
 
 ### Proposed implementation technologies
 
@@ -164,7 +164,7 @@ AWS Amplify Hosting: deploy the frontend from the approved GitHub branch.
 - Charts: Recharts or a similarly lightweight React charting library.
 - Backend: Supabase Edge Functions (TypeScript/Deno runtime as supported by Supabase).
 - Database: Supabase PostgreSQL with PostGIS enabled.
-- Deployment: AWS Amplify connected to the GitHub repository; optional `.xyz` domain.
+- Deployment: GitHub Pages at `https://watermark.works` via `.github/workflows/deploy-pages.yml`.
 - CI: typecheck, lint, unit tests, and smoke test on pull requests.
 
 ### Proposed API response contract
@@ -215,11 +215,11 @@ Prefer small, focused tables such as `monitoring_stations`, `datasets`, `observa
 | **P0** | Flood context | At least one working NYC stormwater/flood exposure layer and one validated flood-oriented observation or forecast source |
 | **P0** | Location panel | Distinguishes current, forecast, historical, mapped exposure; source/last-updated/limits visible |
 | **P0** | Error and uncertainty handling | Meaningful no-data, stale, and unavailable states; no fabricated risk values |
-| **P0** | Public deployment | AWS Amplify demo loads without local services; source code and setup instructions accessible to judges |
+| **P0** | Public deployment | GitHub Pages demo at watermark.works loads without local services; source code and setup instructions accessible to judges |
 | **P1** | Draw-circle summary | Spatially valid metrics with coverage, units, and area selection feedback |
 | **P1** | Historical events and insurance context | Historical years, aggregation, spatial limits, and source clearly labeled |
 | **P1** | Agentboxd alert digests | Clearly supplementary summaries; official alert record remains source of truth |
-| **P1** | Plain-language or multilingual assistant | Answers cite retrieved WaterMark data; no invented forecasts or emergency orders |
+| **P1** | Plain-language or multilingual assistant | Answers cite the browser lookup they were given and are labeled as unverified; no invented forecasts or emergency orders |
 | **P2** | ElevenLabs voice, multiple role views, MojoAuth/SSOJet | Only after P0 passes and privacy/accessibility are reviewed |
 | **P2** | SMS alerts / expanded global local layers | Requires consent, rate-limits, source freshness, and operational testing |
 | **Research only** | “Move Your Car” | Cannot recommend a guaranteed safe spot/route from modeled exposure alone; requires verified current road, parking, closures, and flood conditions before any actionable recommendation |
@@ -238,7 +238,7 @@ Record a deterministic fixture-based replay if live conditions are uneventful. L
 
 The team plan mentions Gemini or an OpenRouter-hosted model, ElevenLabs, Agentboxd, MojoAuth/SSOJet, and Decodo. **These are ideas under evaluation, not confirmed production integrations.**
 
-- **AI chat (Ryan B):** Optional assistant for interpreting data already fetched by WaterMark. It must cite current evidence, time windows, and authoritative sources; it must never manufacture a risk probability.
+- **AI chat (Ryan B):** Optional assistant. The browser runs the lookups and sends the results to a Gemini proxy. Those results are untrusted user-supplied data: the proxy does not re-fetch or verify them, and the chat is not a server-verified flood report. It must cite the lookup's source, time window, and limits, and it must never manufacture a risk probability.
 - **Voice / languages (Ryan B voice pipeline; Decong multilingual integration):** Accessibility enhancements considered for Chinese, Russian, Spanish, and Indian languages. Specify actual languages and dialects before implementation ("Indian" is not a single language).
 - **Agentboxd (Decong):** Optional ingestion/summarization of official alert emails; use authoritative API alerts for time-sensitive status. Email summaries can be late, duplicated, or stale.
 - **MojoAuth/SSOJet (Decong, coordinated with Ryan L demo page):** Optional authentication, not required to view public flood data. Avoid a login bottleneck for the demo.
@@ -253,6 +253,7 @@ The team Google Doc's **Assignments** tab uses background colors as an ownership
 | Highlight in Google Doc | Owner | Assigned scope | Proposed branch names (not existing-branch claims) |
 | --- | --- | --- | --- |
 | **Green** (`#D9EAD3`) | **Ryan Bergman (Ryan B)** | Frontend design and **landing-page shell**; Gemini/OpenRouter chatbot and primary ElevenLabs voice integration; **AWS automatic deployment**; optional Decodo scraping investigation | `feat/ryan-b-landing`, `feat/ryan-b-ai-assistant`, `infra/ryan-b-amplify` |
+| **Effervescent Yellow** (`yellow`) | **Daniel Manita (Daniel M)** | Moral support and pen testing. Last minute changes and Move your Car feature. | |
 | **Pink** (`#EAD1DC`) | **Ryan Lin (Ryan L)** | **Application/demo page**, interactive **2D map**, collapsible/draggable data panel, **circle selection and area-statistics UI**, forecasting/data charts, **landing-page resources/bibliography content**, exploratory **Move Your Car** UI | `feat/ryan-l-map`, `feat/ryan-l-data-panel`, `feat/ryan-l-area-analysis` |
 | **Blue** (`#C9DAF8`) | **Decong** | **Supabase PostgreSQL/PostGIS and Edge Functions**; **Agentboxd** email reading/summaries and optional sending; **MojoAuth/login integration**; multilingual support and localization/ElevenLabs languages; **.xyz domain/DNS coordination**; investigate SMS | `feat/decong-data-api`, `feat/decong-agentboxd`, `infra/decong-domain` |
 | **Yellow note** (`#FFF2CC`) | **Joint / conditional** | Tailored views for homeowners, schools, CERT, and firefighters, **only if time remains** and the data actually supports the audience-specific claims | Joint ticket after P0 |
@@ -265,9 +266,9 @@ The team Google Doc's **Assignments** tab uses background colors as an ownership
 | --- | --- | --- | --- |
 | **Landing page and bibliography** | Ryan B owns layout, navigation, and landing composition | Ryan L owns the resources/data/bibliography **component and content** | Ryan L delivers an isolated component/export and required props; Ryan B mounts it. Avoid both editing the same landing-page file. |
 | **Application map and flood data** | Ryan L owns map interaction, layer toggles, area selection, charts, and data panel | Decong owns Supabase API, geospatial queries, normalization, data provenance | Agree on typed endpoint contracts and GeoJSON coordinate conventions first. Ryan L may use **labeled mock fixtures** until the real API is integrated, but must not present them as live. |
-| **Chat and multilingual/voice** | Ryan B owns assistant experience, LLM adapter, voice pipeline | Decong owns translation/localization support, language controls, and coordination for multilingual voice | Agree on one assistant/voice interface. Do not independently create competing ElevenLabs clients or LLM response schemas. The assistant receives already-validated WaterMark data. |
+| **Chat and multilingual/voice** | Ryan B owns assistant experience, LLM adapter, voice pipeline | Decong owns translation/localization support, language controls, and coordination for multilingual voice | Agree on one assistant/voice interface. Do not independently create competing ElevenLabs clients or LLM response schemas. The browser runs the lookups. The proxy treats tool results and page context as untrusted user-supplied data and does not re-fetch them. |
 | **Guest access and optional login** | Ryan L owns the public demo/application shell | Decong owns any MojoAuth integration and authenticated session handling | The demo map must work in **guest mode**; adding login cannot block public data access or the judges' demo. |
-| **Deployment and domain** | Ryan B owns AWS Amplify build, environment configuration, and GitHub deployment workflow | Decong owns `.xyz` domain/DNS setup and coordination | Ryan B supplies the verified deployment hostname/branch; Decong connects the custom domain after confirmation. Do not point production DNS to an unverified target. |
+| **Deployment and domain** | Ryan B owns the GitHub Pages workflow (`.github/workflows/deploy-pages.yml`) and the public site at watermark.works | Decong owns `.xyz` domain/DNS setup and the Supabase backend | The live origin is `https://watermark.works`. Do not point production DNS at an unverified target. |
 | **Warnings and alert digests** | Decong owns Agentboxd email integration and Supabase-backed delivery endpoint | Ryan L owns on-map alert presentation; Ryan B may surface cited summaries in assistant | Source of truth remains the official warning API. Email summaries are supplemental and may be late. |
 | **Move Your Car** | Ryan L owns UI concept and feasibility research | Decong supports data availability review; other teammates review safety | **Research only until separately approved.** Never recommend a 'safe' route or guaranteed non-flooding destination based only on static hazard overlays. |
 
@@ -282,7 +283,7 @@ The team Google Doc's **Assignments** tab uses background colors as an ownership
 
 ### Owner-specific completion evidence
 
-- **Ryan B:** Landing renders responsively, the resources component can mount without layout collisions, optional assistant output cites sourced risk information, and a verified AWS deployment has an accessible URL and rollback path.
+- **Ryan B:** Landing renders responsively, the resources component can mount without layout collisions, optional assistant output cites the browser lookup it was given and is not presented as a server-verified flood report, and the public site is the GitHub Pages build at https://watermark.works.
 - **Ryan L:** Public map and location selection work; panel states are usable; area selection produces a valid geometry payload and supported, well-labeled area metrics; forecast charts preserve units/times. 'Move Your Car' remains non-operational unless safety prerequisites are met.
 - **Decong:** Supabase API validates inputs and returns provenance and status; spatial queries have bounds; database permissions/RLS are reviewed; Agentboxd summaries clearly reference official warnings and times; guest access is preserved even if optional authentication is added.
 
@@ -323,9 +324,9 @@ Do not create this tree unless the team approves the structure. A simpler single
 2. Install dependencies using the repo's chosen, pinned package manager.
 3. Configure a local `.env` from a committed **placeholder-only** `.env.example`; never commit real secrets.
 4. Set up a Supabase project and apply the reviewed schema/PostGIS migrations.
-5. Configure required secret values in Supabase Edge Function secrets and AWS Amplify environment settings, not README or screenshots.
+5. Configure required secret values in Supabase Edge Function secrets, not README or screenshots. Frontend build values for GitHub Pages are repository variables (`VITE_MOJOAUTH_API_KEY`, `VITE_WATERMARK_AUTH_VERIFY_URL`, `VITE_WATERMARK_ASSISTANT_URL`).
 6. Run typecheck, tests, build, and local application smoke test.
-7. Connect the deployment branch to AWS Amplify, verify SPA routing if needed, and confirm the external `.xyz` domain separately.
+7. Push to `main`. `.github/workflows/deploy-pages.yml` publishes the Vite build to GitHub Pages. The workflow copies `index.html` to `dist/404.html` so `/map`, `/login`, and `/signup` work on refresh. The public origin is `https://watermark.works`.
 
 ### Frontend app (`WaterMark/`)
 
@@ -340,7 +341,7 @@ npm run lint    # ESLint
 npm run build   # typecheck + production build into dist/
 ```
 
-Routes (React Router, declared in `WaterMark/src/App.tsx`): `/` landing page, `/map` (reserved for Ryan L's map), `/login` and `/signup` (account shell; MojoAuth not wired yet), anything else shows a 404 page. Because routing happens in the browser, the AWS Amplify app needs a rewrite so deep links work: source `</^[^.]+$|\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json|webmanifest)$)([^.]+$)/>`, target `/index.html`, type `200 (Rewrite)`.
+Routes (React Router, declared in `WaterMark/src/App.tsx`): `/` landing page, `/map`, `/login` and `/signup`, and a 404 page for anything else. Refresh on those paths works because the Pages workflow copies `index.html` to `dist/404.html`.
 
 **The team reports $200 in AWS credits**, but account eligibility and balance are not independently verified. Set spending alerts and avoid adding unnecessary services.
 
@@ -374,7 +375,7 @@ The hackathon MVP is done only when:
 
 The current scope in this README supersedes older brainstorming comments about drought and depletion. The [shared planning document](https://docs.google.com/document/d/1VLHw8AHFrXIV64P9YD5abx2CkHGvjEz97zxK9glnjhw/edit) remains the record of ideas and tasks, but new functionality is committed only after the team agrees on scope and a corresponding issue/PR makes the acceptance criteria explicit.
 
-**Unresolved decisions:** final map library (MapLibre versus Leaflet), exact AI provider, authentication priority (but public guest access is required), verified FloodNet feed availability, actual deployment/domain state, and whether the assigned circle-selection feature meets the P0 integration cutoff. **Color-coded ownership is known** from the Assignments tab; completion status still requires evidence. Mark unresolved items `TBD`.
+**Unresolved decisions:** final map library (MapLibre versus Leaflet), exact AI provider, authentication priority (but public guest access is required), verified FloodNet feed availability, and whether the assigned circle-selection feature meets the P0 integration cutoff. The frontend host is GitHub Pages at `https://watermark.works`. **Color-coded ownership is known** from the Assignments tab; completion status still requires evidence. Mark unresolved items `TBD`.
 
 ## References
 
@@ -386,6 +387,6 @@ The current scope in this README supersedes older brainstorming comments about d
 - [FloodNet NYC](https://dataviz.floodnet.nyc/)
 - [FEMA National Flood Hazard Layer](https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer)
 - [Supabase PostGIS](https://supabase.com/docs/guides/database/extensions/postgis)
-- [AWS Amplify Hosting](https://docs.aws.amazon.com/amplify/latest/userguide/)
+- [GitHub Pages](https://docs.github.com/en/pages) (frontend host: https://watermark.works)
 
 *WaterMark is a prototype, not an emergency alert authority. Confirm all time-sensitive conditions with official sources.*

@@ -10,6 +10,8 @@ interface Props {
   onToggleDraw: () => void
   searchNear: LngLat | null
   onPick: (place: GeocodedPlace) => void
+  carOn: boolean
+  onToggleCar: () => void
 }
 
 /**
@@ -17,7 +19,7 @@ interface Props {
  * toggle. Always one row: as the window narrows the search shrinks, then the circle button and the
  * logo drop their words and keep their icons.
  */
-export function TopBar({ isDrawing, onToggleDraw, searchNear, onPick }: Props) {
+export function TopBar({ isDrawing, onToggleDraw, searchNear, onPick, carOn, onToggleCar }: Props) {
   return (
     <header className="map-topbar">
       <span className="map-card map-brand"><Logo /></span>
@@ -29,6 +31,12 @@ export function TopBar({ isDrawing, onToggleDraw, searchNear, onPick }: Props) {
           title={isDrawing ? 'Cancel circle' : 'Circle an area'}>
           <CircleAreaIcon />
           <span className="draw-btn-label">{isDrawing ? 'Cancel circle' : 'Circle an area'}</span>
+        </button>
+        <button type="button" className={carOn ? 'draw-btn is-active' : 'draw-btn'} onClick={onToggleCar}
+          aria-pressed={carOn} aria-label={carOn ? 'Hide move your car' : 'Move your car'}
+          title={carOn ? 'Hide move your car' : 'Move your car'}>
+          <CircleAreaIcon />
+          <span className="draw-btn-label">{carOn ? 'Hide car spots' : 'Move your car'}</span>
         </button>
         <span className="map-card map-theme"><ThemeToggle /></span>
       </div>

@@ -13,9 +13,11 @@ import { ENDPOINTS } from './endpoints'
 import { getJSON } from './http'
 import { withSignal } from './shared'
 import { markFetched } from '../scripting/freshness'
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { stormShareFromTiles, type StormTile } from '../scripting/geo'
 import { tileBounds, tilesCovering } from '../scripting/tiles'
-import type { StormShare } from '../scripting/types'
+import { NYC_BOUNDS } from '../scripting/region'
+import type { LngLat, StormShare } from '../scripting/types'
 
 export const STORM_PROTOCOL = 'wmstorm'
 
@@ -107,4 +109,43 @@ export async function fetchStormInArea(area: Feature<Polygon>, signal: AbortSign
   }))), signal)
   markFetched('stormwater')
   return { ...stormShareFromTiles(area, tiles), partial: z < index.maxzoom }
+}
+
+const inNyc = ([lon, lat]: LngLat) => lon >= NYC_BOUNDS[0] && lon <= NYC_BOUNDS[2] && lat >= NYC_BOUNDS[1] && lat <= NYC_BOUNDS[3]
+
+/**
+ * NYC stormwater category at each point: 0 not in a scenario polygon, 1 nuisance, 2 deep.
+ * Null outside New York City (the model was not asked). A zero is "not in this scenario",
+ * not a statement that the street stays dry.
+ */
+export async function fetchStormAtPoints(points: readonly LngLat[], signal: AbortSignal): Promise<(0 | 1 | 2 | null)[]> {
+  if (!points.some(inNyc)) return points.map(() => null)
+  const index = await withSignal(loadStormIndex(), signal)
+  let west = 180, south = 90, east = -180, north = -90
+  points.forEach((p) => {
+    if (!inNyc(p)) return
+    west = Math.min(west, p[0]); east = Math.max(east, p[0]); south = Math.min(south, p[1]); north = Math.max(north, p[1])
+  })
+  const pad = 0.01
+  const box: Feature<Polygon> = {
+    type: 'Feature', properties: {},
+    geometry: { type: 'Polygon', coordinates: [[[west - pad, south - pad], [east + pad, south - pad], [east + pad, north + pad], [west - pad, north + pad], [west - pad, south - pad]]] },
+  }
+  let z = index.maxzoom
+  while (z > index.minzoom && tilesCovering(box, z).length > MAX_TILES) z--
+  const keys = tilesCovering(box, z)
+  const features = (await withSignal(Promise.all(keys.map(async ([tz, tx, ty]) =>
+    decode(await tileBuffer(`${tz}/${tx}/${ty}`), tz, tx, ty, index.sourceLayer))), signal)).flat()
+  markFetched('stormwater')
+  return points.map((point) => {
+    if (!inNyc(point)) return null
+    let category: 0 | 1 | 2 = 0
+    for (const f of features) {
+      if (!booleanPointInPolygon(point, f)) continue
+      const raw = Number(f.properties.Flooding_Category)
+      if (raw === 2) return 2
+      if (raw === 1) category = 1
+    }
+    return category
+  })
 }

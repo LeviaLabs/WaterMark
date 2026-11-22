@@ -90,6 +90,8 @@ export interface WeatherAlert {
   event: string
   headline?: string
   instruction?: string
+  severity?: string
+  onset?: string | null
   ends?: string | null
   expires?: string | null
 }

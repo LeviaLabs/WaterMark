@@ -160,12 +160,17 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
               </button>
             </div>
-            <p>AI can make mistakes. Check official warnings before you act.</p>
+            <p>
+              Unverified AI summary of browser lookups, not a server-checked flood report. Check official warnings
+              before you act.
+            </p>
             {isNoteOpen ? (
               <div id={`${id}-note`} className="assistant-note-more">
                 <p>
-                  Answers come from Google Gemini, which looks up the same sources as this map (GDACS, NOAA, Open-Meteo,
-                  NWS) and lists what it used. In an emergency call your local emergency number.
+                  Questions go to Google Gemini. Lookups run in this browser, using the same public sources as the map
+                  (GDACS, NOAA, Open-Meteo, NWS), and the model only sees what the browser sends back. The server does
+                  not check those figures. This is not a verified flood report. In an emergency call your local
+                  emergency number.
                 </p>
                 {Recognition ? <p>The mic uses your browser's speech service; in Chrome that sends audio to Google.</p> : null}
               </div>
@@ -177,7 +182,7 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
                 <div className="assistant-empty">
                   <p className="assistant-intro">
                     Ask about floods anywhere on Earth: how often a place floods, rain on the way, river levels, warnings in
-                    effect, or how to stay safe. When it looks up a place, it opens it on the map for you.
+                    effect, or how to stay safe. When a lookup names a place, the map opens it.
                   </p>
                   <p className="assistant-try">Try{placeName ? `, for ${placeName}` : ''}</p>
                   <ul className="assistant-suggestions">
@@ -191,7 +196,7 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
                   {m.role === 'user' ? <p>{m.text}</p> : <Reply text={m.text} />}
                   {m.used.length ? (
                     <details className="assistant-used">
-                      <summary>Data used ({m.used.length})</summary>
+                      <summary>Browser lookups ({m.used.length})</summary>
                       <ul>{m.used.map((u) => <li key={u}>{u}</li>)}</ul>
                     </details>
                   ) : null}

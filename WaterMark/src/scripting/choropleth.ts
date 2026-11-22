@@ -123,6 +123,41 @@ export function maskAround(region: Polygon | MultiPolygon): Feature<Polygon> {
   }
 }
 
+/** Where focus moves, with any selected square or spot cleared. An empty path is the whole world. */
+export interface FocusStep {
+  path: RegionPick[]
+  selection: null
+}
+
+/**
+ * Jump to a breadcrumb. Depth 0 is the world, 1 the country, then a state or county.
+ * Every jump clears the selected square, circle, or searched spot.
+ */
+export function focusAtDepth(path: readonly RegionPick[], depth: number): FocusStep {
+  const end = Math.max(0, Math.min(Math.floor(depth), path.length))
+  return { path: path.slice(0, end), selection: null }
+}
+
+/**
+ * One level up. A selected square returns to the county, province, or country around it
+ * (or straight to the world, if the spot had no region). A county returns to its state,
+ * a state or province to its country, and a country to the world.
+ */
+export function stepUpFocus(path: readonly RegionPick[], hasSelection: boolean): FocusStep {
+  if (hasSelection) return { path: path.slice(), selection: null }
+  return focusAtDepth(path, path.length - 1)
+}
+
+/** What the dark veil should do when the focused region changes. `clear` restores the colored world. */
+export function focusVeil(
+  prev: { level: string; k: string } | null,
+  next: { level: string; k: string } | null,
+): 'keep' | 'show' | 'clear' {
+  const same = (prev?.level ?? null) === (next?.level ?? null) && (prev?.k ?? null) === (next?.k ?? null)
+  if (same) return 'keep'
+  return next ? 'show' : 'clear'
+}
+
 /** The path from the world down to a newly clicked region, reusing the parents already known. */
 export function pathTo(pick: RegionPick, path: readonly RegionPick[], find: (level: RegionLevel, k: string) => RegionPick | null): RegionPick[] {
   const usa = () => path.find((p) => p.level === 'country' && p.props.k === 'USA') ?? find('country', 'USA')

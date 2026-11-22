@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { cellAt, cellBounds, cellIndex, countIn, howOften, parseGrid } from '../src/scripting/cells'
+import { cellAt, cellBounds, cellIndex, countIn, howOften, parseGrid, selectionBounds, selectionGrid, selectionStep, selectionStepForView } from '../src/scripting/cells'
 import { cellLegend } from '../src/scripting/choropleth'
 
 describe('flood grid', () => {
@@ -41,6 +41,20 @@ describe('flood grid', () => {
     expect(cellLegend([1, 1, 1, 1, 2])).toEqual([{ cls: 4, label: '1' }, { cls: 6, label: '2+' }])
     const rows = cellLegend([1, 1, 2, 3, 6])
     expect(rows.map((r) => r.label)).toEqual(['1', '2', '3–5', '6+'])
+  })
+  it('uses a smaller selection block up close without going below 0.05°', () => {
+    expect(selectionStep(0.5, 4)).toBe(0.5)
+    expect(selectionStep(0.5, 8)).toBe(0.25)
+    expect(selectionStep(0.5, 10)).toBe(0.125)
+    expect(selectionStep(0.5, 13)).toBe(0.0625)
+    expect(selectionStep(0.5, 15)).toBe(0.05)
+    expect(selectionStepForView([-80, 35, -70, 45], 4)).toBeNull()
+    expect(selectionStepForView([-80, 35, -70, 45], 10)).toBe(0.125)
+    expect(selectionStepForView([0, 40, 10, 50], 8)).toBe(0.5)
+    const bounds = selectionBounds([-77.86, 40.79], 0.05)
+    expect(bounds[2] - bounds[0]).toBeCloseTo(0.05, 6)
+    expect(selectionGrid([-77.2, 40.6, -77.0, 40.8], 0.1)?.length).toBeGreaterThan(2)
+    expect(selectionGrid([-100, 20, -60, 50], 0.05)).toBeNull()
   })
   it('ships both built grids', () => {
     for (const kind of ['us', 'world'] as const) {

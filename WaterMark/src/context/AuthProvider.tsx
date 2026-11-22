@@ -9,6 +9,7 @@ import {
   watchExpiry,
   type AuthAdapter,
   type AuthState,
+  type SignInCredential,
 } from '../services/auth/session.ts'
 
 /**
@@ -40,12 +41,12 @@ export function AuthProvider({ children, adapter = guestAdapter }: { children: R
     if (state.status === 'expired') adapter.signOut().catch(() => {})
   }, [state.status, adapter])
 
-  const signIn = useCallback(async (providerToken: string) => {
+  const signIn = useCallback(async (credential: SignInCredential) => {
     if (!adapter.canSignIn) return { ...GUEST, status: 'error', error: 'sign-in-disabled' } satisfies AuthState
     setState((s) => ({ ...s, status: 'loading', error: null }))
     let next: AuthState
     try {
-      next = evaluateSession(sanitizeState(await adapter.signIn(providerToken)))
+      next = evaluateSession(sanitizeState(await adapter.signIn(credential)))
     } catch {
       next = { ...GUEST, status: 'error', error: 'sign-in-failed' }
     }

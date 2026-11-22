@@ -82,11 +82,35 @@ export function fetchRiverHistory(center: LngLat, signal: AbortSignal): Promise<
 }
 
 export function fetchElevation([lon, lat]: LngLat, signal: AbortSignal): Promise<number | null> {
-  return shared(`elevation:${pointKey([lon, lat])}`, VISIT_TTL, async () => {
-    const q = new URLSearchParams({ latitude: lat.toFixed(4), longitude: lon.toFixed(4) })
+  return fetchElevations([[lon, lat]], signal).then((rows) => rows[0] ?? null)
+}
+
+/** Ground height for many points in one Copernicus DEM request. Null where the model has no value. */
+export function fetchElevations(points: readonly LngLat[], signal: AbortSignal): Promise<(number | null)[]> {
+  const key = points.map((p) => pointKey(p)).join(';')
+  return shared(`elevations:${key}`, VISIT_TTL, async () => {
+    const q = new URLSearchParams({
+      latitude: points.map(([, lat]) => lat.toFixed(4)).join(','),
+      longitude: points.map(([lon]) => lon.toFixed(4)).join(','),
+    })
     const j = await getJSON<{ elevation?: unknown }>(`${ENDPOINTS.elevation}?${q}`)
-    const v = Array.isArray(j.elevation) ? j.elevation[0] : null
+    if (!Array.isArray(j.elevation) || j.elevation.length !== points.length) throw new Error('Open-Meteo returned an unexpected elevation response.')
     markFetched('elevation')
-    return typeof v === 'number' && Number.isFinite(v) ? v : null
+    return j.elevation.map((v) => (typeof v === 'number' && Number.isFinite(v) ? v : null))
+  }, signal)
+}
+
+/**
+ * Coordinate of the nearest GloFAS river-model cell (about 5 km). This is the cell the flood API
+ * returned, not a surveyed channel or a shoreline.
+ */
+export function fetchNearestRiverCell(center: LngLat, signal: AbortSignal): Promise<{ lat: number; lon: number } | null> {
+  return shared(`river-cell:${pointKey(center)}`, VISIT_TTL, async () => {
+    const q = new URLSearchParams({ ...ll(center), forecast_days: '1', daily: 'river_discharge' })
+    const j = await getJSON<{ latitude?: unknown; longitude?: unknown }>(`${ENDPOINTS.flood}?${q}`)
+    markFetched('river')
+    if (typeof j.latitude !== 'number' || typeof j.longitude !== 'number') return null
+    if (!Number.isFinite(j.latitude) || !Number.isFinite(j.longitude)) return null
+    return { lat: j.latitude, lon: j.longitude }
   }, signal)
 }

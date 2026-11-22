@@ -28,8 +28,9 @@ function accountLabel(displayName: string | null | undefined) {
  * Floating glass navigation. Transparent over the hero, frosted once the page
  * scrolls (detected with an IntersectionObserver on a tiny sentinel at the top
  * of the document, not a scroll listener). The right side follows the sign-in
- * state: Log in / Sign up for guests, the account and Sign out when signed in,
- * and nothing while a stored session is being re-checked.
+ * state: Log in / Sign up for guests when sign-in is configured, the account
+ * and Sign out when signed in, and nothing while a stored session is being
+ * re-checked or when sign-in is not set up.
  */
 export function NavBar() {
   const sentinel = useRef<HTMLSpanElement>(null)
@@ -37,7 +38,7 @@ export function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { pathname } = useLocation()
   const onLanding = pathname === '/'
-  const { state, signOut } = useAuth()
+  const { state, canSignIn, signOut } = useAuth()
   const signedIn = state.status === 'signed-in'
   const checking = state.status === 'loading'
   const account = state.account?.displayName ?? ''
@@ -87,7 +88,7 @@ export function NavBar() {
                     <RollText text="Sign out" />
                   </Button>
                 </>
-              ) : checking ? null : (
+              ) : checking || !canSignIn ? null : (
                 <>
                   <Button label="Log in" variant="ghost" size="sm" href="/login" as={RouterLink}>
                     <RollText text="Log in" />
@@ -119,7 +120,7 @@ export function NavBar() {
                   <Button label={`Signed in as ${label}`} variant="secondary" href="/login" as={RouterLink} width="100%" />
                   <Button label="Sign out" variant="primary" width="100%" onClick={() => void signOut()} />
                 </>
-              ) : checking ? null : (
+              ) : checking || !canSignIn ? null : (
                 <>
                   <Button label="Log in" variant="secondary" href="/login" as={RouterLink} width="100%" />
                   <Button label="Sign up" variant="primary" href="/signup" as={RouterLink} width="100%" />

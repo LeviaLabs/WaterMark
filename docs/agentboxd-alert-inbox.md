@@ -67,7 +67,7 @@ USGS doesn't publish the WaterAlert email layout, so nothing depends on it beyon
 
 ```text
 supabase/functions/alert-inbox/{index,handler,gate,usgs,store}.ts
-supabase/migrations/20261122180000_agentboxd_alert_inbox.sql   new table + 3 RPCs (service_role only)
+supabase/migrations/20261122183000_agentboxd_alert_inbox.sql   new table + 3 RPCs (service_role only)
 supabase/tests/alert-inbox/inbox.test.ts                        26 tests
 WaterMark/src/services/emailAlerts.ts                           validated client; map can plot site lat/lon
 WaterMark/src/components/pages/AlertsPage.tsx                   /alerts

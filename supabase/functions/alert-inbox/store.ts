@@ -1,4 +1,4 @@
-// Postgres RPCs for the alert inbox (migration 20261122180000_agentboxd_alert_inbox.sql).
+// Postgres RPCs for the alert inbox (migration 20261122183000_agentboxd_alert_inbox.sql).
 // service_role only; the browser reads alerts through this function's GET /alerts, never the DB.
 import type { Decision } from './gate.ts'
 import type { SiteReading } from './usgs.ts'

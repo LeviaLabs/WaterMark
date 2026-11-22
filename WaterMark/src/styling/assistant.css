@@ -191,7 +191,7 @@
   display: grid;
   gap: 6px;
   padding: 0 18px 12px;
-  /* Room to read the conversation: the full notice shows only before the first question. */
+  /* Room to read the conversation: the longer notice folds behind "About these answers". */
   border-bottom: 1px solid var(--line);
   font-size: 0.78rem;
   line-height: 1.45;
@@ -536,4 +536,50 @@
   .assistant-input {
     font-size: 1rem;
   }
+}
+
+.assistant-note-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.assistant-note-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.assistant-note-toggle:hover,
+.assistant-note-toggle:focus-visible {
+  color: var(--text);
+}
+
+.assistant-note-toggle svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s ease;
+}
+
+.assistant-note-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.assistant-note-more {
+  display: grid;
+  gap: 6px;
 }

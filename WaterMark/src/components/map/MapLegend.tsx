@@ -45,13 +45,13 @@ export function MapLegend({ grid, index, year, onYearChange }: Props) {
   const meta = index.cells[grid]
   const isAll = year == null
   const rows = cellLegend(isAll ? meta.breaks : meta.yearBreaks)
-  const what = grid === 'us' ? 'Flood reports per square' : 'Floods per square'
+  const what = 'Floods per square'
   const sub = isAll
     ? `${meta.size}° squares · ${grid === 'us' ? 'NOAA' : 'GDACS'}, ${range[0]}–${range[1]}`
     : `${meta.size}° squares · ${grid === 'us' ? 'NOAA' : 'GDACS'}, in ${year} · same scale every year`
   const usStart = index.cells.us.years[0]
   const usNote = grid === 'world' && year != null && year < usStart
-    ? `US squares (NOAA reports) start in ${usStart}.`
+    ? `US squares (NOAA) start in ${usStart}.`
     : null
 
   const togglePlay = () => {

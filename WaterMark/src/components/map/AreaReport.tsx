@@ -10,6 +10,7 @@ import { RainOutlookChart, FlowChart, YearBars } from './Charts'
 import type { EvidenceKind } from '../../scripting/content/dataSources'
 import { fmtDate, fmtDepthIn, fmtDistance, fmtRadius, fmtRain, fmtTime, fmtUsd, pct, UNITS } from '../../scripting/format'
 import { countIn, howOften, type CellProps } from '../../scripting/cells'
+import { causeRows } from '../../scripting/causes'
 import type { CellMeta } from '../../services/floodHistory'
 import { nearestFlood, summarizeSensors } from '../../scripting/geo'
 import { touchesNYC } from '../../scripting/region'
@@ -109,7 +110,7 @@ const pending = (v: Coverable<unknown>) => (v === null ? <span className="report
 function CellRecord({ cell, meta, year }: { cell: CellProps; meta: CellMeta; year: number | null }) {
   const span = meta.years[1] - meta.years[0] + 1
   const isUS = cell.grid === 'us'
-  const unit = isUS ? 'flood reports' : 'floods'
+  const unit = 'floods'
   const [w, s0] = cell.bounds
   const lat = `${Math.abs(s0 + meta.size / 2).toFixed(2)}°${s0 >= 0 ? 'N' : 'S'}`
   const lon = `${Math.abs(w + meta.size / 2).toFixed(2)}°${w >= 0 ? 'E' : 'W'}`
@@ -122,7 +123,7 @@ function CellRecord({ cell, meta, year }: { cell: CellProps; meta: CellMeta; yea
           : <>No {unit} recorded in this square since {meta.years[0]}. That is not a sign it is safe: small and local floods often go unlisted.</>}
       </p>
       {year != null && year >= meta.years[0] && year <= meta.years[1] ? (
-        <Row k={`${isUS ? 'Flood reports' : 'Floods'} in ${year}`} v={countIn(cell, year).toLocaleString('en-US')} />
+        <Row k={`Floods in ${year}`} v={countIn(cell, year).toLocaleString('en-US')} />
       ) : null}
       {cell.e ? (
         <>
@@ -130,7 +131,10 @@ function CellRecord({ cell, meta, year }: { cell: CellProps; meta: CellMeta; yea
           <Row k="Worst year here" v={`${cell.wy} (${cell.wn.toLocaleString('en-US')})`} />
           {isUS ? (
             <>
-              <Row k="Deaths in these reports" v={cell.a.toLocaleString('en-US')} />
+              {causeRows(cell.causes).length ? (
+                <Row k="Main causes" v={causeRows(cell.causes).slice(0, 2).map((r) => `${r.short} ${r.count}`).join(' · ')} />
+              ) : null}
+              <Row k="Deaths in these floods" v={cell.a.toLocaleString('en-US')} />
               <Row k="Damage to property and crops" v={cell.b ? fmtUsd(cell.b) : 'None reported'} />
             </>
           ) : (
@@ -143,7 +147,8 @@ function CellRecord({ cell, meta, year }: { cell: CellProps; meta: CellMeta; yea
       ) : null}
       <p className="map-meta">
         A {meta.size}° square (about {Math.round(meta.size * 111 * Math.cos(((s0 + meta.size / 2) * Math.PI) / 180))} km across).
-        Counts {isUS ? 'NOAA Storm Events flood reports' : 'GDACS flood events'} by where they were reported to start, {meta.years[0]} to {meta.years[1]}.
+        Counts {isUS ? 'NOAA flood episodes (each storm once, however many reports it has here)' : 'GDACS flood events'} by
+        where they were reported, {meta.years[0]} to {meta.years[1]}.{isUS ? '' : ' GDACS does not record causes.'}
       </p>
     </section>
   )

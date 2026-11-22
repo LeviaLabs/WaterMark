@@ -2,10 +2,11 @@
 // reported point falls inside it (scripts/floods/build.py writes them as compact rows). Pure;
 // tested in tests/cells.test.ts.
 //
-//   US       0.5-degree squares (about 55 km), NOAA Storm Events flood reports, 2016-2025
+//   US       0.5-degree squares (about 55 km), NOAA Storm Events flood episodes, 2016-2025
 //   world    1-degree squares (about 110 km), GDACS flood events, 2001-2025 (US points left out)
 import type { Feature, FeatureCollection, Polygon } from 'geojson'
 import type { LngLat } from './types'
+import { decodeCauses } from './causes'
 
 export type GridKind = 'us' | 'world'
 
@@ -26,6 +27,8 @@ export interface CellProps {
   b: number
   /** [west, south, east, north] */
   bounds: [number, number, number, number]
+  /** US only: floods by cause (scripting/causes.ts). */
+  causes?: Record<string, number>
   /** Records in one year, as `y2019`; absent means none that year. Flat so map styles can read them. */
   [year: `y${number}`]: number
 }
@@ -78,6 +81,7 @@ export function parseGrid(raw: unknown, kind: GridKind): Grid {
         if (typeof off === 'number' && typeof count === 'number' && count > 0) props[`y${firstYear + off}`] = count
       }
     }
+    if (row[9] !== undefined) props.causes = decodeCauses(row[9])
     features.push({ type: 'Feature', properties: props, geometry: squareOf(bounds) })
   }
   const cells: FeatureCollection<Polygon, CellProps> = { type: 'FeatureCollection', features }

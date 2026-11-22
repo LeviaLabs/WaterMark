@@ -9,6 +9,7 @@ import { MetricSwitch, MonthBars, YearBars } from './Charts'
 import { busiestMonths } from '../../scripting/climate'
 import { howOften } from '../../scripting/cells'
 import { fmtUsd } from '../../scripting/format'
+import { causeRows } from '../../scripting/causes'
 import type { FloodHistoryIndex } from '../../services/floodHistory'
 import type { Loadable, RegionPick, RegionProps } from '../../scripting/types'
 
@@ -25,7 +26,7 @@ const EYEBROW: Record<RegionPick['level'], string> = { country: 'Country', admin
 const NEXT: Record<RegionPick['level'], string> = {
   country: 'Click a region on the map to see its own record.',
   admin1: 'Click inside it to pick a square: its own record, plus the rain and river forecast there.',
-  state: 'Click a county on the map to see its flood reports.',
+  state: 'Click a county on the map to see its own record.',
   county: 'Click inside it to pick a square: its own record, plus the forecasts, alerts and flood maps there.',
 }
 
@@ -36,7 +37,7 @@ interface MetricSeries { id: Metric; label: string; values: number[]; format: (v
 
 function metricsFor(p: RegionProps, isNoaa: boolean): MetricSeries[] {
   const count = (unit: string) => (v: number) => `${v.toLocaleString('en-US')} ${unit}`
-  const list: MetricSeries[] = [{ id: 'floods', label: isNoaa ? 'Reports' : 'Floods', values: p.y, format: count(isNoaa ? 'reports' : 'floods') }]
+  const list: MetricSeries[] = [{ id: 'floods', label: 'Floods', values: p.y, format: count('floods') }]
   if (isNoaa) {
     if (sum(p.d)) list.push({ id: 'deaths', label: 'Deaths', values: p.d!, format: count('deaths') })
     if (sum(p.i)) list.push({ id: 'injuries', label: 'Injuries', values: p.i!, format: count('injuries') })
@@ -45,6 +46,30 @@ function metricsFor(p: RegionProps, isNoaa: boolean): MetricSeries[] {
     list.push({ id: 'serious', label: 'Serious', values: p.x!, format: count('serious floods') })
   }
   return list
+}
+
+/** What caused the floods: one bar per cause, longest first. */
+export function CauseBars({ counts, total }: { counts: Record<string, number> | undefined; total: number }) {
+  const rows = causeRows(counts)
+  const max = rows[0]?.count || 1
+  return (
+    <section className="cause-block" aria-label="What caused them">
+      <p className="cause-title">What caused them</p>
+      <ul className="cause-list">
+        {rows.map((r) => (
+          <li key={r.id} className={`cause-row cause-row--${r.id}`}>
+            <span className="cause-label">{r.label}</span>
+            <span className="cause-count">{r.count.toLocaleString('en-US')}</span>
+            <span className="cause-bar" aria-hidden="true"><span style={{ width: `${(r.count / max) * 100}%` }} /></span>
+          </li>
+        ))}
+      </ul>
+      <p className="map-meta">
+        Of {total.toLocaleString('en-US')} floods. A flood with more than one cause (rain over a river and the sea, say)
+        counts under each. From NOAA's event type and flood-cause field.
+      </p>
+    </section>
+  )
 }
 
 export function RegionSummary({ region, index, status, year = null }: Props) {
@@ -76,7 +101,7 @@ export function RegionSummary({ region, index, status, year = null }: Props) {
   const { level, props: p } = region
   const meta = index?.[level]
   const isNoaa = level === 'state' || level === 'county'
-  const unit = isNoaa ? 'flood reports' : 'floods'
+  const unit = 'floods'
   const years = meta ? Array.from({ length: p.y.length }, (_, i) => meta.years[0] + i) : []
   const span = years.length || 1
   const worst = years.map((year, i) => ({ year, n: p.y[i] })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n || b.year - a.year).slice(0, 3)
@@ -111,7 +136,7 @@ export function RegionSummary({ region, index, status, year = null }: Props) {
       {year != null && meta ? (() => {
         const k = year - meta.years[0]
         if (k < 0 || k >= p.y.length) {
-          return <p className="region-year">No {isNoaa ? 'NOAA reports' : 'GDACS figures'} for {year} here: they start in {meta.years[0]}.</p>
+          return <p className="region-year">No {isNoaa ? 'NOAA figures' : 'GDACS figures'} for {year} here: they start in {meta.years[0]}.</p>
         }
         const extra = [
           isNoaa && p.d?.[k] ? `${p.d[k].toLocaleString('en-US')} ${p.d[k] === 1 ? 'death' : 'deaths'}` : null,
@@ -130,7 +155,7 @@ export function RegionSummary({ region, index, status, year = null }: Props) {
       {p.e ? (
         <div className="report-tiles">
           <p className="report-tile">
-            <span className="report-tile-label">{isNoaa ? 'Flood reports' : 'Floods recorded'}</span>
+            <span className="report-tile-label">Floods recorded</span>
             <span className="report-tile-value">{p.e.toLocaleString('en-US')}</span>
             <span className="report-tile-note">{howOften(p.e, span)}</span>
           </p>
@@ -179,9 +204,14 @@ export function RegionSummary({ region, index, status, year = null }: Props) {
         </section>
       ) : null}
 
+      {isNoaa && causeRows(p.c).length ? <CauseBars counts={p.c} total={p.e} /> : null}
+      {!isNoaa && p.e ? (
+        <p className="map-meta">Causes: GDACS does not record what caused each flood, so causes are shown for US floods only.</p>
+      ) : null}
+
       <p className="map-meta">
         {isNoaa
-          ? 'NOAA Storm Events Database: one report for each county or coastal zone a flood, flash flood, coastal or lakeshore flood touched, filed by National Weather Service offices, with the deaths, injuries and damage those reports list.'
+          ? 'NOAA Storm Events Database, filed by National Weather Service offices. A flood here is one NOAA flood episode: one weather system flooding the area, counted once however many county reports it produced. Deaths, injuries and damage are summed from those reports.'
           : level === 'admin1'
             ? 'GDACS flood archive (UN and European Commission), each event placed by its reported location, so a flood across several regions counts in one. GDACS lists floods large enough for international notice; local street flooding is not counted.'
             : 'GDACS flood archive (UN and European Commission). GDACS lists floods large enough for international notice and recorded about three times as many a year from 2019 on, so compare places rather than years.'}

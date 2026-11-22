@@ -63,6 +63,7 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
   const [draft, setDraft] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [readAloud, setReadAloud] = useState(loadReadAloud)
+  const [isNoteOpen, setIsNoteOpen] = useState(false)
   const recognizer = useRef<Recognizer | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const end = useRef<HTMLSpanElement>(null)
@@ -146,23 +147,28 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
             </button>
           </header>
           <div className="assistant-note">
-            {messages.length === 0 ? (
-              <>
+            <div className="assistant-note-bar">
+              {canSpeak ? (
+                <button type="button" role="switch" aria-checked={readAloud} className="assistant-switch" onClick={toggleReadAloud}>
+                  <span className="assistant-switch-track" aria-hidden="true"><span className="assistant-switch-thumb" /></span>
+                  Read answers aloud
+                </button>
+              ) : null}
+              <button type="button" className="assistant-note-toggle" aria-expanded={isNoteOpen} aria-controls={`${id}-note`}
+                onClick={() => setIsNoteOpen(!isNoteOpen)}>
+                About these answers
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+            </div>
+            <p>AI can make mistakes. Check official warnings before you act.</p>
+            {isNoteOpen ? (
+              <div id={`${id}-note`} className="assistant-note-more">
                 <p>
                   Answers come from Google Gemini, which looks up the same sources as this map (GDACS, NOAA, Open-Meteo,
-                  NWS) and lists what it used. AI can make mistakes: check official warnings before you act, and in an
-                  emergency call your local emergency number.
+                  NWS) and lists what it used. In an emergency call your local emergency number.
                 </p>
                 {Recognition ? <p>The mic uses your browser's speech service; in Chrome that sends audio to Google.</p> : null}
-              </>
-            ) : (
-              <p>AI can make mistakes. Check official warnings before you act.</p>
-            )}
-            {canSpeak ? (
-              <button type="button" role="switch" aria-checked={readAloud} className="assistant-switch" onClick={toggleReadAloud}>
-                <span className="assistant-switch-track" aria-hidden="true"><span className="assistant-switch-thumb" /></span>
-                Read answers aloud
-              </button>
+              </div>
             ) : null}
           </div>
           <ScrollArea className="assistant-scroll">

@@ -39,4 +39,15 @@ describe('built flood-history files', () => {
     const france = read('countries.json').features.find((f: { properties: { k: string } }) => f.properties.k === 'FRA')
     expect(france.properties.b[0]).toBeGreaterThan(-10)
   })
+  it('lists US flood causes in the same order as the build script', async () => {
+    const { CAUSE_IDS, causeRows, decodeCauses } = await import('../src/scripting/causes')
+    const i = JSON.parse(readFileSync('public/data/floods/index.json', 'utf8'))
+    expect(i.states.causes.map((c: string[]) => c[0])).toEqual(CAUSE_IDS)
+    expect(decodeCauses([0, 5, 7, 2, 99, 1])).toEqual({ rain: 5, sea: 2 })
+    expect(causeRows({ river: 3, rain: 9, made_up: 4 }).map((r) => r.id)).toEqual(['rain', 'river'])
+    // Every state's flood count is NOAA episodes, so no cause has more floods than the state.
+    for (const f of JSON.parse(readFileSync('public/data/floods/us-states.json', 'utf8')).features) {
+      for (const n of Object.values(f.properties.c ?? {})) expect(n as number).toBeLessThanOrEqual(f.properties.e)
+    }
+  })
 })

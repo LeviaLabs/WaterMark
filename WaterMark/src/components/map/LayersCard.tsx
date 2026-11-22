@@ -1,12 +1,14 @@
 import { Switch } from '@astryxdesign/core/Switch'
+import { Icon } from '../common/Icon'
 import type { GlobalFloodCollection, LayerId, LayerVisibility, Loadable } from '../../scripting/types'
 
-const LAYERS: { id: LayerId; label: string; swatch: string }[] = [
-  { id: 'rain', label: 'Rain falling now (NASA)', swatch: 'linear-gradient(90deg,#4fbf4f,#f2e23a,#e0362c)' },
-  { id: 'floods', label: 'Floods worldwide (GDACS)', swatch: 'conic-gradient(#3d8b57 0 33%,#e07b1f 0 66%,#c2372b 0)' },
-  { id: 'sensors', label: 'FloodNet sensors', swatch: '#e0453a' },
-  { id: 'storm', label: 'Heavy-rain flooding (NYC model)', swatch: '#2c7a86' },
-  { id: 'fema', label: 'FEMA flood zones', swatch: '#8fb8de' },
+// Swatch colors live in map-page.css (.layer-swatch--<id>) so they follow the theme tokens.
+const LAYERS: { id: LayerId; label: string }[] = [
+  { id: 'rain', label: 'Rain falling now (NASA)' },
+  { id: 'floods', label: 'Floods worldwide (GDACS)' },
+  { id: 'sensors', label: 'FloodNet sensors' },
+  { id: 'storm', label: 'Heavy-rain flooding (NYC model)' },
+  { id: 'fema', label: 'FEMA flood zones' },
 ]
 
 interface Props {
@@ -29,12 +31,12 @@ export function LayersCard({ layers, onToggle, floods, stormNote }: Props) {
   return (
     // A <details> so phones can fold the card away; it starts open on wider screens.
     <details className="map-card layers-card" open={startsOpen}>
-      <summary className="layers-title">Layers</summary>
+      <summary className="layers-title"><Icon name="layers" size={18} />Layers</summary>
       <ul className="layers-list">
         {LAYERS.map((l) => (
           <li key={l.id}>
             <Switch size="sm" label={l.label} value={layers[l.id]} onChange={(on) => onToggle(l.id, on)}
-              labelIcon={<span className="layer-swatch" style={{ background: l.swatch }} />} />
+              labelIcon={<span className={`layer-swatch layer-swatch--${l.id}`} />} />
           </li>
         ))}
       </ul>

@@ -1,11 +1,16 @@
-// Map colors per color scheme. The dark map brightens data colors so they stay visible at night.
+// Map colors per color scheme. MapLibre paints with literal colors, not CSS variables, so these
+// copy values from styling/tokens.css: --kind-scenario for the stormwater model, --kind-official for
+// flooded sensors, --text and --bg-raised for outlines, and the sun gold (--sun-edge) for the selection
+// so it stays distinct from the cyan accent and the stormwater fill. Keep them in sync with tokens.css.
 import type { ColorScheme } from './types'
 
 export interface MapPalette {
   style: string
   selectionLine: string
+  selectionFill: string
   selectionFillOpacity: number
   sensorStroke: string
+  sensorFlooded: string
   hollow: string
   storm: [nuisance: string, deep: string]
   stormOpacity: [nuisance: number, deep: number]
@@ -14,18 +19,19 @@ export interface MapPalette {
 export const MAP_PALETTES: Record<ColorScheme, MapPalette> = {
   light: {
     style: 'https://tiles.openfreemap.org/styles/positron',
-    selectionLine: '#d9a10f', selectionFillOpacity: 0.1, sensorStroke: '#12324a', hollow: '#ffffff',
-    storm: ['#2c7a86', '#1b5560'], stormOpacity: [0.4, 0.65],
+    selectionLine: '#d99a1e', selectionFill: '#ffc65c', selectionFillOpacity: 0.14,
+    sensorStroke: '#062538', sensorFlooded: '#c2410c', hollow: '#ffffff',
+    storm: ['#0369a1', '#08425f'], stormOpacity: [0.35, 0.6],
   },
   dark: {
     style: 'https://tiles.openfreemap.org/styles/dark',
-    selectionLine: '#f5c437', selectionFillOpacity: 0.04, sensorStroke: '#e8edef', hollow: '#14212b',
-    storm: ['#3fb7c9', '#8be3ef'], stormOpacity: [0.45, 0.75],
+    selectionLine: '#ffc65c', selectionFill: '#ffc65c', selectionFillOpacity: 0.06,
+    sensorStroke: '#e7f3f9', sensorFlooded: '#ff8f6b', hollow: '#082036',
+    storm: ['#45c8f5', '#a5e6ff'], stormOpacity: [0.4, 0.7],
   },
 }
 
 export const ALERT_COLOR = { Red: '#c2372b', Orange: '#e07b1f', Green: '#3d8b57' } as const
-export const SENSOR_FLOODED = '#e0453a'
 
 export const ZONE_TEXT: Record<string, string> = {
   AE: 'High risk. A 1% chance of flooding each year; flood insurance is required for most mortgages.',

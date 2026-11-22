@@ -1,6 +1,8 @@
 // The "Area" tab: every number shown names its source and fetch time, and every empty or failed
 // state says what it means (no sensor is not the same as no flooding).
 import type { ReactNode } from 'react'
+import { EvidenceTag } from '../common/EvidenceTag'
+import type { EvidenceKind } from '../../scripting/content/dataSources'
 import { fmtDate, fmtMiles, fmtRadius, fmtTime, pct, weekday } from '../../scripting/format'
 import { nearestFlood, summarizeSensors } from '../../scripting/geo'
 import { HIGH_RISK_ZONES, ZONE_TEXT } from '../../scripting/mapTheme'
@@ -25,8 +27,17 @@ const Failed = ({ what }: { what: string }) => (
 const Fetched = ({ from }: { from: string }) => <p className="map-meta">From {from}, fetched {fmtTime(new Date())}</p>
 const Empty = ({ children }: { children: ReactNode }) => <p className="panel-empty">{children}</p>
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="report-section"><h3 className="report-title">{title}</h3>{children}</section>
+// Every section names its kind of evidence with the same pill the landing page uses.
+function Section({ title, kind, children }: { title: string; kind?: EvidenceKind; children: ReactNode }) {
+  return (
+    <section className="report-section">
+      <header className="report-head">
+        <h3 className="report-title">{title}</h3>
+        {kind ? <EvidenceTag kind={kind} /> : null}
+      </header>
+      {children}
+    </section>
+  )
 }
 
 export function AreaReport({ selection, report, sensors, floods, claims }: Props) {
@@ -44,7 +55,7 @@ export function AreaReport({ selection, report, sensors, floods, claims }: Props
     <>
       <p className="map-meta">Circle of {fmtRadius(radiusKm)} radius around {center[1].toFixed(4)}, {center[0].toFixed(4)}</p>
 
-      <Section title="Street flooding measured by sensors">
+      <Section title="Street flooding measured by sensors" kind="observed">
         {sensors === 'error' ? <Failed what="FloodNet sensors" /> : sensors === null ? <Loading /> : !sensorSummary ? (
           <Empty>No FloodNet sensors in this area. Sensors only cover parts of NYC, so no sensor does not mean no flooding.</Empty>
         ) : (
@@ -59,7 +70,7 @@ export function AreaReport({ selection, report, sensors, floods, claims }: Props
         {sensors && sensors !== 'error' ? <Fetched from="FloodNet NYC" /> : null}
       </Section>
 
-      <Section title="Nearest reported flood">
+      <Section title="Nearest reported flood" kind="historical">
         {floods === 'error' ? <Failed what="worldwide flood reports" /> : floods === null ? <Loading /> : !near ? (
           <Empty>No floods reported worldwide in the past 30 days.</Empty>
         ) : (
@@ -76,7 +87,7 @@ export function AreaReport({ selection, report, sensors, floods, claims }: Props
         )}
       </Section>
 
-      <Section title="Heavy-rain flood model">
+      <Section title="Heavy-rain flood model" kind="scenario">
         {s.storm === null ? <Loading /> : s.storm === 'error' ? <Failed what="the NYC stormwater model" /> : s.storm.none ? (
           <Empty>No modeled heavy-rain flooding in this circle. The model covers New York City only.</Empty>
         ) : (
@@ -90,7 +101,7 @@ export function AreaReport({ selection, report, sensors, floods, claims }: Props
         )}
       </Section>
 
-      <Section title="FEMA flood zone at the center">
+      <Section title="FEMA flood zone at the center" kind="reference">
         {s.zone === null ? <Loading /> : s.zone === 'error' ? <Failed what="FEMA flood zones" /> : s.zone === 'none' ? (
           <Empty>No FEMA flood zone is mapped at this point. FEMA maps cover the US only.</Empty>
         ) : (
@@ -102,13 +113,13 @@ export function AreaReport({ selection, report, sensors, floods, claims }: Props
         )}
       </Section>
 
-      <Section title="Rain in the next 3 days">
+      <Section title="Rain in the next 3 days" kind="forecast">
         {s.rain === null ? <Loading /> : s.rain === 'error' ? <Failed what="the rain forecast" /> : (
           <RainBars rain={s.rain} />
         )}
       </Section>
 
-      <Section title="Nearest river, next 7 days">
+      <Section title="Nearest river, next 7 days" kind="modeled">
         {s.river === null ? <Loading /> : s.river === 'error' ? <Failed what="the river forecast" /> : !s.river.river_discharge.some((x) => x != null) ? (
           <Empty>No modeled river near this point.</Empty>
         ) : (
@@ -116,7 +127,7 @@ export function AreaReport({ selection, report, sensors, floods, claims }: Props
         )}
       </Section>
 
-      <Section title="Past flood insurance claims">
+      <Section title="Past flood insurance claims" kind="historical">
         {claims === undefined || s.zip === null ? <Loading /> : claims === null ? (
           <Empty>Claim history isn't loaded. Run scripts/watermark_data.py and copy its summary.json to WaterMark/public/data/.</Empty>
         ) : !hood ? (

@@ -1,3 +1,4 @@
+import { EvidenceTag } from '../common/EvidenceTag'
 import { fmtTime } from '../../scripting/format'
 import type { Loadable, WeatherAlert } from '../../scripting/types'
 
@@ -20,8 +21,8 @@ export function AlertsList({ alerts }: { alerts: Loadable<WeatherAlert[]> }) {
       {alerts.map((a, i) => {
         const until = a.ends || a.expires
         return (
-          <article key={`${a.event}-${i}`} className="callout callout-alert">
-            <strong>{a.event}</strong>
+          <article key={`${a.event}-${i}`} className="callout callout-alert alert-item">
+            <span className="alert-head"><strong>{a.event}</strong><EvidenceTag kind="official" /></span>
             {a.headline ? <p>{a.headline}</p> : null}
             <p className="map-meta">Until {until ? fmtTime(new Date(until)) : 'further notice'}</p>
             {a.instruction ? <p>{a.instruction}</p> : null}

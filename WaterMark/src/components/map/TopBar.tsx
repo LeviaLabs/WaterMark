@@ -1,11 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
 import { Button } from '@astryxdesign/core/Button'
-import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl'
-import { Wordmark } from '../brand/Logo'
-import { CircleAreaIcon, PanelIcon, SearchIcon } from './icons'
-import { useColorScheme } from '../../hooks/useColorScheme'
-import type { ColorScheme } from '../../scripting/types'
+import { Icon } from '../common/Icon'
+import { Logo } from '../common/Logo'
+import { ThemeToggle } from '../layout/ThemeToggle'
+import { CircleAreaIcon, PanelIcon } from './icons'
 
 interface Props {
   isDrawing: boolean
@@ -16,8 +14,8 @@ interface Props {
   onReopen: () => void
 }
 
+/** Floating top bar on /map: the site logo (links home), place search, the circle tool and the theme toggle. */
 export function TopBar({ isDrawing, onToggleDraw, onSearch, isSearching, showReopen, onReopen }: Props) {
-  const { scheme, setScheme } = useColorScheme()
   const [text, setText] = useState('')
 
   const submit = (e: FormEvent) => {
@@ -28,9 +26,9 @@ export function TopBar({ isDrawing, onToggleDraw, onSearch, isSearching, showReo
 
   return (
     <header className="map-topbar">
-      <Link to="/" className="map-card map-brand" aria-label="Watermark home"><Wordmark /></Link>
+      <span className="map-card map-brand"><Logo /></span>
       <form className="map-card map-search" role="search" onSubmit={submit}>
-        <SearchIcon />
+        <Icon name="search" size={18} />
         <label htmlFor="map-search-input" className="visually-hidden">Search for a place</label>
         <input id="map-search-input" className="map-search-input" value={text} onChange={(e) => setText(e.target.value)}
           placeholder="Search a ZIP code, neighborhood or address" autoComplete="off" />
@@ -41,12 +39,7 @@ export function TopBar({ isDrawing, onToggleDraw, onSearch, isSearching, showReo
           <Button variant="primary" size="lg" icon={<CircleAreaIcon />}
             label={isDrawing ? 'Cancel circle' : 'Circle an area'} onClick={onToggleDraw} />
         </span>
-        <span className="map-card map-segment">
-          <SegmentedControl label="Map colors" value={scheme} onChange={(v) => setScheme(v as ColorScheme)}>
-            <SegmentedControlItem value="light" label="Light" />
-            <SegmentedControlItem value="dark" label="Dark" />
-          </SegmentedControl>
-        </span>
+        <span className="map-card map-theme"><ThemeToggle /></span>
         {showReopen ? (
           <span className="map-card">
             <Button variant="ghost" size="lg" icon={<PanelIcon />} label="Show data panel" onClick={onReopen} />

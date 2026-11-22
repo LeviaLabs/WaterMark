@@ -1,8 +1,9 @@
-// Floating data panel: drag it by the yellow gauge header, stow it to an edge tab, or close it.
+// Floating data panel: drag it by its header, stow it to an edge tab, or close it.
 import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { IconButton } from '@astryxdesign/core/IconButton'
 import { Tab, TabList } from '@astryxdesign/core/TabList'
-import { CloseIcon, StowIcon } from './icons'
+import { Icon } from '../common/Icon'
+import { StowIcon } from './icons'
 import '../../styling/data-panel.css'
 
 type TabId = 'area' | 'alerts' | 'sources'
@@ -30,15 +31,16 @@ interface Props {
 export function DataPanel({ title, alertCount, panelRef, style, handleProps, onStow, onClose, area, alerts, sources }: Props) {
   const [tab, setTab] = useState<TabId>('area')
   return (
-    <aside ref={panelRef} className="data-panel" style={style} aria-label="Area data">
+    <aside ref={panelRef} className="map-card data-panel" style={style} aria-label="Area data">
       <header className="panel-head">
         <div className="panel-handle" tabIndex={0} {...handleProps}
           aria-label="Data panel header. Drag, or use the arrow keys, to move it. Double-click to reset its position.">
+          <p className="panel-eyebrow">Area data</p>
           <h2 className="panel-title">{title}</h2>
         </div>
         <span className="panel-actions">
           <IconButton variant="ghost" size="sm" label="Stow panel to the edge" icon={<StowIcon />} onClick={onStow} />
-          <IconButton variant="ghost" size="sm" label="Close panel" icon={<CloseIcon />} onClick={onClose} />
+          <IconButton variant="ghost" size="sm" label="Close panel" icon={<Icon name="close" size={18} />} onClick={onClose} />
         </span>
       </header>
       <nav className="panel-tabs">

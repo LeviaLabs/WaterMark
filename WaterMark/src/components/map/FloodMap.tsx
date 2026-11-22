@@ -9,7 +9,7 @@ import { ENDPOINTS } from '../../services/endpoints'
 import { fetchStormInView } from '../../services/stormwater'
 import { isAbort } from '../../services/http'
 import { markFetched } from '../../scripting/freshness'
-import { MAP_PALETTES, SENSOR_FLOODED } from '../../scripting/mapTheme'
+import { MAP_PALETTES } from '../../scripting/mapTheme'
 import { fmtDate } from '../../scripting/format'
 import type {
   ColorScheme, GlobalFloodCollection, LayerId, LayerVisibility, Loadable, LngLat, SensorCollection,
@@ -100,14 +100,14 @@ export function FloodMap(props: Props) {
       } })
 
       map.addSource('sel', { type: 'geojson', data: p.circle ?? EMPTY })
-      map.addLayer({ id: 'sel-fill', type: 'fill', source: 'sel', paint: { 'fill-color': '#f0b81c', 'fill-opacity': t.selectionFillOpacity } })
+      map.addLayer({ id: 'sel-fill', type: 'fill', source: 'sel', paint: { 'fill-color': t.selectionFill, 'fill-opacity': t.selectionFillOpacity } })
       map.addLayer({ id: 'sel-line', type: 'line', source: 'sel',
         paint: { 'line-color': t.selectionLine, 'line-width': 3, 'line-dasharray': [2, 1.4] } })
 
       map.addSource('sensors', { type: 'geojson', data: data(p.sensors), attribution: 'Sensors: FloodNet NYC' })
       map.addLayer({ id: 'sensors', type: 'circle', source: 'sensors', layout: { visibility: vis('sensors') }, paint: {
         'circle-radius': ['interpolate', ['linear'], ['coalesce', ['get', 'events'], 0], 0, 4, 10, 6, 50, 9, 150, 13],
-        'circle-color': ['case', ['>', ['coalesce', ['get', 'events'], 0], 0], SENSOR_FLOODED, t.hollow],
+        'circle-color': ['case', ['>', ['coalesce', ['get', 'events'], 0], 0], t.sensorFlooded, t.hollow],
         'circle-stroke-color': t.sensorStroke, 'circle-stroke-width': 1.5,
       } })
 

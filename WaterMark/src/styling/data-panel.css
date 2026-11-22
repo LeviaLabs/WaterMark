@@ -1,78 +1,304 @@
-@import './tokens.css';
+/*
+ * The floating data panel on /map. It reuses the map card surface
+ * (map-page.css); the header keeps a thin depth-gauge tick line, drawn in the
+ * site accent, as a nod to the flood staff gauges on piers and seawalls.
+ */
 
 .data-panel {
-  position: absolute; z-index: 6; top: 80px; right: 16px; width: 400px; max-height: calc(100% - 112px);
-  display: flex; flex-direction: column; overflow: hidden;
-  background: var(--wm-surface); border-radius: var(--wm-radius-m); box-shadow: var(--wm-shadow);
+  position: absolute;
+  z-index: 6;
+  top: 84px;
+  right: var(--map-gap);
+  display: flex;
+  flex-direction: column;
+  width: 400px;
+  max-height: calc(100% - 116px);
+  overflow: hidden;
 }
 
-/* Yellow staff-gauge header: minor ticks every 10px, a foot mark every 50px. */
+/* Opaque, unlike the smaller cards: long text must not pick up street labels from behind.
+   Two classes so it wins over .map-card whichever stylesheet loads last. */
+.map-card.data-panel {
+  background: var(--bg-raised);
+}
+
+/* Slide the zoom buttons and attribution out from under the open panel. */
+@media (min-width: 701px) {
+  .map-page:has(.data-panel) .maplibregl-ctrl-bottom-right {
+    right: calc(400px + 2 * var(--map-gap));
+  }
+
+  .map-page:has(.data-panel) .maplibregl-ctrl-attrib {
+    max-width: calc(100vw - 760px - 5 * var(--map-gap));
+  }
+}
+
 .panel-head {
-  display: flex; align-items: stretch; color: var(--wm-gauge-ink);
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  padding-bottom: 12px;
   background:
-    repeating-linear-gradient(to right, var(--wm-gauge-ink) 0 2px, transparent 2px 10px) bottom / 100% 6px no-repeat,
-    repeating-linear-gradient(to right, var(--wm-gauge-ink) 0 2px, transparent 2px 50px) bottom / 100% 12px no-repeat,
-    var(--wm-gauge);
+    repeating-linear-gradient(to right, var(--accent) 0 1.5px, transparent 1.5px 10px) bottom / 100% 5px no-repeat,
+    repeating-linear-gradient(to right, var(--accent) 0 1.5px, transparent 1.5px 50px) bottom / 100% 10px no-repeat,
+    linear-gradient(180deg, var(--accent-soft), transparent);
 }
+
 .panel-handle {
-  flex: 1; min-width: 0; padding: 14px 16px 22px; cursor: grab; touch-action: none; user-select: none;
+  flex: 1;
+  min-width: 0;
+  padding: 14px 18px 6px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
-.panel-handle:active { cursor: grabbing; }
-.panel-handle:focus-visible { outline: 3px solid var(--wm-gauge-ink); outline-offset: -3px; }
+
+.panel-handle:active {
+  cursor: grabbing;
+}
+
+.panel-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -4px;
+  border-radius: var(--radius-sm);
+}
+
+.panel-eyebrow {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
 .panel-title {
-  margin: 0; font-family: var(--wm-font-display); font-weight: 700; font-size: 22px; line-height: 1.15;
-  color: var(--wm-gauge-ink); overflow-wrap: anywhere;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
-.panel-actions { display: flex; align-items: flex-start; gap: 2px; padding: 10px 8px 0 0; color: var(--wm-gauge-ink); }
-/* Astryx ghost buttons inherit the ink color on yellow in both schemes */
-.panel-actions button { color: var(--wm-gauge-ink); }
 
-.panel-tabs { padding: 6px 10px 0; border-bottom: 1px solid var(--wm-line); }
-.panel-body { overflow: auto; padding: 14px 18px 20px; overscroll-behavior: contain; }
+.panel-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 8px 0 0;
+  color: var(--text-muted);
+}
 
-.report-section + .report-section { margin-top: 18px; }
-.report-title { margin: 0 0 6px; font-family: var(--wm-font-display); font-weight: 700; font-size: 18px; line-height: 1.2; }
-.report-text { margin: 6px 0 0; font-size: 15px; line-height: 1.5; }
-.panel-empty { margin: 0; font-size: 15px; line-height: 1.5; color: var(--wm-ink-2); }
+.panel-tabs {
+  padding: 4px 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-body {
+  padding: 14px 18px 22px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* ---- Report sections ---- */
+
+.report-section {
+  padding-top: 18px;
+}
+
+.report-section + .report-section {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.report-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+}
+
+.report-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.report-text {
+  margin: 6px 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.panel-empty {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
 .stat-row {
-  display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 6px 0;
-  border-bottom: 1px solid var(--wm-line); font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9375rem;
+  color: var(--text-muted);
 }
-.report-stat-value { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
-.callout { margin: 8px 0 0; padding: 10px 12px; border-radius: var(--wm-radius-xs); font-size: 15px; line-height: 1.5; }
-.callout p { margin: 4px 0 0; }
-.callout strong { display: block; }
-.callout-alert { border-left: 4px solid var(--wm-surge); background: var(--wm-alert-bg); }
-.callout-info { border-left: 4px solid var(--wm-tide); background: var(--wm-ok-bg); }
-.callout a, .panel-body .map-meta a { color: var(--wm-tide-deep); }
 
-.rain-bars { display: flex; align-items: flex-end; gap: 4px; height: 64px; margin-top: 6px; }
-.rain-bar { flex: 1; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--wm-tide); }
-.rain-bar-labels { display: flex; gap: 4px; font-size: 12px; color: var(--wm-ink-2); }
-.rain-bar-labels span { flex: 1; text-align: center; }
+.report-stat-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text);
+}
 
-/* Stowed: the panel shrinks to a gauge tab on the right edge */
+.callout {
+  margin: 8px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.callout p {
+  margin: 4px 0 0;
+}
+
+.callout strong {
+  display: block;
+}
+
+.callout-alert {
+  border: 1px solid color-mix(in srgb, var(--kind-official) 40%, transparent);
+  border-left: 4px solid var(--kind-official);
+  background: color-mix(in srgb, var(--kind-official) 10%, transparent);
+}
+
+.callout-info {
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+.callout a,
+.panel-body .map-meta a {
+  color: var(--accent);
+}
+
+.alert-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.alert-item + .alert-item {
+  margin-top: 12px;
+}
+
+/* ---- 3-day rain bars ---- */
+
+.rain-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 64px;
+  margin-top: 6px;
+}
+
+.rain-bar {
+  flex: 1;
+  min-height: 2px;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+}
+
+.rain-bar-labels {
+  display: flex;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+}
+
+.rain-bar-labels span {
+  flex: 1;
+  text-align: center;
+}
+
+/* ---- Stowed: the panel shrinks to a tab on the right edge ---- */
+
 .stow-tab {
-  position: absolute; z-index: 6; right: 0; top: 38%; width: 44px; height: 180px; cursor: pointer;
-  display: grid; place-items: center; color: var(--wm-gauge-ink);
-  border: 2px solid var(--wm-gauge-ink); border-right: 0; border-radius: var(--wm-radius-m) 0 0 var(--wm-radius-m);
-  box-shadow: var(--wm-shadow);
+  position: absolute;
+  z-index: 6;
+  top: 38%;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 180px;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-right: 0;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   background:
-    repeating-linear-gradient(to top, var(--wm-gauge-ink) 0 2px, transparent 2px 12px) left / 10px 100% no-repeat,
-    repeating-linear-gradient(to top, var(--wm-gauge-ink) 0 2px, transparent 2px 60px) left / 20px 100% no-repeat,
-    var(--wm-gauge);
-}
-.stow-tab:focus-visible { outline: 3px solid var(--wm-ink); outline-offset: 2px; }
-.stow-tab span {
-  writing-mode: vertical-rl; transform: rotate(180deg); padding-left: 8px;
-  font-family: var(--wm-font-display); font-weight: 700; font-size: 16px;
+    repeating-linear-gradient(to top, var(--accent) 0 1.5px, transparent 1.5px 12px) left / 8px 100% no-repeat,
+    repeating-linear-gradient(to top, var(--accent) 0 1.5px, transparent 1.5px 60px) left / 16px 100% no-repeat,
+    var(--map-surface);
+  box-shadow: var(--glass-shadow);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.3s var(--ease-out);
 }
 
-/* Phones: a bottom sheet instead of a floating window */
+.stow-tab:hover {
+  transform: translateX(-3px);
+}
+
+.stow-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.stow-tab span {
+  padding-left: 8px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* ---- Phones: a bottom sheet instead of a floating window ---- */
+
 @media (max-width: 700px) {
   .data-panel {
-    left: 0 !important; right: 0 !important; top: auto !important; bottom: 0; width: auto; max-height: 55%;
-    border-radius: var(--wm-radius-m) var(--wm-radius-m) 0 0;
+    top: auto !important;
+    right: 0 !important;
+    bottom: 0;
+    left: 0 !important;
+    width: auto;
+    max-height: 55%;
+    border-bottom: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
-  .panel-handle { cursor: default; }
+
+  .panel-handle {
+    cursor: default;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stow-tab {
+    transition: none;
+  }
 }

@@ -160,17 +160,14 @@ export function Assistant({ isOpen, onOpenChange, placeName, isUS, getContext, s
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
               </button>
             </div>
-            <p>
-              Unverified AI summary of browser lookups, not a server-checked flood report. Check official warnings
-              before you act.
-            </p>
+            <p>Unverified AI summary. Check official warnings before you act.</p>
             {isNoteOpen ? (
               <div id={`${id}-note`} className="assistant-note-more">
                 <p>
                   Questions go to Google Gemini. Lookups run in this browser, using the same public sources as the map
                   (GDACS, NOAA, Open-Meteo, NWS), and the model only sees what the browser sends back. The server does
-                  not check those figures. This is not a verified flood report. In an emergency call your local
-                  emergency number.
+                  not check those figures. This is not a verified flood report. Check official warnings before you act,
+                  and in an emergency call your local emergency number.
                 </p>
                 {Recognition ? <p>The mic uses your browser's speech service; in Chrome that sends audio to Google.</p> : null}
               </div>

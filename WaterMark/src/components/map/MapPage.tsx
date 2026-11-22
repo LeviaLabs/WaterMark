@@ -108,10 +108,9 @@ export default function MapPage() {
   // The time slider: one year of the flood squares, or all years (null). A year the shown grid has
   // no data for (NOAA starts in 2016) falls back to all years when you focus the US.
   const [pickedYear, setPickedYear] = useState<number | null>(null)
-  // The legend follows the focused country. A US spot with no country focused still uses the NOAA
-  // grid for the responder view, which ranks the squares around that spot.
-  const legendGrid = path[0]?.props.k === 'USA' ? 'us' : 'world'
-  const yearRange = loaded.index?.cells[legendGrid].years
+  // NOAA squares when the US is focused or the selected spot is in the US; GDACS otherwise.
+  const gridKind = path[0]?.props.k === 'USA' || (selection != null && mayBeUS(selection.center)) ? 'us' : 'world'
+  const yearRange = loaded.index?.cells[gridKind].years
   const year = pickedYear != null && yearRange && (pickedYear < yearRange[0] || pickedYear > yearRange[1]) ? null : pickedYear
   const history = useMemo(() => ({ ...loaded, year }), [loaded, year])
   const region = path.at(-1) ?? null
@@ -126,9 +125,8 @@ export default function MapPage() {
   const { report, retry } = useAreaReport(selection)
   const schoolSamples = usePlaceSamples(selection?.center ?? null, [SCHOOL_SAMPLE_KM], role === 'school' && selection != null)
   const carSamples = usePlaceSamples(selection?.center ?? null, CAR_RINGS_KM, carOn && selection != null)
-  const responderGrid = path[0]?.props.k === 'USA' || (selection != null && mayBeUS(selection.center)) ? 'us' : 'world'
   const responder = useResponderModel(
-    history.grids[responderGrid], history.index?.cells[responderGrid] ?? null, region, selection, report,
+    history.grids[gridKind], history.index?.cells[gridKind] ?? null, region, selection, report,
     sensors && sensors !== 'error' ? sensors : null,
     floods && floods !== 'error' ? floods : null,
   )
@@ -402,7 +400,7 @@ export default function MapPage() {
       <RolePicker role={role} onChange={onRole} />
       <LayersCard layers={layers} onToggle={showOverlay}
         floods={floods} stormNote={stormNote} isOpen={isLayersOpen} onOpenChange={onLayersOpenChange}
-        legend={isLayersOpen || view.zoom >= 12 ? null : <MapLegend grid={legendGrid} index={history.index} year={year} onYearChange={setPickedYear} />} />
+        legend={isLayersOpen || view.zoom >= 12 ? null : <MapLegend grid={gridKind} index={history.index} year={year} onYearChange={setPickedYear} />} />
       {path.length || selection ? (
         <nav className="map-crumbs" aria-label="Map focus">
           <button type="button" className="map-crumb map-crumb--back" onClick={stepBack} aria-label={backLabel} aria-keyshortcuts="Escape">

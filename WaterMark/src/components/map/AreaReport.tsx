@@ -185,10 +185,7 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
 
   return (
     <RetryContext.Provider value={onRetry}>
-      {selection.cell && cellMeta ? (
-        <CellRecord cell={selection.cell} meta={cellMeta} year={year}
-          finer={radiusKm * 2 < cellWidthKm(selection.cell.bounds) * 0.75} />
-      ) : null}
+      {selection.cell && cellMeta ? <CellRecord cell={selection.cell} meta={cellMeta} year={year} finer={radiusKm * 2 < cellWidthKm(selection.cell.bounds) * 0.75} /> : null}
       <p className="map-meta report-where">
         {selection.cell ? 'Forecasts and history at the middle of the block you picked' : <>{center[1].toFixed(4)}, {center[0].toFixed(4)} · circle of {fmtRadius(radiusKm, UNITS)} radius</>}
         {ready(s.elevation) && s.elevation != null ? <> · {height(s.elevation)} above sea level</> : null}

@@ -430,6 +430,10 @@ verify_jwt = false
 # Public environmental reads; all database writes remain server-only.
 [functions.watermark-v1]
 verify_jwt = false
+
+# The flood assistant (functions/assistant): public, CORS-limited like watermark-v1.
+[functions.assistant]
+verify_jwt = false
 # Directory under `supabase/` where declarative files are written.
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting. When omitted, SQL is

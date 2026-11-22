@@ -1,0 +1,200 @@
+/* Flood outlook, top of a selected place's panel (components/map/FloodOutlook.tsx).
+   Status colors are the --status-* tokens, always with a text label beside them. */
+.outlook {
+  --status: var(--status-unknown);
+  margin: 0 0 18px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--map-panel-line);
+  border-left: 4px solid var(--status);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--status) 7%, transparent);
+}
+
+.outlook--warning { --status: var(--status-warning); }
+.outlook--watch { --status: var(--status-watch); }
+.outlook--elevated { --status: var(--status-elevated); }
+.outlook--quiet { --status: var(--status-quiet); }
+
+.outlook-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.outlook-eyebrow {
+  margin: 0;
+  font-family: var(--font-map-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--map-ink-muted);
+}
+
+.outlook-level {
+  --status: var(--status-unknown);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--status) 45%, transparent);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--map-ink);
+}
+
+.outlook-level--warning { --status: var(--status-warning); }
+.outlook-level--watch { --status: var(--status-watch); }
+.outlook-level--elevated { --status: var(--status-elevated); }
+.outlook-level--quiet { --status: var(--status-quiet); }
+
+.outlook-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status);
+}
+
+.outlook-headline {
+  margin: 0 0 10px;
+  font-family: var(--font-map-display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--map-ink);
+}
+
+.outlook-ai {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--map-accent-soft);
+}
+
+.outlook-ai blockquote {
+  margin: 0 0 6px;
+}
+
+.outlook-ai blockquote p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--map-ink);
+}
+
+.outlook-ai figcaption {
+  margin: 0;
+}
+
+.outlook-ai figcaption svg {
+  vertical-align: -2px;
+  margin-right: 2px;
+}
+
+.outlook-ai.is-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: var(--map-ink-muted);
+}
+
+.outlook-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--map-ink);
+}
+
+.outlook-signals {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.outlook-signal {
+  --status: var(--status-unknown);
+  display: flex;
+  gap: 9px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--map-ink);
+}
+
+.outlook-signal .outlook-dot {
+  margin-top: 0.45em;
+}
+
+.outlook-signal--warning { --status: var(--status-warning); }
+.outlook-signal--watch { --status: var(--status-watch); }
+.outlook-signal--elevated { --status: var(--status-elevated); }
+.outlook-signal--quiet { --status: var(--status-quiet); }
+
+.outlook-source {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  color: var(--map-ink-subtle);
+}
+
+.outlook-next {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 10px;
+}
+
+.outlook-next-label {
+  font-size: 0.74rem;
+  color: var(--map-ink-muted);
+}
+
+.outlook-next-when {
+  font-family: var(--font-map-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--map-ink);
+}
+
+.outlook-next-note {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+  color: var(--map-ink);
+}
+
+.outlook-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.outlook-facts > div {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 8px;
+  font-size: 0.84rem;
+}
+
+.outlook-facts dt {
+  color: var(--map-ink-muted);
+}
+
+.outlook-facts dd {
+  margin: 0;
+  color: var(--map-ink);
+}
+
+@media (max-width: 420px) {
+  .outlook-facts > div {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

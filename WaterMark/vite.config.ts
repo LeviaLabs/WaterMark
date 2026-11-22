@@ -4,6 +4,7 @@ import babel from '@rolldown/plugin-babel'
 import { Readable } from 'node:stream'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import { createMemoryBudget, handleAssistant } from '../supabase/functions/assistant/handler.mts'
+import { runSummary } from '../supabase/functions/outlook-summary/core.mts'
 
 /**
  * Serves the flood assistant at /api/assistant while developing, running the same guard and model
@@ -60,15 +61,62 @@ function assistantDevRoute(apiKey: string | undefined, disabled: string | undefi
   }
 }
 
+/**
+ * Serves the flood-outlook summary at /api/outlook-summary while developing, the same core as
+ * supabase/functions/outlook-summary. Keys are WATERMARK_SUMMARY_* in .env.local (no VITE_ prefix).
+ */
+function summaryDevRoute(env: Record<string, string>): Plugin {
+  return {
+    name: 'watermark-summary-dev',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/api/outlook-summary', (req, res) => {
+        const send = (status: number, body: unknown, retryAfter?: number) => {
+          res.statusCode = status
+          res.setHeader('content-type', 'application/json')
+          res.setHeader('cache-control', 'no-store')
+          if (retryAfter) res.setHeader('retry-after', String(retryAfter))
+          res.end(JSON.stringify(body))
+        }
+        if (req.method !== 'POST') return send(405, { code: 'METHOD_NOT_ALLOWED' })
+        const chunks: Buffer[] = []
+        let size = 0
+        req.on('data', (c: Buffer) => { size += c.length; if (size <= 200_000) chunks.push(c) })
+        req.on('end', () => {
+          void (async () => {
+            let body: unknown
+            try {
+              body = size > 200_000 ? null : JSON.parse(Buffer.concat(chunks).toString('utf8'))
+            } catch {
+              return send(400, { code: 'INVALID_REQUEST' })
+            }
+            const result = await runSummary(body, {
+              apiKey: env.WATERMARK_SUMMARY_API_KEY,
+              baseUrl: env.WATERMARK_SUMMARY_BASE_URL,
+              models: env.WATERMARK_SUMMARY_MODELS,
+            }, fetch, (msg) => server.config.logger.warn(msg))
+            if (!result.ok) return send(result.status, { code: result.code }, result.retryAfterSeconds)
+            send(200, { text: result.text, model: result.model })
+          })()
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    react(),
-    babel({ presets: [reactCompilerPreset()] }),
-    assistantDevRoute(...assistantDevEnv(loadEnv(mode, process.cwd(), 'WATERMARK_'))),
-  ],
-  test: {
-    include: ['tests/**/*.test.ts'],
-    environment: 'node',
-  },
-}))
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'WATERMARK_')
+  return {
+    plugins: [
+      react(),
+      babel({ presets: [reactCompilerPreset()] }),
+      assistantDevRoute(...assistantDevEnv(env)),
+      summaryDevRoute(env),
+    ],
+    test: {
+      include: ['tests/**/*.test.ts'],
+      environment: 'node',
+    },
+  }
+})

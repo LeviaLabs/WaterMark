@@ -47,12 +47,12 @@ function score(area: AreaInput): number {
 function itemsOf(area: AreaInput): EvidenceItem[] {
   const items: EvidenceItem[] = []
   if (area.alertEvents.length) items.push({ source: 'National Weather Service', detail: area.alertEvents.join('; ') })
-  if (area.activeFloods) items.push({ source: 'GDACS', detail: `${area.activeFloods} active flood report${area.activeFloods === 1 ? '' : 's'} plotted in this square` })
+  if (area.activeFloods) items.push({ source: 'GDACS', detail: `${area.activeFloods} active flood event${area.activeFloods === 1 ? '' : 's'} plotted in this square` })
   if (area.sensorCount) items.push({ source: 'FloodNet', detail: `${area.sensorCount} sensor${area.sensorCount === 1 ? '' : 's'}, ${area.sensorEvents} recorded flood${area.sensorEvents === 1 ? '' : 's'}${area.deepestIn != null ? `, deepest ${area.deepestIn} in` : ''}` })
-  items.push({ source: area.sourceName, detail: `${area.reports} flood report${area.reports === 1 ? '' : 's'} with a point in this square, ${area.yearStart}–${area.yearEnd}` })
+  items.push({ source: area.sourceName, detail: `${area.reports} recorded flood${area.reports === 1 ? '' : 's'} in this square, ${area.yearStart}–${area.yearEnd}. The count is the whole square.` })
   if (area.femaHighRisk === true) items.push({ source: 'FEMA NFHL', detail: 'A high-risk zone was mapped at the selected spot in this square. Checked only for the spot you picked.' })
   if (area.stormDeepPct != null) items.push({ source: 'NYC Stormwater Flood Map', detail: `${area.stormDeepPct.toFixed(0)}% of the selected spot is in the deep-flooding scenario (1 ft or more). A scenario, not today.` })
-  if (items.length === 1 && area.reports === 0) items[0] = { source: area.sourceName, detail: `No flood reports with a point in this square, ${area.yearStart}–${area.yearEnd}. No record is not an all-clear.` }
+  if (items.length === 1 && area.reports === 0) items[0] = { source: area.sourceName, detail: `No recorded floods in this square, ${area.yearStart}–${area.yearEnd}. No record is not an all-clear.` }
   return items
 }
 

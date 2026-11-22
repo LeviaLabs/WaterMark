@@ -256,8 +256,10 @@ def gdacs_events():
                 month = str(p.get('fromdate', ''))[5:7]
                 level = str(p.get('alertlevel') or '').upper()
                 mag = (p.get('severitydata') or {}).get('severity')
+                day = str(p.get('fromdate', ''))[:10]
                 events[p.get('eventid')] = (int(start), isos, coords[0], coords[1], int(month) if month.isdigit() else 0,
-                                            level in ('ORANGE', 'RED'), float(mag) if isinstance(mag, (int, float)) else 0.0)
+                                            level in ('ORANGE', 'RED'), float(mag) if isinstance(mag, (int, float)) else 0.0,
+                                            day if len(day) == 10 else '')
             if len(feats) < 100:
                 break
             page += 1
@@ -272,10 +274,13 @@ def build_countries():
     months = defaultdict(Counter)
     majors = defaultdict(Counter)
     top_mag = defaultdict(float)
-    for year, isos, _x, _y, month, major, mag in events.values():
+    last = {}
+    for year, isos, _x, _y, month, major, mag, day in events.values():
         for iso in isos:
             iso = iso.upper()
             by_country[iso][year] += 1
+            if day > last.get(iso, ''):
+                last[iso] = day
             if major:
                 majors[iso][year] += 1
             top_mag[iso] = max(top_mag[iso], mag)
@@ -298,6 +303,7 @@ def build_countries():
             'y': [counts[y] for y in years], 'b': bbox(geom),
             'm': [months[iso][m] for m in range(1, 13)],
             'x': [majors[iso][y] for y in years], 'g': round(top_mag[iso], 1),
+            **({'l': last[iso]} if iso in last else {}),
         }, 'geometry': geom})
     write(os.path.join(OUT, 'countries.json'), {'type': 'FeatureCollection', 'features': feats})
     adm0_to_key = {}
@@ -307,7 +313,7 @@ def build_countries():
         if iso:
             adm0_to_key[p.get('ADM0_A3')] = iso
     admin1_breaks = build_admin1(events, adm0_to_key, {f['properties']['k']: f['properties']['n'] for f in feats})
-    pts = [(x, y, year, 1 if major else 0, mag, eid, None) for eid, (year, isos, x, y, month, major, mag) in events.items()
+    pts = [(x, y, year, 1 if major else 0, mag, eid, None) for eid, (year, isos, x, y, month, major, mag, _day) in events.items()
            if x is not None and y is not None and not ({i.upper() for i in isos} <= {'USA'} and isos)]
     world_cells = build_cells(pts, WORLD_CELL, 'cells-world.json', years, us=False)  # (all years, one year)
     return len(events), breaks([f['properties']['py'] for f in feats]), admin1_breaks, world_cells
@@ -327,9 +333,9 @@ def build_admin1(events, adm0_to_key, country_names):
         geom = round_geom(f['geometry'], 3, 0.01)
         if not geom:
             continue
-        by_country[key].append({'p': p, 'g': geom, 'b': bbox(geom), 'y': Counter(), 'm': Counter(), 'x': Counter(), 'mag': 0.0})
+        by_country[key].append({'p': p, 'g': geom, 'b': bbox(geom), 'y': Counter(), 'm': Counter(), 'x': Counter(), 'mag': 0.0, 'l': ''})
     placed = missed = 0
-    for year, isos, x, y, month, major, mag in events.values():
+    for year, isos, x, y, month, major, mag, day in events.values():
         if x is None or y is None:
             continue
         for iso in isos:
@@ -346,6 +352,7 @@ def build_admin1(events, adm0_to_key, country_names):
             if major:
                 hit['x'][year] += 1
             hit['mag'] = max(hit['mag'], mag)
+            hit['l'] = max(hit['l'], day)
             if month:
                 hit['m'][month] += 1
             placed += 1
@@ -364,6 +371,7 @@ def build_admin1(events, adm0_to_key, country_names):
                 's': country_names.get(key, ''), 't': p.get('type_en') or '',
                 'e': total, 'py': py, 'y': [a['y'][y] for y in years], 'm': [a['m'][m] for m in range(1, 13)], 'b': a['b'],
                 'x': [a['x'][y] for y in years], 'g': round(a['mag'], 1),
+                **({'l': a['l']} if a['l'] else {}),
             }, 'geometry': a['g']})
         write(os.path.join(OUT, 'admin1', f'{key}.json'), {'type': 'FeatureCollection', 'features': feats})
     return breaks(all_py)
@@ -411,7 +419,8 @@ def noaa_counts():
     for m in re.finditer(r'(StormEvents_details-ftp_v1\.0_d(\d{4})_c\d+\.csv\.gz)', listing):
         files[int(m.group(2))] = m.group(1)
     states, counties = defaultdict(Counter), defaultdict(Counter)
-    state_months = defaultdict(Counter)
+    state_months = defaultdict(Counter)  # state and county key -> month -> episodes
+    last = {}  # state and county key -> latest episode start, YYYY-MM-DD
     harm = defaultdict(lambda: {'d': Counter(), 'i': Counter(), '$': Counter()})
     causes = defaultdict(lambda: defaultdict(set))  # region key -> cause -> episodes
     seen = set()  # (region key, episode): each episode counts once per state and per county
@@ -429,17 +438,18 @@ def noaa_counts():
             ep = row.get('EPISODE_ID') or f"event-{row.get('EVENT_ID')}"
             cause = cause_of(row)
             county = st + row['CZ_FIPS'].zfill(3) if row.get('CZ_TYPE') == 'C' and row.get('CZ_FIPS') else None
+            ym, dd = row.get('BEGIN_YEARMONTH') or '', (row.get('BEGIN_DAY') or '').zfill(2)
+            month = int(ym[4:]) if len(ym) == 6 and ym[4:].isdigit() else 0
+            day = f'{ym[:4]}-{ym[4:]}-{dd}' if month and dd.isdigit() else ''
             for key in [st] + ([county] if county else []):
                 causes[key][cause].add(ep)
-            if (st, ep) not in seen:
-                seen.add((st, ep))
-                states[st][y] += 1
-                ym = row.get('BEGIN_YEARMONTH') or ''
-                if len(ym) == 6 and ym[4:].isdigit():
-                    state_months[st][int(ym[4:])] += 1
-            if county and (county, ep) not in seen:
-                seen.add((county, ep))
-                counties[county][y] += 1
+                if day > last.get(key, ''):
+                    last[key] = day
+                if (key, ep) not in seen:
+                    seen.add((key, ep))
+                    (states if key == st else counties)[key][y] += 1
+                    if month:
+                        state_months[key][month] += 1
             dead = num(row.get('DEATHS_DIRECT')) + num(row.get('DEATHS_INDIRECT'))
             hurt = num(row.get('INJURIES_DIRECT')) + num(row.get('INJURIES_INDIRECT'))
             usd = damage_usd(row.get('DAMAGE_PROPERTY')) + damage_usd(row.get('DAMAGE_CROPS'))
@@ -454,7 +464,7 @@ def noaa_counts():
             n += 1
         print(f'  NOAA {y}: {n} flood rows')
     print(f'  NOAA: {sum(sum(c.values()) for c in states.values())} state flood episodes')
-    return states, counties, state_months, harm, points, causes
+    return states, counties, state_months, harm, points, causes, last
 
 
 def num(v, default=0):
@@ -475,7 +485,7 @@ def damage_usd(v):
 
 def build_us():
     print('US states and counties (NOAA Storm Events + Census via us-atlas)')
-    states, counties, state_months, harm, points, causes = noaa_counts()
+    states, counties, state_months, harm, points, causes, last = noaa_counts()
     topo = json.loads(fetch(US_ATLAS, 'us-atlas-counties-10m.json'))
     years = list(NOAA_YEARS)
 
@@ -483,6 +493,9 @@ def build_us():
         total = sum(counts[y] for y in years)
         h = harm.get(key)
         out = {'k': key, 'n': name, 'e': total, 'py': round(total / len(years), 2), 'y': [counts[y] for y in years]}
+        if key in last:
+            out['l'] = last[key]
+        out['m'] = [state_months[key][m] for m in range(1, 13)]
         c = causes.get(key)
         if c:
             out['c'] = {k: len(c[k]) for k, _ in CAUSES if c.get(k)}
@@ -498,7 +511,6 @@ def build_us():
         if geom:
             p = props(f['id'], f['name'], states.get(f['id'], Counter()))
             p['b'] = bbox(geom)
-            p['m'] = [state_months[f['id']][m] for m in range(1, 13)]
             state_feats.append({'type': 'Feature', 'properties': p, 'geometry': geom})
     write(os.path.join(OUT, 'us-states.json'), {'type': 'FeatureCollection', 'features': state_feats})
     all_counties = []

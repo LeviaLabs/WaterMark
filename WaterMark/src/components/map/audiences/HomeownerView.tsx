@@ -52,7 +52,7 @@ export function HomeownerView({ selection, place, report, cellMeta }: {
     } else if (report.claims === 'none') rows.push({ label: 'NFIP claims', value: 'No US ZIP at this point, so no claim total was requested.' })
     if (selection.cell && cellMeta) {
       const years = cellMeta.years[1] - cellMeta.years[0] + 1
-      rows.push({ label: `Flood reports in the ${cellMeta.size}° square`, value: `${selection.cell.e.toLocaleString('en-US')} (${howOften(selection.cell.e, years)}), ${cellMeta.years[0]}–${cellMeta.years[1]}. The count is the whole square, not this address.` })
+      rows.push({ label: `Recorded floods in the ${cellMeta.size}° square`, value: `${selection.cell.e.toLocaleString('en-US')} (${howOften(selection.cell.e, years)}), ${cellMeta.years[0]}–${cellMeta.years[1]}. ${cellMeta.source}. ${cellMeta.unit}. The count is the whole square, not this address.` })
     }
     return rows
   }, [selection, place, report, cellMeta])
@@ -93,7 +93,7 @@ export function HomeownerView({ selection, place, report, cellMeta }: {
       <section className="aud-block">
         <p className="aud-kicker">Homeowner</p>
         <h3 className="aud-title">Property flood record</h3>
-        <p>Search for the address or click the building. The summary uses FEMA zones, NFIP claims for the ZIP, and the flood reports in the surrounding square. It does not say whether this house will flood.</p>
+        <p>Search for the address or click the building. The summary uses FEMA zones, NFIP claims for the ZIP, and the recorded floods in the surrounding square. It does not say whether this house will flood.</p>
       </section>
     )
   }

@@ -440,6 +440,9 @@ verify_jwt = false
 # callers. The Postgres budget (watermark_take_assistant_budget) and WATERMARK_ASSISTANT_DISABLED do.
 [functions.assistant]
 verify_jwt = false
+
+[functions.outlook-summary]
+verify_jwt = false
 # Directory under `supabase/` where declarative files are written.
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting. When omitted, SQL is

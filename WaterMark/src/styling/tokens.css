@@ -61,6 +61,8 @@
   --kind-observed: #4fdca6;
   --kind-historical: #f5c451;
   --kind-reference: #9fb3c8;
+  /* Flood outlook status (reserved: never reused as data colors). */
+  --status-warning: #ff6b5e; --status-watch: #ffb347; --status-elevated: #f5d76e; --status-quiet: #5fd3a0; --status-unknown: #8a96a6;
   /* Flood-history map classes (none recorded, then fewest to most); mirrored in scripting/mapTheme.ts. */
   --flood-0: #1b222d; --flood-1: #16305c; --flood-2: #1b478c; --flood-3: #2263bd; --flood-4: #2f83e3; --flood-5: #55a6f7; --flood-6: #9dd2ff;
   --map-glow: #4aa3ff;
@@ -176,6 +178,7 @@
   --kind-observed: #047857;
   --kind-historical: #a16207;
   --kind-reference: #475569;
+  --status-warning: #c62828; --status-watch: #c2570c; --status-elevated: #8a6500; --status-quiet: #13795b; --status-unknown: #5b6676;
   --flood-0: #e9ebef; --flood-1: #c4d6f1; --flood-2: #98b9ea; --flood-3: #6c97de; --flood-4: #4073cb; --flood-5: #2352a8; --flood-6: #10306f;
   --map-glow: #3b82f6;
   --map-bg: #eef1f4;

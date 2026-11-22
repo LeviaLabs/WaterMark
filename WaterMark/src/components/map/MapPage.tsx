@@ -13,6 +13,7 @@ import { TopBar } from './TopBar'
 import { LayersCard } from './LayersCard'
 import { CollapsedPanel, DataPanel } from './DataPanel'
 import { AreaReport } from './AreaReport'
+import { FloodOutlook } from './FloodOutlook'
 import { AlertsList } from './AlertsList'
 import { MapLegend } from './MapLegend'
 import { RegionSummary } from './RegionSummary'
@@ -21,6 +22,7 @@ import { SourcesList } from '../sources/SourcesList'
 import { useColorScheme } from '../../hooks/useColorScheme'
 import { useGlobalLayers } from '../../hooks/useGlobalLayers'
 import { useAreaReport } from '../../hooks/useAreaReport'
+import { useFloodOutlook } from '../../hooks/useFloodOutlook'
 import { useFloodHistory } from '../../hooks/useFloodHistory'
 import { useDraggablePanel } from '../../hooks/useDraggablePanel'
 import { usePresence } from '../../hooks/usePresence'
@@ -53,6 +55,7 @@ import '../../styling/map-page.css'
 import '../../styling/map-premium.css'
 import '../../styling/audiences.css'
 import '../../styling/assistant.css'
+import '../../styling/outlook.css'
 
 const HINT_MS = 4000
 // On phones the layers card and the data sheet share the screen, so opening one folds the other.
@@ -105,6 +108,7 @@ export default function MapPage() {
   // The time slider: one year of the flood squares, or all years (null). A year the shown grid has
   // no data for (NOAA starts in 2016) falls back to all years when you focus the US.
   const [pickedYear, setPickedYear] = useState<number | null>(null)
+  // NOAA squares when the US is focused or the selected spot is in the US; GDACS otherwise.
   const gridKind = path[0]?.props.k === 'USA' || (selection != null && mayBeUS(selection.center)) ? 'us' : 'world'
   const yearRange = loaded.index?.cells[gridKind].years
   const year = pickedYear != null && yearRange && (pickedYear < yearRange[0] || pickedYear > yearRange[1]) ? null : pickedYear
@@ -307,6 +311,7 @@ export default function MapPage() {
   const title = selection
     ? named ?? (selection.label === SPOT_LABEL && region ? `Square in ${crumbName(region)}` : selection.label)
     : region ? (region.level === 'county' && region.props.s ? `${crumbName(region)}, ${region.props.s}` : crumbName(region)) : 'Floods around the world'
+  const { outlook, summary } = useFloodOutlook(selection, report, title)
   const zoomHint = !selection && view.zoom >= DETAIL_ZOOM ? 'Click a spot on the map to see the data there.' : null
   const selectionCrumb = !selection ? null : selection.label === SPOT_LABEL ? 'Square' : selection.label === AREA_LABEL ? 'Area' : selection.label
   const backTarget = selection
@@ -431,6 +436,7 @@ export default function MapPage() {
                 cellMeta={selection?.cell ? history.index?.cells[selection.cell.grid] : null} /> : null}
               {role === 'responder' ? <ResponderView model={responder} onFocus={(bounds) => setFlyTo({ bounds, maxZoom: 11 })} /> : null}
               {selection ? null : <RegionSummary region={region} index={history.index} status={history.status} year={year} />}
+              {selection && outlook ? <FloodOutlook outlook={outlook} summary={summary} /> : null}
               {selection ? <AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods}
                 cellMeta={selection.cell ? history.index?.cells[selection.cell.grid] : null} year={year} /> : null}
             </>

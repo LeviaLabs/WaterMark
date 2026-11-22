@@ -1,7 +1,8 @@
 /*
  * The flood story (#how): a sticky city that floods one step at a time while
- * each step shows a working feature panel. Phones and short windows get the
- * compact layout: the city is a sticky backdrop and the steps scroll over it.
+ * each step shows a working feature panel. Phones and short windows use the
+ * same sticky stage, stacked to fit 100svh, so highlights still crossfade
+ * in place as you scroll.
  */
 
 .story {
@@ -12,10 +13,6 @@
   --level: calc(0.1 + var(--progress, 0) * 0.36);
 }
 
-.story--compact {
-  --level: calc(0.08 + var(--progress, 0) * 0.34);
-}
-
 /* A short glide smooths out wheel notches without lagging behind the scroll. */
 .city.story-city .flood-surface {
   transition: transform 0.6s var(--ease-out);
@@ -24,8 +21,10 @@
 .story-sticky {
   position: sticky;
   top: 0;
+  /* svh is the small viewport, so the stage does not jump when the mobile URL bar hides. */
   height: 100svh;
   overflow: hidden;
+  overflow-x: clip;
 }
 
 .city.story-city {
@@ -244,13 +243,11 @@
 }
 
 /* Nothing inside the panels shows a native scrollbar; the frame has its own slim thumb (ScrollArea). */
-.story-frame *,
-.story--compact .story-panel * {
+.story-frame * {
   scrollbar-width: none;
 }
 
-.story-frame *::-webkit-scrollbar,
-.story--compact .story-panel *::-webkit-scrollbar {
+.story-frame *::-webkit-scrollbar {
   display: none;
 }
 
@@ -427,107 +424,116 @@
   }
 }
 
-/* ---- Compact layout (phones, short windows) ---- */
+/* ---- Phones and short windows: same sticky stage, stacked to fit 100svh ---- */
 
-.story--compact {
-  height: auto;
-  /* Keep the sticky city (negative bottom margin) from spilling past the section. */
-  overflow: clip;
-  padding-bottom: clamp(3rem, 2rem + 4svh, 6rem);
-}
-
-.story-backdrop {
-  position: sticky;
-  top: 0;
-  height: 100svh;
-  margin-bottom: -100svh;
-  overflow: hidden;
-}
-
-.story--compact .story-scrim {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent), transparent 40%);
-}
-
-.story-intro--compact {
-  position: relative;
-  max-width: var(--page-max);
-  margin: 0 auto;
-  padding: 6rem var(--gutter) 2rem;
-}
-
-.story-list {
-  position: relative;
-  display: grid;
-  gap: clamp(4rem, 2rem + 14svh, 10rem);
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 0 var(--gutter) 30svh;
-}
-
-.story-item {
-  display: grid;
-  gap: 14px;
-}
-
-.story--compact .story-copy,
-.story--compact .story-panel {
-  grid-area: auto;
-  max-width: none;
-}
-
-/* Many panels on screen at once here, so no backdrop blur: just a denser fill. */
-.story--compact .evidence-panel {
-  background: color-mix(in srgb, var(--bg-raised) 90%, transparent);
-}
-
-.story-copy--card {
-  padding: 22px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-raised) 90%, transparent);
-  box-shadow: var(--glass-shadow);
-  animation: none;
-}
-
-.story-copy--card.is-visible .story-count,
-.story-copy--card.is-visible .story-body,
-.story-copy--card.is-visible .story-meta,
-.story-copy--card.is-visible .story-owner {
-  animation: rise-in 0.7s var(--ease-out) both;
-}
-
-.story-copy--card.is-visible .story-body {
-  animation-delay: 0.15s;
-}
-
-.story-copy--card.is-visible .story-meta {
-  animation-delay: 0.25s;
-}
-
-.story-copy--card.is-visible .story-owner {
-  animation-delay: 0.32s;
-}
-
-.story-copy--card .story-title {
-  font-size: clamp(1.7rem, 1.2rem + 2.4vw, 2.4rem);
-}
-
-.story--compact .story-panel {
-  max-height: none;
-  overflow: visible;
-  animation: none;
-}
-
-/* Short but wide windows (desktop zoomed in): two columns per step. */
-@media (min-width: 861px) {
-  .story-list {
-    max-width: var(--page-max);
+@media (max-width: 860px), (max-height: 600px) {
+  .story-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'intro'
+      'copy'
+      'panel'
+      'steps';
+    gap: 0.55rem;
+    width: 100%;
+    max-width: 100%;
+    padding: 4.6rem var(--gutter) 0.7rem;
+    overflow-x: hidden;
   }
 
-  .story-item {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
-    align-items: start;
-    gap: 2rem;
+  .story-heading {
+    font-size: clamp(1.25rem, 1rem + 2.4vw, 1.7rem);
+    line-height: 1.12;
+  }
+
+  .story-title {
+    margin-bottom: 8px;
+    font-size: clamp(1.35rem, 1.05rem + 2.2vw, 1.85rem);
+  }
+
+  .story-body {
+    margin-bottom: 10px;
+    font-size: 0.92rem;
+  }
+
+  .story-owner {
+    font-size: 0.76rem;
+  }
+
+  .story-stage--copy {
+    align-self: start;
+    min-width: 0;
+    max-height: 34svh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .story-stage--copy::-webkit-scrollbar {
+    display: none;
+  }
+
+  .story-stage--panel {
+    align-self: stretch;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .story-frame {
+    height: 100% !important;
+    max-height: 100%;
+    box-sizing: border-box;
+  }
+
+  .story-steps {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .story-steps ol {
+    max-width: 100%;
+    scrollbar-width: none;
+  }
+
+  .story-steps ol::-webkit-scrollbar {
+    display: none;
+  }
+
+  .story-scrim {
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg) 82%, transparent) 0%, color-mix(in srgb, var(--bg) 30%, transparent) 32%, transparent 58%),
+      var(--story-scrim);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .city.story-city .flood-surface,
+  .story-frame,
+  .story-frame-progress,
+  .story-step-pill {
+    transition: none;
+  }
+
+  .story-copy.is-entering,
+  .story-copy.is-leaving,
+  .story-copy.is-entering .story-count,
+  .story-copy.is-entering .story-count span,
+  .story-copy.is-entering .story-body,
+  .story-copy.is-entering .story-meta,
+  .story-copy.is-entering .story-meta > *,
+  .story-copy.is-entering .story-owner,
+  .story-frame .story-panel.is-entering,
+  .story-frame .story-panel.is-leaving,
+  .story-frame-sweep,
+  .story-frame {
+    animation: none;
+  }
+
+  .story-copy.is-leaving,
+  .story-frame .story-panel.is-leaving {
+    display: none;
   }
 }
 

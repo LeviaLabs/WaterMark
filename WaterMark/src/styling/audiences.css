@@ -9,15 +9,25 @@
   bottom: 84px;
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
   gap: 2px;
-  max-width: min(560px, calc(100% - 32px));
+  width: max-content;
+  max-width: min(560px, calc(100% - 24px));
   padding: 4px;
+  /* One row: shrink padding/font at narrow widths. Hide the scrollbar if a
+     very small phone still overflows; the strip stays swipeable. */
   overflow-x: auto;
+  scrollbar-width: none;
   pointer-events: auto;
 }
 
+.aud-roles::-webkit-scrollbar {
+  display: none;
+}
+
 .aud-role {
-  flex: none;
+  flex: 0 1 auto;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -26,6 +36,8 @@
   font-size: 0.82rem;
   font-weight: 650;
   padding: 6px 12px;
+  text-align: center;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -249,6 +261,11 @@
 @media (max-width: 700px) {
   .aud-roles {
     bottom: 16px;
+  }
+
+  .aud-role {
+    padding: 5px 7px;
+    font-size: 0.7rem;
   }
 }
 

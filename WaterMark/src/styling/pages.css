@@ -158,6 +158,11 @@
   padding: 120px var(--gutter) 64px;
 }
 
+.alerts-head .alerts-notice {
+  margin-top: 10px;
+  font-size: 0.92rem;
+}
+
 .alerts-head h1 {
   margin: 0 0 10px;
   font-family: var(--font-display);

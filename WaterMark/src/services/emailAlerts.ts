@@ -90,14 +90,19 @@ export function alertsUrlFromEnv(env: Record<string, unknown>): string | null {
   }
 }
 
-/** Plain-language reasons, shown for quarantined mail. */
+/** Every feed carries this: gauge observations, never official warnings. */
+export const OBSERVATION_NOTICE =
+  'Observed USGS gauge readings (provisional data may be revised). Not official National Weather Service flood watches or warnings.'
+
+/** Plain-language reasons, shown for accepted and quarantined mail. */
 export const REASON_TEXT: Record<string, string> = {
-  'screened-usgs-alert': 'Screened by Agentboxd; reading confirmed with USGS',
+  'screened-usgs-alert': 'Screened by Agentboxd; numbers fetched from USGS, not from the email',
   'injection-risk': 'Blocked: tried to instruct an AI (prompt injection)',
   'phishing-risk': 'Blocked: looked like phishing or impersonation',
   'check-failed': 'Held: the Agentboxd check failed',
   'not-checked': 'Held: not checked by Agentboxd',
   blocked: 'Blocked by the inbox block list',
+  'sender-auth-failed': 'Held: sender failed email authentication (SPF or DMARC)',
   'sender-not-allowed': 'Held: sender is not an approved alert source',
   'no-usgs-site': 'Held: no USGS monitoring location in the alert',
 }

@@ -18,9 +18,30 @@ create table watermark_private.email_alerts (
   latitude double precision check (latitude is null or latitude between -90 and 90),
   longitude double precision check (longitude is null or longitude between -180 and 180),
   readings jsonb check (readings is null or jsonb_typeof(readings) = 'array'),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- An accepted alert always names a USGS site; a quarantined one never exposes one.
+  constraint email_alerts_accepted_has_site check (status = 'quarantined' or site_id is not null)
 );
 create index email_alerts_recent_idx on watermark_private.email_alerts (received_at desc);
+
+-- The screening decision is final: no update may change a row's identity, status, reason or
+-- scores (so a quarantined message can never become accepted, by retry, message.released or a
+-- bug in a later RPC). Only the USGS reading columns may be filled in afterwards.
+create function watermark_private.email_alerts_decision_is_final() returns trigger
+language plpgsql set search_path='' as $$
+begin
+  if new.message_id is distinct from old.message_id or new.status is distinct from old.status
+     or new.reason is distinct from old.reason or new.site_id is distinct from old.site_id
+     or new.sender_domain is distinct from old.sender_domain or new.injection is distinct from old.injection
+     or new.phishing is distinct from old.phishing or new.screening_state is distinct from old.screening_state
+     or new.received_at is distinct from old.received_at then
+    raise exception 'email_alerts: screening decision is final' using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+revoke all on function watermark_private.email_alerts_decision_is_final() from public, anon, authenticated;
+create trigger email_alerts_decision_is_final before update on watermark_private.email_alerts
+  for each row execute function watermark_private.email_alerts_decision_is_final();
 
 alter table watermark_private.email_alerts enable row level security;
 revoke all on watermark_private.email_alerts from public, anon, authenticated;

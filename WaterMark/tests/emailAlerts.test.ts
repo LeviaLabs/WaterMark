@@ -1,7 +1,7 @@
 // Screened gauge alerts client (Agentboxd alert inbox). Fake fetch only: no network.
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { alertsUrlFromEnv, loadEmailAlerts, parseEmailAlerts, REASON_TEXT } from '../src/services/emailAlerts.ts'
+import { alertsUrlFromEnv, loadEmailAlerts, OBSERVATION_NOTICE, parseEmailAlerts, REASON_TEXT } from '../src/services/emailAlerts.ts'
 
 const accepted = {
   id: 'm1',
@@ -67,7 +67,14 @@ test('env: URL required; production needs HTTPS and not localhost', () => {
 })
 
 test('every server reason has plain-language text', () => {
-  for (const r of ['screened-usgs-alert', 'injection-risk', 'phishing-risk', 'check-failed', 'not-checked', 'blocked', 'sender-not-allowed', 'no-usgs-site']) {
+  for (const r of ['screened-usgs-alert', 'injection-risk', 'phishing-risk', 'check-failed', 'not-checked', 'blocked', 'sender-auth-failed', 'sender-not-allowed', 'no-usgs-site']) {
     assert.ok(REASON_TEXT[r], r)
   }
 })
+
+test('readings are labelled as USGS observations, never as warnings or confirmed alerts', () => {
+  assert.match(OBSERVATION_NOTICE, /Observed USGS gauge readings/)
+  assert.match(OBSERVATION_NOTICE, /Not official National Weather Service/)
+  assert.doesNotMatch(REASON_TEXT['screened-usgs-alert'], /confirm|warning/i)
+})
+

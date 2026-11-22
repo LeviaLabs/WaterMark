@@ -5,11 +5,15 @@
 // Logs carry status and a short code only, never sender, subject or body.
 import { decide, verifySignature } from './gate.ts'
 import { type AlertRow, type AlertStore, StoreError } from './store.ts'
+import { readBounded } from './limits.ts'
 import { fetchSiteReading, type SiteReading } from './usgs.ts'
 
 const MAX_WEBHOOK_BYTES = 1_000_000
 const RECENT_DAYS = 7
 const RECENT_LIMIT = 100
+/** Shown with every feed: these are gauge observations, never official warnings. */
+export const OBSERVATION_NOTICE =
+  'Observed USGS gauge readings (provisional data may be revised). Not official National Weather Service flood watches or warnings.'
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>
 
@@ -36,6 +40,8 @@ export interface PublicAlert {
   screening: { injection: number | null; phishing: number | null; state: string | null }
   site: { id: string; name: string | null; latitude: number | null; longitude: number | null } | null
   readings: SiteReading['readings']
+  /** Always 'observation': a USGS gauge reading, not an NWS warning. */
+  kind: 'observation'
 }
 
 export function toPublic(row: AlertRow): PublicAlert {
@@ -50,6 +56,7 @@ export function toPublic(row: AlertRow): PublicAlert {
       ? { id: row.site_id, name: row.site_name, latitude: row.latitude, longitude: row.longitude }
       : null,
     readings: accepted && Array.isArray(row.readings) ? (row.readings as SiteReading['readings']) : [],
+    kind: 'observation',
   }
 }
 
@@ -67,9 +74,9 @@ export function createHandler(config: HandlerConfig): (request: Request) => Prom
     }
     if (request.method !== 'POST') return empty(405, 'method-not-allowed')
     if (!config.webhookSecret || !config.store) return empty(503, 'not-configured')
-    if (Number(request.headers.get('content-length') ?? '0') > MAX_WEBHOOK_BYTES) return empty(413, 'too-large')
-    const raw = await request.text()
-    if (raw.length > MAX_WEBHOOK_BYTES) return empty(413, 'too-large')
+    // Stream at most MAX_WEBHOOK_BYTES: a chunked or undeclared body never grows memory past the cap.
+    const raw = await readBounded(request, MAX_WEBHOOK_BYTES)
+    if (raw === null) return empty(413, 'too-large')
     const signed = await verifySignature(
       config.webhookSecret,
       request.headers.get('x-mailroom-signature'),
@@ -84,7 +91,7 @@ export function createHandler(config: HandlerConfig): (request: Request) => Prom
     } catch {
       return empty(400, 'invalid-json')
     }
-    const decision = decide(event, config.senderAllowlist)
+    const decision = decide(event, config.senderAllowlist, now())
     if (decision.kind === 'ignore') return empty(204, decision.why)
     const store = config.store
     try {
@@ -123,7 +130,12 @@ export function createHandler(config: HandlerConfig): (request: Request) => Prom
     if (!config.store) return reply(503, { error: 'not-configured' })
     try {
       const rows = await config.store.recent(RECENT_DAYS, RECENT_LIMIT)
-      return reply(200, { source: 'Agentboxd-screened email, readings from USGS Water Services', alerts: rows.map(toPublic) }, 'public, max-age=60')
+      return reply(200, {
+        source: 'Agentboxd-screened email, readings from USGS Water Services',
+        kind: 'usgs-gauge-observation',
+        notice: OBSERVATION_NOTICE,
+        alerts: rows.map(toPublic),
+      }, 'public, max-age=60')
     } catch {
       return reply(503, { error: 'store-unavailable' })
     }

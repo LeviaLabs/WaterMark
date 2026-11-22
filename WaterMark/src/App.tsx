@@ -32,6 +32,7 @@ import { LandingPage } from './components/pages/LandingPage'
 // Secondary routes load on demand so the landing page ships less JavaScript.
 const AuthPage = lazy(() => import('./components/pages/AuthPage').then((m) => ({ default: m.AuthPage })))
 const MapPage = lazy(() => import('./components/map/MapPage'))
+const AlertsPage = lazy(() => import('./components/pages/AlertsPage').then((m) => ({ default: m.AlertsPage })))
 const NotFoundPage = lazy(() => import('./components/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
 /**
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="map" element={<Suspense fallback={null}><MapPage /></Suspense>} />
             <Route element={<SiteLayout />}>
               <Route index element={<LandingPage />} />
+              <Route path="alerts" element={<AlertsPage />} />
               <Route path="login" element={<AuthPage mode="login" />} />
               <Route path="signup" element={<AuthPage mode="signup" />} />
               <Route path="*" element={<NotFoundPage />} />

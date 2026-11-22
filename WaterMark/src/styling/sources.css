@@ -1,21 +1,21 @@
 @import './tokens.css';
 
-.sources { text-align: left; color: var(--wm-ink); font-family: var(--wm-font); }
-.sources-toggle {
+.citations { text-align: left; color: var(--wm-ink); font-family: var(--wm-font); }
+.citations-toggle {
   display: inline-flex; align-items: center; gap: 8px; padding: 6px 0; border: 0; background: none; cursor: pointer;
   font-family: var(--wm-font-display); font-weight: 700; font-size: 20px; color: inherit;
 }
-.sources-toggle:focus-visible { outline: 3px solid var(--wm-gauge); outline-offset: 2px; border-radius: 4px; }
-.sources-chev { transition: transform 0.2s; }
-.sources-toggle[aria-expanded='true'] .sources-chev { transform: rotate(90deg); }
-.sources-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 14px; }
-.sources-list p { margin: 0; }
-.sources-name { font-weight: 700; font-size: 15px; line-height: 1.35; }
-.sources-use { font-size: 15px; line-height: 1.45; color: var(--wm-ink-2); }
-.sources-meta { font-size: 13px; line-height: 1.45; color: var(--wm-ink-2); overflow-wrap: anywhere; }
-.sources-meta a { color: var(--wm-tide-deep); }
-:root[data-theme='dark'] .sources-meta a { color: var(--wm-tide); }
-.sources-live { color: var(--wm-tide-deep); font-weight: 600; }
-:root[data-theme='dark'] .sources-live { color: var(--wm-tide-deep); }
+.citations-toggle:focus-visible { outline: 3px solid var(--wm-gauge); outline-offset: 2px; border-radius: 4px; }
+.citations-chev { transition: transform 0.2s; }
+.citations-toggle[aria-expanded='true'] .citations-chev { transform: rotate(90deg); }
+.citations-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 14px; }
+.citations-list p { margin: 0; }
+.citations-name { font-weight: 700; font-size: 15px; line-height: 1.35; }
+.citations-use { font-size: 15px; line-height: 1.45; color: var(--wm-ink-2); }
+.citations-meta { font-size: 13px; line-height: 1.45; color: var(--wm-ink-2); overflow-wrap: anywhere; }
+.citations-meta a { color: var(--wm-tide-deep); }
+:root[data-theme='dark'] .citations-meta a { color: var(--wm-tide); }
+.citations-live { color: var(--wm-tide-deep); font-weight: 600; }
+:root[data-theme='dark'] .citations-live { color: var(--wm-tide-deep); }
 
-@media (prefers-reduced-motion: reduce) { .sources-chev { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .citations-chev { transition: none; } }

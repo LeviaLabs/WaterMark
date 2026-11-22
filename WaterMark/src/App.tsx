@@ -13,7 +13,6 @@ import './styling/stack.css'
 import './styling/data.css'
 import './styling/footer.css'
 import './styling/pages.css'
-import { ColorSchemeProvider } from './context/ColorSchemeProvider'
 import { ThemeProvider } from './context/ThemeProvider'
 import { SiteLayout } from './components/layout/SiteLayout'
 import { LandingPage } from './components/pages/LandingPage'
@@ -32,7 +31,7 @@ export default function App() {
     <ThemeProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="map" element={<Suspense fallback={null}><ColorSchemeProvider><MapPage /></ColorSchemeProvider></Suspense>} />
+          <Route path="map" element={<Suspense fallback={null}><MapPage /></Suspense>} />
           <Route element={<SiteLayout />}>
             <Route index element={<LandingPage />} />
             <Route path="login" element={<AuthPage mode="login" />} />

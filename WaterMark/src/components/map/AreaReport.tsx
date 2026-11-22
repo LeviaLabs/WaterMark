@@ -16,7 +16,7 @@ interface Props {
 }
 
 const Row = ({ k, v }: { k: string; v: ReactNode }) => (
-  <p className="stat-row"><span>{k}</span><span className="stat-value">{v}</span></p>
+  <p className="stat-row"><span>{k}</span><span className="report-stat-value">{v}</span></p>
 )
 const Loading = () => <p className="map-meta">Loading…</p>
 const Failed = ({ what }: { what: string }) => (

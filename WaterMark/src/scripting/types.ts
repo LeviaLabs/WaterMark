@@ -3,7 +3,7 @@
 import type { Feature, FeatureCollection, Point, Polygon } from 'geojson'
 
 export type LngLat = [number, number]
-export type ColorScheme = 'light' | 'dark'
+export type { ColorScheme } from './theme/themeStorage'
 
 /** A value that is still loading (null), failed ('error'), or loaded. */
 export type Loadable<T> = T | null | 'error'

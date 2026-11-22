@@ -38,7 +38,7 @@
   display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 6px 0;
   border-bottom: 1px solid var(--wm-line); font-size: 15px;
 }
-.stat-value { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.report-stat-value { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
 .callout { margin: 8px 0 0; padding: 10px 12px; border-radius: var(--wm-radius-xs); font-size: 15px; line-height: 1.5; }
 .callout p { margin: 4px 0 0; }
 .callout strong { display: block; }

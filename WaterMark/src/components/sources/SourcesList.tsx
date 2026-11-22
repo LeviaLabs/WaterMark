@@ -12,27 +12,27 @@ export function SourcesList({ defaultOpen = false, isToggleable = true }: { defa
   const listId = useId()
 
   return (
-    <section className="sources" aria-label="Data sources and citations">
+    <section className="citations" aria-label="Data sources and citations">
       {isToggleable ? (
-        <button type="button" className="sources-toggle" aria-expanded={isOpen} aria-controls={listId}
+        <button type="button" className="citations-toggle" aria-expanded={isOpen} aria-controls={listId}
           onClick={() => setIsOpen((o) => !o)}>
-          <svg className="sources-chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+          <svg className="citations-chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
             <path d="M5 3l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Data sources and citations ({SOURCES.length})
         </button>
       ) : null}
-      <ol className="sources-list" id={listId} hidden={!isOpen}>
+      <ol className="citations-list" id={listId} hidden={!isOpen}>
         {SOURCES.map((s) => {
           const at = fetched[s.id]
           return (
             <li key={s.id}>
-              <p className="sources-name">{s.name}</p>
-              <p className="sources-use">{s.use}</p>
-              <p className="sources-meta">
+              <p className="citations-name">{s.name}</p>
+              <p className="citations-use">{s.use}</p>
+              <p className="citations-meta">
                 {s.publisher}.{' '}
                 <a href={s.url} target="_blank" rel="noopener">{s.url.replace(/^https?:\/\//, '')}</a>.{' '}
-                {at ? <span className="sources-live">Fetched {fmtTime(at)}</span>
+                {at ? <span className="citations-live">Fetched {fmtTime(at)}</span>
                   : s.live ? 'Live source, not loaded yet' : 'Static or pre-downloaded'}
               </p>
             </li>

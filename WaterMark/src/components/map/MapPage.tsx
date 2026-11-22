@@ -9,6 +9,7 @@
 // the world. It never moves the camera, so it never fights the zoom.
 // Open a place directly with /map?lat=40.68&lon=-74.01&z=14&label=Red%20Hook
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { useSearchParams } from 'react-router'
 import type { FeatureCollection } from 'geojson'
 import { FloodMap, type FlyTarget } from './FloodMap'
@@ -37,7 +38,7 @@ import { gridAt, regionPathAt } from './regionLayers'
 import { contextText } from '../../scripting/assistant'
 import { UNITS } from '../../scripting/format'
 import { fetchPlaceName, type GeocodedPlace } from '../../services/geocoding/photon'
-import { regionChainAt } from '../../services/floodHistory'
+import { regionChainNow } from '../../services/floodHistory'
 import { blockZoomFor, zoomDepth } from '../../scripting/zoomFocus'
 import type { LayerId, LayerVisibility, LngLat, RegionLevel, RegionPick, Selection } from '../../scripting/types'
 import '@fontsource-variable/bricolage-grotesque/index.css'
@@ -304,13 +305,23 @@ export default function MapPage() {
 
   // Zoom-to-focus: after each zoom of the user's, focus the level that zoom shows under the middle of
   // the screen. The camera stays where the user put it; a newer zoom or any click wins over this one.
-  const onUserZoom = async (center: LngLat, zoom: number, prevZoom: number, fitZoom: (b: BBox) => number) => {
+  const onUserZoom = (center: LngLat, zoom: number, prevZoom: number, fitZoom: (b: BBox) => number) => {
     if (isDrawing) return
     const seq = ++zoomSeq.current
-    const chain = await regionChainAt(center).catch(() => null)
-    if (chain === null || seq !== zoomSeq.current) return
+    // Apply what the loaded files show now; a county or province file still on its way is applied
+    // when it arrives, unless another zoom or a click came first.
+    const run = () => {
+      if (seq !== zoomSeq.current) return
+      const { chain, missing } = regionChainNow(center)
+      applyZoom(chain, missing != null, center, zoom, prevZoom, fitZoom)
+      missing?.then(run)
+    }
+    run()
+  }
+  const applyZoom = (chain: RegionPick[], isPartial: boolean, center: LngLat, zoom: number, prevZoom: number, fitZoom: (b: BBox) => number) => {
     const { path: shown, selection: picked } = nav.current
     if (!chain.length) {
+      if (isPartial) return
       // Over the sea: zooming out far enough still returns to the world; otherwise keep the focus.
       if (zoom < prevZoom && zoom < WORLD.zoom() + 0.9 && (shown.length || picked)) { setPath([]); setSelection(null) }
       return
@@ -326,10 +337,13 @@ export default function MapPage() {
       if (picked) setSelection(null)
       return
     }
-    // The block. A searched place or a drawn area stays selected while zooming around it.
+    // The block waits for the county or province under it, so it is never picked out of order.
+    if (isPartial) return
+    // The block. Any selection the middle of the screen is still inside stays, so zooming around a
+    // square, a searched place or a drawn area does not reload its data at every step.
+    if (picked && booleanPointInPolygon(center, picked.circle)) return
     if (picked && picked.label !== SPOT_LABEL) return
-    const next = squareAt(center, zoom).selection
-    if (!picked || distanceKm(picked.center, next.center) > 0.01 || Math.abs(picked.radiusKm - next.radiusKm) > 0.01) setSelection(next)
+    setSelection(squareAt(center, zoom).selection)
   }
 
   // The assistant opened a place: focus its country (and US state) so the veil never hides it, fly

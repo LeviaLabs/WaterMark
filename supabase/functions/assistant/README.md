@@ -42,7 +42,7 @@ usable without a login, so the function does not require a Supabase JWT. The con
 stop a client are:
 
 - **Per client and global caps**, in `watermark_take_assistant_budget` (migration
-  `20261122170000_watermark_assistant_budget.sql`). Same table and atomic upsert as
+  `20261122181132_watermark_assistant_budget.sql`). Same table and atomic upsert as
   `watermark_take_budget`, with `assistant:` bucket names so the two counters do not spend each
   other. The argument is a 32-character hex digest of the UTC day and the gateway client address
   (`x-forwarded-for`, then `cf-connecting-ip`, then `x-real-ip`). The raw address is not stored.

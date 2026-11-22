@@ -39,6 +39,7 @@ jobs:
           VITE_AGENTBOXD_AUTH_URL: ${{ vars.VITE_AGENTBOXD_AUTH_URL }}
           # Public function URL. Empty: the chat says it is not set up and calls nothing.
           VITE_WATERMARK_ASSISTANT_URL: ${{ vars.VITE_WATERMARK_ASSISTANT_URL }}
+          VITE_WATERMARK_TTS_URL: ${{ vars.VITE_WATERMARK_TTS_URL }}
           # Public function URL. Empty: the flood outlook shows its figures and no AI summary.
           VITE_WATERMARK_SUMMARY_URL: ${{ vars.VITE_WATERMARK_SUMMARY_URL }}
       # SPA fallback so /map, /login, /signup work on refresh

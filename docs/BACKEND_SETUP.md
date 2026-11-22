@@ -153,7 +153,7 @@ An attacker can exhaust the shared availability budget; fair per-client limits
 and operational monitoring remain a production decision for `watermark-v1`.
 
 The flood assistant uses the same table through `watermark_take_assistant_budget(text)`
-(service role only; migration `20261122170000_watermark_assistant_budget.sql`). Its buckets are
+(service role only; migration `20261122181132_watermark_assistant_budget.sql`). Its buckets are
 prefixed `assistant:` so they do not spend the `watermark-v1` counters. The argument is a
 32-character hex digest of the UTC day and the gateway client address, not the address itself.
 Limits are 12 requests per minute and 80 per UTC day for that digest, and 400 per UTC day for

@@ -441,6 +441,10 @@ verify_jwt = false
 [functions.assistant]
 verify_jwt = false
 
+# Public read-aloud proxy; atomic Postgres character budgets are mandatory, even for direct calls.
+[functions.watermark-tts]
+verify_jwt = false
+
 [functions.outlook-summary]
 verify_jwt = false
 # Directory under `supabase/` where declarative files are written.

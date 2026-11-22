@@ -6,7 +6,7 @@ import { Reveal } from '../common/Reveal'
 import { SplitText } from '../common/SplitText'
 import { TiltCard } from '../common/TiltCard'
 
-const TITLE = ['Three builders,', '\n', { text: 'one coastline.', accent: true }] as const
+const TITLE = ['Four builders,', '\n', { text: 'one coastline.', accent: true }] as const
 
 export function TeamSection() {
   return (

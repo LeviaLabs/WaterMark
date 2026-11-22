@@ -253,10 +253,19 @@ The team Google Doc's **Assignments** tab uses background colors as an ownership
 | Highlight in Google Doc | Owner | Assigned scope | Proposed branch names (not existing-branch claims) |
 | --- | --- | --- | --- |
 | **Green** (`#D9EAD3`) | **Ryan Bergman (Ryan B)** | Frontend design and **landing-page shell**; Gemini/OpenRouter chatbot and primary ElevenLabs voice integration; **AWS automatic deployment**; optional Decodo scraping investigation | `feat/ryan-b-landing`, `feat/ryan-b-ai-assistant`, `infra/ryan-b-amplify` |
-| **Effervescent Yellow** (`yellow`) | **Daniel Manita (Daniel M)** | Moral support and pen testing. Last minute changes and Move your Car feature. | |
+| **Effervescent Yellow** (`yellow`) | **Daniel Manita (Daniel M)** | Audience role views, **Move Your Car**, finer zoom detail, flood-assistant request limits, and map selection navigation | `cursor/role-views-0985`, `cursor/assistant-abuse-limits-8c5f`, `cursor/map-selection-back-bdab` |
 | **Pink** (`#EAD1DC`) | **Ryan Lin (Ryan L)** | **Application/demo page**, interactive **2D map**, collapsible/draggable data panel, **circle selection and area-statistics UI**, forecasting/data charts, **landing-page resources/bibliography content**, exploratory **Move Your Car** UI | `feat/ryan-l-map`, `feat/ryan-l-data-panel`, `feat/ryan-l-area-analysis` |
 | **Blue** (`#C9DAF8`) | **Decong** | **Supabase PostgreSQL/PostGIS and Edge Functions**; **Agentboxd** email reading/summaries and optional sending; **MojoAuth/login integration**; multilingual support and localization/ElevenLabs languages; **.xyz domain/DNS coordination**; investigate SMS | `feat/decong-data-api`, `feat/decong-agentboxd`, `infra/decong-domain` |
 | **Yellow note** (`#FFF2CC`) | **Joint / conditional** | Tailored views for homeowners, schools, CERT, and firefighters, **only if time remains** and the data actually supports the audience-specific claims | Joint ticket after P0 |
+
+### Contributions
+
+[Daniel Manita](https://github.com/Danx3mer) (@Danx3mer). Checked on 22 November 2026 against the pull request authors, descriptions, and merge commits.
+
+- [PR #24](https://github.com/LeviaLabs/WaterMark/pull/24): role views. School shows a flood approach direction, Homeowner shows insurance-claim context, and Fire & CERT shows the most probable flood areas. Also the Move your car feature, and finer map detail when zoomed in.
+- [PR #26](https://github.com/LeviaLabs/WaterMark/pull/26): flood assistant hardening. Per-client and global rate limits, a kill switch, bounded requests, browser and grounding data handled as untrusted, and the Pages deploy workflow variable. He merged the Gemini assistant in [PR #23](https://github.com/LeviaLabs/WaterMark/pull/23); this pull request is the follow-up.
+- [PR #27](https://github.com/LeviaLabs/WaterMark/pull/27): an explicit Back button, a breadcrumb, and Escape to leave a selection, plus a fix so World clears the selection.
+- Merge-conflict resolution for [PR #21](https://github.com/LeviaLabs/WaterMark/pull/21), [PR #24](https://github.com/LeviaLabs/WaterMark/pull/24), and [PR #28](https://github.com/LeviaLabs/WaterMark/pull/28).
 
 **Assignments versus build priority:** The colors assign responsibility for investigating or implementing a feature. They **do not** make P1/P2 features mandatory for the MVP. The feature-priority table in Section 8 remains the acceptance gate. A teammate may contribute a limited spike or component for a stretch feature without claiming the full feature is shipped.
 

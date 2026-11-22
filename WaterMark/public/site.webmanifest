@@ -2,12 +2,12 @@
   "name": "WaterMark",
   "short_name": "WaterMark",
   "description": "Flood and extreme-rainfall evidence for communities.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#03101c",
   "theme_color": "#03101c",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
   ]
 }

@@ -28,13 +28,15 @@ jobs:
           cache: npm
           cache-dependency-path: WaterMark/package-lock.json
       - run: npm ci
-      - run: npm run build
+      # base_path is empty with the custom domain (watermark.works) and /WaterMark on levialabs.github.io
+      - id: pages
+        uses: actions/configure-pages@v5
+      - run: npm run build -- --base="${{ steps.pages.outputs.base_path }}/"
         env:
           VITE_MOJOAUTH_API_KEY: ${{ vars.VITE_MOJOAUTH_API_KEY }}
           VITE_WATERMARK_AUTH_VERIFY_URL: ${{ vars.VITE_WATERMARK_AUTH_VERIFY_URL }}
       # SPA fallback so /map, /login, /signup work on refresh
       - run: cp dist/index.html dist/404.html
-      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: WaterMark/dist

@@ -17,8 +17,8 @@ export function TeamSection() {
           <SplitText parts={TITLE} />
         </h2>
         <p className="section-lede">
-          Built during EvoHacks II. Roles follow the color-coded assignments in our planning doc, and each item says
-          whether it is built, in review on a branch, or still planned.
+          Built during EvoHacks II. Roles follow the color-coded assignments in our planning doc, and everything
+          below shipped and is live on watermark.works.
         </p>
       </Reveal>
       <ul className="team-grid">

@@ -33,8 +33,8 @@ describe('landing content', () => {
     }
   })
 
-  it('never calls the assistant built before it exists', () => {
-    expect(STORY_STEPS.find((step) => step.id === 'assistant')?.status).toBe('planned')
+  it('calls the assistant built now that it is on main (src/services/assistant, supabase/functions/assistant)', () => {
+    expect(STORY_STEPS.find((step) => step.id === 'assistant')?.status).toBe('built')
   })
 })
 

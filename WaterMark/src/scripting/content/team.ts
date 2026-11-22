@@ -25,20 +25,20 @@ export const TEAM: readonly TeamMember[] = [
     work: [
       { text: 'Landing page design, theme, routing and frontend conventions', status: 'built' },
       { text: 'Vite + React app setup and the Astryx design system for the team', status: 'built' },
-      { text: 'AI assistant (Gemini or OpenRouter) and ElevenLabs voice', status: 'planned' },
-      { text: 'AWS Amplify automatic deployments', status: 'planned' },
-      { text: 'Decodo scraping research, only if the public APIs fall short', status: 'planned' },
+      { text: 'AI assistant (Gemini) and ElevenLabs voice', status: 'built' },
+      { text: 'Automatic deployments to watermark.works', status: 'built' },
+      { text: 'Flood outlook with sourced AI summaries', status: 'built' },
     ],
   },
   {
     name: 'Ryan Lin',
     role: 'Map, data panel & charts',
     work: [
-      { text: '2D flood map with light and dark map styles', status: 'review' },
-      { text: 'Draggable, stowable data panel and circle-area report', status: 'review' },
-      { text: 'Global layers: NASA rainfall and GDACS floods', status: 'review' },
-      { text: 'FloodNet and NFIP claims starter data, and the sources list', status: 'review' },
-      { text: '“Move Your Car” concept, research only', status: 'planned' },
+      { text: '2D flood map with light and dark map styles', status: 'built' },
+      { text: 'Draggable, stowable data panel and circle-area report', status: 'built' },
+      { text: 'Global layers: NASA rainfall and GDACS floods', status: 'built' },
+      { text: 'FloodNet and NFIP claims starter data, and the sources list', status: 'built' },
+      { text: '“Move Your Car” research view and audience views', status: 'built' },
     ],
   },
   {
@@ -47,9 +47,9 @@ export const TEAM: readonly TeamMember[] = [
     work: [
       { text: 'Supabase Edge Function data API: NWS, Open-Meteo, GloFAS, FloodNet', status: 'built' },
       { text: 'PostGIS area queries, request budgets and provider health', status: 'built' },
-      { text: 'Five-language localization and the voice language contract', status: 'review' },
-      { text: 'Optional MojoAuth email-code sign-in', status: 'review' },
-      { text: 'Agentboxd alert digests, the .xyz domain and SMS research', status: 'planned' },
+      { text: 'Five-language localization and the voice language contract', status: 'built' },
+      { text: 'Optional MojoAuth email-code sign-in', status: 'built' },
+      { text: 'Agentboxd alert inbox and digests, and the custom domain', status: 'built' },
     ],
   },
 ]

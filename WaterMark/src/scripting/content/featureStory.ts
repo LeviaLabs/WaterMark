@@ -43,8 +43,8 @@ export const STORY_STEPS: readonly StoryStep[] = [
     kinds: ['reference'],
     priority: 'P0',
     owners: 'Ryan Lin',
-    status: 'review',
-    statusNote: 'Map page on branch ryan-l/map-page',
+    status: 'built',
+    statusNote: 'Live on the map page',
   },
   {
     id: 'alerts',
@@ -55,7 +55,7 @@ export const STORY_STEPS: readonly StoryStep[] = [
     priority: 'P0',
     owners: 'Decong Huang · Ryan Lin',
     status: 'built',
-    statusNote: 'NWS adapter merged in the data API',
+    statusNote: 'Live: NWS alerts in every area report',
   },
   {
     id: 'rainfall',
@@ -66,7 +66,7 @@ export const STORY_STEPS: readonly StoryStep[] = [
     priority: 'P0',
     owners: 'Decong Huang · Ryan Lin',
     status: 'built',
-    statusNote: 'Open-Meteo adapter merged · chart in review',
+    statusNote: 'Live: Open-Meteo forecast and chart',
   },
   {
     id: 'stormwater',
@@ -76,8 +76,8 @@ export const STORY_STEPS: readonly StoryStep[] = [
     kinds: ['scenario'],
     priority: 'P0',
     owners: 'Ryan Lin',
-    status: 'review',
-    statusNote: 'Stormwater layer on branch ryan-l/map-page',
+    status: 'built',
+    statusNote: 'Live: NYC stormwater layer on the map',
   },
   {
     id: 'sensors',
@@ -88,7 +88,7 @@ export const STORY_STEPS: readonly StoryStep[] = [
     priority: 'P0',
     owners: 'Decong Huang · Ryan Lin',
     status: 'built',
-    statusNote: 'FloodNet adapter merged in the data API',
+    statusNote: 'Live: FloodNet, NOAA and USGS readings',
   },
   {
     id: 'area',
@@ -98,8 +98,8 @@ export const STORY_STEPS: readonly StoryStep[] = [
     kinds: ['observed', 'historical'],
     priority: 'P1',
     owners: 'Ryan Lin · Decong Huang',
-    status: 'review',
-    statusNote: 'Area report on branch ryan-l/map-page · PostGIS query merged',
+    status: 'built',
+    statusNote: 'Live: circle tool and area report',
   },
   {
     id: 'assistant',
@@ -109,8 +109,8 @@ export const STORY_STEPS: readonly StoryStep[] = [
     kinds: ['official', 'forecast'],
     priority: 'P1',
     owners: 'Ryan Bergman',
-    status: 'planned',
-    statusNote: 'Gemini / OpenRouter and ElevenLabs under evaluation',
+    status: 'built',
+    statusNote: 'Live: Gemini assistant and ElevenLabs voice',
   },
   {
     id: 'digest',
@@ -120,8 +120,8 @@ export const STORY_STEPS: readonly StoryStep[] = [
     kinds: ['official'],
     priority: 'P2',
     owners: 'Decong Huang · Ryan Bergman',
-    status: 'review',
-    statusNote: 'Localization and sign-in on Decong’s branches · digests planned',
+    status: 'built',
+    statusNote: 'Live: Agentboxd alert inbox and five languages',
   },
 ]
 

@@ -72,7 +72,9 @@ Missing, non-pass, untrusted-issuer, mismatched-domain, duplicated or unsupporte
 
 The public API adds only the quarantine reason `sender-auth-unverified`; the response shape is unchanged. Older clients display their generic held label until the updated reason text is released. Existing stored decisions stay immutable; there is no database migration or retroactive rewrite.
 
-Bounded reads request stream cancellation without awaiting transport completion. A regression reproduces an indefinitely pending cancellation promise: the old helper hung instead of rejecting the oversized body; the fixed helper returns immediately. Actual hosted 413 behavior is checked separately from this deterministic regression.
+The actual USGS confirmation payload also had a quoted DKIM signature fragment before its valid DMARC result. The parser skips quoted values and comments so neither can supply authentication tokens, while preserving the actual receiver result. The confirmation itself is not a flood-threshold notification.
+
+Bounded reads stop at their byte/time limit. Incoming request lifetime is left to the server; outbound response cancellation is requested without awaiting transport completion. A regression reproduces an indefinitely pending cancellation promise: the old helper hung instead of rejecting the oversized body; the fixed helper returns immediately. Actual hosted 413 transport behavior is checked separately from this deterministic regression and must not be inferred from an application log alone.
 
 ## Files
 

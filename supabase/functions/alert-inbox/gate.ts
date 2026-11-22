@@ -110,19 +110,22 @@ function senderAuthenticated(headers: unknown, address: string): boolean {
   const candidates = Object.entries(obj(headers)).filter(([name]) => name.toLowerCase() === 'authentication-results')
   if (candidates.length !== 1) return false
   const raw = candidates[0][1]
-  if (typeof raw !== 'string' || raw.length > 16_384 || /["\r\n]/.test(raw)) return false
-  // Remove balanced comments before reading methods: a claimed pass inside a comment is not a result.
+  if (typeof raw !== 'string' || raw.length > 16_384 || /[\r\n]/.test(raw)) return false
+  // Comments and quoted values (including DKIM signature fragments) cannot supply result tokens.
   let clean = ''
   let depth = 0
+  let quoted = false
   let escaped = false
   for (const char of raw) {
-    if (depth && escaped) { escaped = false; continue }
-    if (depth && char === '\\') { escaped = true; continue }
+    if ((depth || quoted) && escaped) { escaped = false; continue }
+    if ((depth || quoted) && char === '\\') { escaped = true; continue }
+    if (quoted) { if (char === '"') { quoted = false; clean += ' ' }; continue }
+    if (!depth && char === '"') { quoted = true; clean += ' [quoted] '; continue }
     if (char === '(') { if (++depth > 8) return false; continue }
     if (char === ')') { if (!depth) return false; depth--; clean += ' '; continue }
     if (!depth) clean += char
   }
-  if (depth) return false
+  if (depth || quoted) return false
   const parts = clean.toLowerCase().split(';').map((part) => part.trim())
   if (parts.shift() !== 'mx.agentboxd.com') return false
   const dmarc = parts.filter((part) => /^dmarc\s*=/.test(part))

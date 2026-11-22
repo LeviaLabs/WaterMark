@@ -13,10 +13,13 @@ export async function readBounded(
   maxBytes: number,
   timeoutMs = 5000,
 ): Promise<string | null> {
+  // Cancelling an incoming server Request can abort its HTTP connection before the 413 is sent.
+  // Stop reading and let the server own its lifetime; outbound provider responses can be cancelled.
+  const cancelRejectedBody = !(source instanceof Request)
   const declared = Number(source.headers.get('content-length'))
   if (Number.isFinite(declared) && declared > maxBytes) {
     // Cancellation may wait on the remote transport indefinitely. Request it without delaying rejection.
-    void source.body?.cancel().catch(() => {})
+    if (cancelRejectedBody) void source.body?.cancel().catch(() => {})
     return null
   }
   if (!source.body) return ''
@@ -31,13 +34,13 @@ export async function readBounded(
     for (;;) {
       const step = await Promise.race([reader.read(), deadline])
       if (step === 'timeout') {
-        void reader.cancel().catch(() => {})
+        if (cancelRejectedBody) void reader.cancel().catch(() => {})
         return null
       }
       if (step.done) break
       total += step.value.byteLength
       if (total > maxBytes) {
-        void reader.cancel().catch(() => {})
+        if (cancelRejectedBody) void reader.cancel().catch(() => {})
         return null
       }
       chunks.push(step.value)
@@ -46,6 +49,7 @@ export async function readBounded(
     return null
   } finally {
     clearTimeout(timer)
+    reader.releaseLock()
   }
   const bytes = new Uint8Array(total)
   let offset = 0

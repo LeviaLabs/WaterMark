@@ -180,6 +180,8 @@ for (const [name, headers] of [
   ['duplicate header keys', { 'authentication-results': 'mx.agentboxd.com; dmarc=pass header.from=usgs.gov', 'Authentication-Results': 'attacker.example; dmarc=pass header.from=usgs.gov' }],
   ['header array', { 'authentication-results': ['mx.agentboxd.com; dmarc=pass header.from=usgs.gov'] }],
   ['header injection', { 'authentication-results': 'mx.agentboxd.com; dmarc=pass header.from=usgs.gov\r\nAuthentication-Results: attacker.example' }],
+  ['pass only in quoted value', { 'authentication-results': 'mx.agentboxd.com; dkim=pass header.b="; dmarc=pass header.from=usgs.gov"' }],
+  ['unclosed quoted value', { 'authentication-results': 'mx.agentboxd.com; dkim=pass header.b="oops; dmarc=pass header.from=usgs.gov' }],
 ] as const) {
   test(`sender auth ${name}: quarantined despite clean scores and allowlisted From`, async () => {
     const t = setup()
@@ -200,6 +202,11 @@ test('verification auth_failed=false without a trusted DMARC result is not a pas
 
 test('trusted DMARC pass accepts a nullable verification block and case-insensitive header name', () => {
   const d = decide(event(message({ headers: { 'Authentication-Results': 'MX.AGENTBOXD.COM; dmarc=pass (p=REJECT) header.from=USGS.GOV' } })), ALLOW, NOW)
+  assert.equal(d.kind === 'record' && d.status, 'accepted')
+})
+
+test('actual USGS receiver header shape: quoted DKIM fragment does not hide a valid DMARC pass', () => {
+  const d = decide(event(message({ headers: { 'authentication-results': 'mx.agentboxd.com; dkim=pass header.i=@usgs.gov header.s=mail header.a=rsa-sha256 header.b="test-fragment"; spf=pass (receiver check) smtp.mailfrom=gs-w_waterdata_support@usgs.gov; dmarc=pass (p=REJECT arc=none) policy.dmarc=reject header.from=usgs.gov header.d=usgs.gov' } })), ALLOW, NOW)
   assert.equal(d.kind === 'record' && d.status, 'accepted')
 })
 
@@ -417,6 +424,24 @@ test('oversize body rejection does not wait for a transport that never finishes 
       ])
       assert.equal(result, null)
     } finally { clearTimeout(timer) }
+  }
+})
+
+test('rejecting an inbound Request leaves transport lifetime to the server so it can send 413', async () => {
+  for (const declared of [true, false]) {
+    let cancelled = false
+    const request = new Request(`${FN}/webhook`, {
+      method: 'POST',
+      headers: declared ? { 'content-length': '20' } : {},
+      body: new ReadableStream<Uint8Array>({
+        start(controller) { controller.enqueue(new Uint8Array(20)) },
+        cancel() { cancelled = true },
+      }),
+      duplex: 'half',
+    } as RequestInit)
+    assert.equal(await readBounded(request, 10), null)
+    assert.equal(cancelled, false)
+    assert.equal(request.body?.locked, false)
   }
 })
 

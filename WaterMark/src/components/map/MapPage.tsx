@@ -278,6 +278,8 @@ export default function MapPage() {
     else setFlyTo({ center: WORLD.center, zoom: WORLD.zoom() })
   }, [flyToRegion])
   const goTo = useCallback((depth: number) => showFocus(focusAtDepth(path, depth).path), [path, showFocus])
+  // A click on open water (zoomed out) returns to the world, like the World breadcrumb.
+  const onWaterClick = () => { if (path.length || selection) showFocus([]) }
   const stepBack = useCallback(() => {
     if (!path.length && !selection) return
     showFocus(stepUpFocus(path, selection != null).path)
@@ -459,6 +461,7 @@ export default function MapPage() {
         regions={history}
         onRegionClick={onRegionClick}
         onSpotClick={onSpotClick}
+        onWaterClick={onWaterClick}
         onDrawClick={onDrawClick}
         onDrawMove={onDrawMove}
         onStormNote={setStormNote}

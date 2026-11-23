@@ -1,10 +1,11 @@
 import type { BuildStatus } from './featureStory'
 
 /**
- * Team credits. Cross-referenced on 2026-11-21 against two sources:
+ * Team credits. Cross-referenced on 2026-11-22 against two sources:
  *   1. the Assignments tab of the EvoHacks2.0 planning doc (highlight colors:
  *      green Ryan B, pink Ryan L, blue Decong; README Section 10), and
  *   2. what each person has actually pushed to the repository.
+ * Daniel's items are the merged pull requests checked that day.
  * `status` says which: built (merged on main), review (on a branch, not merged
  * yet) or planned (assigned, not started). Update this list, not the
  * components, when work lands.
@@ -28,6 +29,17 @@ export const TEAM: readonly TeamMember[] = [
       { text: 'AI assistant (Gemini) and ElevenLabs voice', status: 'built' },
       { text: 'Automatic deployments to watermark.works', status: 'built' },
       { text: 'Flood outlook with sourced AI summaries', status: 'built' },
+    ],
+  },
+  {
+    name: 'Daniel Manita',
+    role: 'Audience views & map fixes',
+    work: [
+      { text: 'School, homeowner, and fire & CERT views on the flood map', status: 'built' },
+      { text: 'Move your car, and finer map detail when zoomed in', status: 'built' },
+      { text: 'Flood assistant rate limits, kill switch, bounded requests, and untrusted browser data', status: 'built' },
+      { text: 'Back, breadcrumb, and Escape; World clears the selection', status: 'built' },
+      { text: 'Merge-conflict resolution for the alert inbox, role views, and flood outlook', status: 'built' },
     ],
   },
   {

@@ -50,6 +50,25 @@ describe('flood outlook', () => {
     expect(river.level).toBe('elevated')
     expect(river.headline).toMatch(/a high river/)
   })
+  it('does not count a future-onset watch, a test message, or a non-flood alert as an active flood', () => {
+    const future = buildOutlook({
+      ...quiet,
+      alerts: [{ event: 'Flood Watch', status: 'Actual', onset: '2026-11-24T18:00:00Z', expires: '2026-11-25T18:00:00Z' }],
+    })
+    expect(future.level).not.toBe('watch')
+    expect(future.signals.find((s) => s.kind === 'alert')?.text).toMatch(/upcoming/)
+    expect(future.signals.find((s) => s.kind === 'alert')?.text).not.toMatch(/Flood Watch in effect/)
+    const mixed = buildOutlook({
+      ...quiet,
+      alerts: [
+        { event: 'Flood Warning', status: 'Test', onset: '2026-11-22T12:00:00Z', expires: '2026-11-23T12:00:00Z' },
+        { event: 'Wind Advisory', status: 'Actual', effective: '2026-11-21T00:00:00Z', expires: '2026-11-23T12:00:00Z' },
+      ],
+    })
+    expect(mixed.level).toBe('quiet')
+    expect(mixed.signals[0].text).toMatch(/1 other/)
+    expect(mixed.signals[0].text).not.toMatch(/2 /)
+  })
   it('leads with official flood warnings and watches, and ignores other weather alerts', () => {
     const warn = buildOutlook({ ...quiet, alerts: [{ event: 'Flash Flood Warning' }, { event: 'Wind Advisory' }] })
     expect(warn.level).toBe('warning')

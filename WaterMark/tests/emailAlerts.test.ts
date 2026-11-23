@@ -67,7 +67,7 @@ test('env: URL required; production needs HTTPS and not localhost', () => {
 })
 
 test('every server reason has plain-language text', () => {
-  for (const r of ['screened-usgs-alert', 'injection-risk', 'phishing-risk', 'check-failed', 'not-checked', 'blocked', 'sender-auth-failed', 'sender-not-allowed', 'no-usgs-site']) {
+  for (const r of ['screened-usgs-alert', 'injection-risk', 'phishing-risk', 'check-failed', 'not-checked', 'blocked', 'sender-auth-failed', 'sender-auth-unverified', 'sender-not-allowed', 'no-usgs-site']) {
     assert.ok(REASON_TEXT[r], r)
   }
 })

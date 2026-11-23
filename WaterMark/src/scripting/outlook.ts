@@ -11,6 +11,7 @@
 // year's maximum, roughly what comes once in two years. Nothing here is a calibrated chance of
 // flooding, and a quiet outlook is never called safe.
 import { peaksByYear, rainByYear, todayIndex, type DailySeries } from './climate'
+import { shownAlerts } from './alerts'
 import type { Coverable, Loadable, RainOutlook, RiverOutlook, WeatherAlert } from './types'
 
 export type OutlookLevel = 'warning' | 'watch' | 'elevated' | 'quiet' | 'unknown'
@@ -118,21 +119,34 @@ function rainSignal(r: Loadable<RainOutlook>, hist: Loadable<DailySeries>, now: 
   const markText = typical != null ? `a typical year's wettest day here, ${mm(mark)}` : `${mm(mark)}, a common heavy-rain mark (this spot's rain history didn't load)`
   let peak = { day: r.time[t], v: -1 }
   let three = { day: r.time[t], v: -1 }
+  let missing = 0
   for (let i = t; i < r.time.length; i++) {
-    const v = r.mm[i] ?? 0
+    const v = r.mm[i]
+    if (v == null || !Number.isFinite(v)) {
+      missing += 1
+      continue
+    }
     if (v > peak.v) peak = { day: r.time[i], v }
-    const s = v + (r.mm[i + 1] ?? 0) + (r.mm[i + 2] ?? 0)
-    if (i + 2 < r.time.length && s > three.v) three = { day: r.time[i], v: s }
+    const next = r.mm[i + 1]
+    const after = r.mm[i + 2]
+    if (i + 2 < r.time.length && next != null && after != null && Number.isFinite(next) && Number.isFinite(after)) {
+      const s = v + next + after
+      if (s > three.v) three = { day: r.time[i], v: s }
+    }
   }
+  if (peak.v < 0) {
+    return { days, pending: false, signal: { ...base, level: 'unknown', text: 'Rainfall values are missing for this forecast. Missing values are not zero, and this is not an all-clear.' } }
+  }
+  const gap = missing ? ` ${missing} forecast day${missing === 1 ? '' : 's'} have no data, so this is not a complete picture.` : ''
   if (peak.v >= mark) {
-    return { days, pending: false, signal: { ...base, level: 'elevated', text: `Heavy rain forecast: ${mm(peak.v)} on ${fmtDay(peak.day)}, at least as much as ${markText}.` } }
+    return { days, pending: false, signal: { ...base, level: 'elevated', text: `Heavy rain forecast: ${mm(peak.v)} on ${fmtDay(peak.day)}, at least as much as ${markText}.${gap}` } }
   }
   if (three.v >= mark * 1.5) {
-    return { days, pending: false, signal: { ...base, level: 'elevated', text: `Heavy rain forecast: ${mm(three.v)} over three days from ${fmtDay(three.day)}, half again ${markText}.` } }
+    return { days, pending: false, signal: { ...base, level: 'elevated', text: `Heavy rain forecast: ${mm(three.v)} over three days from ${fmtDay(three.day)}, half again ${markText}.${gap}` } }
   }
   const text = peak.v < 1
-    ? `Little or no rain forecast for the next ${days} days.`
-    : `Forecast rain stays below ${markText}: the most on one day is ${mm(peak.v)} on ${fmtDay(peak.day)}.`
+    ? `Little or no rain forecast for the next ${days} days.${gap}`
+    : `Forecast rain stays below ${markText}: the most on one day is ${mm(peak.v)} on ${fmtDay(peak.day)}.${gap}`
   return { days, pending: false, signal: { ...base, level: 'quiet', text } }
 }
 
@@ -148,6 +162,9 @@ function riverSignal(r: Loadable<RiverOutlook>, hist: Loadable<DailySeries>, now
     const f = r.flow[i]
     if (f != null && f > peak.v) peak = { day: r.time[i], v: f }
   }
+  if (peak.v < 0) {
+    return { pending: false, signal: { ...base, level: 'unknown', text: "The river forecast has no reading for today or the next 30 days. A missing value is not a low flow." } }
+  }
   const typical = hist === 'error' ? null : typicalYearMax(peaksByYear(hist), now)
   if (typical == null || typical <= 0) {
     return { pending: false, signal: { ...base, level: 'unknown', text: `The river forecast peaks at ${flow(peak.v)} around ${fmtDay(peak.day)}, but this river's history didn't load to compare it with.` } }
@@ -158,25 +175,30 @@ function riverSignal(r: Loadable<RiverOutlook>, hist: Loadable<DailySeries>, now
   return { pending: false, signal: { ...base, level: 'quiet', text: `The nearest river's forecast peaks at ${flow(peak.v)} around ${fmtDay(peak.day)}, below a typical year's highest flow here (${flow(typical)}).` } }
 }
 
-const FLOOD_ALERT = /flood|surge|hydrologic/i
-
-function alertSignals(a: Coverable<WeatherAlert[]>): { signals: OutlookSignal[]; pending: boolean; note?: string } {
+function alertSignals(a: Coverable<WeatherAlert[]>, now: Date): { signals: OutlookSignal[]; pending: boolean; note?: string } {
   const base = { kind: 'alert' as const, source: 'US National Weather Service (api.weather.gov)', url: 'https://www.weather.gov/' }
   if (a === null) return { signals: [], pending: true }
   if (a === 'unsupported') return { signals: [], pending: false, note: 'Official alerts here come from your national weather service; WaterMark reads US (NWS) alerts only.' }
   if (a === 'error') return { signals: [{ ...base, level: 'unknown', text: "Official NWS alerts couldn't be loaded. Check weather.gov." }], pending: false }
-  const flood = a.filter((x) => FLOOD_ALERT.test(x.event))
+  const rows = shownAlerts(a, now)
+  const flood = rows.filter((row) => row.active && row.floodRelevance === 'flood_hazard_notice')
+  const upcoming = rows.filter((row) => row.hazardTiming === 'upcoming' && row.floodRelevance === 'flood_hazard_notice')
+  const others = rows.filter((row) => row.active && row.floodRelevance !== 'flood_hazard_notice')
   if (!flood.length) {
-    const others = a.length ? ` (${a.length} other weather alert${a.length === 1 ? '' : 's'} in effect)` : ''
-    return { signals: [{ ...base, level: 'quiet', text: `No NWS flood alerts in effect at this spot${others}.` }], pending: false }
+    const extra = [
+      upcoming.length ? `${upcoming.length} upcoming flood alert${upcoming.length === 1 ? '' : 's'}, not in effect yet` : '',
+      others.length ? `${others.length} other weather alert${others.length === 1 ? '' : 's'}` : '',
+    ].filter(Boolean).join('; ')
+    const suffix = extra ? ` (${extra})` : ''
+    return { signals: [{ ...base, level: 'quiet', text: `No NWS flood alerts in effect at this spot${suffix}.` }], pending: false }
   }
   return {
     pending: false,
-    signals: flood.slice(0, 3).map((x) => {
-      const until = x.ends || x.expires
+    signals: flood.slice(0, 3).map((row) => {
+      const until = row.alert.ends || row.alert.expires
       const when = until ? ` until ${new Date(until).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''
-      const level: OutlookLevel = /warning/i.test(x.event) ? 'warning' : /watch/i.test(x.event) ? 'watch' : 'elevated'
-      return { ...base, level, text: `${x.event} in effect${when}.` }
+      const level: OutlookLevel = /warning/i.test(row.alert.event) ? 'warning' : /watch/i.test(row.alert.event) ? 'watch' : 'elevated'
+      return { ...base, level, text: `${row.alert.event} in effect${when}.` }
     }),
   }
 }
@@ -269,7 +291,7 @@ export function buildOutlook(input: OutlookInput): FloodOutlook {
   const now = input.now ?? new Date()
   const rain = rainSignal(input.rain, input.rainHistory, now)
   const river = riverSignal(input.river, input.riverHistory, now)
-  const alerts = alertSignals(input.alerts)
+  const alerts = alertSignals(input.alerts, now)
   const signals = [...alerts.signals, rain.signal, river.signal].filter((s): s is OutlookSignal => s != null)
   const notes = [alerts.note, river.note].filter((n): n is string => !!n)
   const pending = rain.pending || river.pending || alerts.pending || input.history === null

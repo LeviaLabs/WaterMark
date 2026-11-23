@@ -14,7 +14,8 @@ import { causeRows } from '../../scripting/causes'
 import type { CellMeta } from '../../services/floodHistory'
 import { nearestFlood, summarizeSensors } from '../../scripting/geo'
 import { touchesNYC } from '../../scripting/region'
-import { percentileOf, peaksByYear, rainByYear, seasonalMedian, todayIndex } from '../../scripting/climate'
+import { percentileOf, peaksByYear, rainByYear, seasonalMedian, sumKnown, todayIndex } from '../../scripting/climate'
+import { alertHeadline } from '../../scripting/alerts'
 import { HIGH_RISK_ZONES, ZONE_TEXT } from '../../scripting/mapTheme'
 import type { AreaReport as Report, Coverable, GlobalFloodCollection, Selection, SensorCollection } from '../../scripting/types'
 
@@ -87,6 +88,28 @@ function Section({ title, kind, summary, children }: { title: string; kind: Evid
         </div>
       ) : null}
     </section>
+  )
+}
+
+function RainDays({ time, mm, today, format }: {
+  time: readonly string[]
+  mm: readonly (number | null)[]
+  today: number
+  format: (value: number) => string
+}) {
+  return (
+    <ul className="report-days">
+      {time.slice(today, today + 7).map((day, i) => {
+        const value = mm[today + i]
+        const label = new Date(`${day}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return (
+          <li key={day}>
+            <span>{label}</span>
+            <span>{value == null || !Number.isFinite(value) ? '—' : format(value)}</span>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -166,18 +189,39 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
   const zones = ready(s.zone) ? s.zone : null
   const highZones = zones ? zones.inArea.filter((z) => HIGH_RISK_ZONES.has(z)) : []
   const isHighRisk = highZones.length > 0 || (ready(s.storm) && s.storm.deep > 1)
-  const alertCount = Array.isArray(s.alerts) ? s.alerts.length : 0
+  const headline = Array.isArray(s.alerts) ? alertHeadline(s.alerts) : null
+  const failedSources = [
+    s.alerts === 'error' ? 'weather alerts' : null,
+    s.zone === 'error' ? 'FEMA flood zones' : null,
+    s.storm === 'error' ? 'the heavy-rain flood model' : null,
+  ].filter((name): name is string => name !== null)
+  const loadingSources = [
+    s.alerts === null ? 'weather alerts' : null,
+    s.zone === null ? 'FEMA flood zones' : null,
+    s.storm === null ? 'the heavy-rain flood model' : null,
+  ].filter((name): name is string => name !== null)
+  const sourcesSettled = failedSources.length === 0 && loadingSources.length === 0
+  const hasAlertNews = headline?.text != null
 
-  // Worldwide figures.
+  // Worldwide figures. Null rainfall is missing, not zero.
   const rainToday = ready(s.rain) ? todayIndex(s.rain.time, new Date(new Date().toLocaleString('en-US', { timeZone: s.rain.timezone }))) : -1
-  const next7 = ready(s.rain) && rainToday >= 0 ? s.rain.mm.slice(rainToday, rainToday + 7).reduce((a, b) => a + b, 0) : null
-  const last30 = ready(s.rain) && rainToday > 0 ? s.rain.mm.slice(Math.max(0, rainToday - 30), rainToday).reduce((a, b) => a + b, 0) : null
+  const nextWindow = ready(s.rain) && rainToday >= 0 ? s.rain.mm.slice(rainToday, rainToday + 7) : null
+  const next7 = nextWindow ? sumKnown(nextWindow) : null
+  const lastWindow = ready(s.rain) && rainToday > 0 ? s.rain.mm.slice(Math.max(0, rainToday - 30), rainToday) : null
+  const last30 = lastWindow ? sumKnown(lastWindow) : null
+  const rainTotal = (sum: { total: number; missing: number } | null, days: number) => {
+    if (!sum) return null
+    if (days > 0 && sum.missing === days) return 'No data'
+    return rain(sum.total)
+  }
   const rainYears = ready(s.rainHistory) ? rainByYear(s.rainHistory, HEAVY_MM) : null
   const heavyTotal = rainYears && rainYears.heavyDays.length ? rainYears.heavyDays.reduce((a, b) => a + b.value, 0) : null
   const riverToday = ready(s.river) ? todayIndex(s.river.time) : -1
-  const riverNow = ready(s.river) && riverToday >= 0 ? s.river.flow[riverToday] : null
-  const riverPeakAhead = ready(s.river) && riverToday >= 0
-    ? Math.max(...s.river.flow.slice(riverToday).filter((v): v is number => v != null), 0) : null
+  const riverNow = ready(s.river) && riverToday >= 0 ? s.river.flow[riverToday] ?? null : null
+  const riverAhead = ready(s.river) && riverToday >= 0 ? s.river.flow.slice(riverToday) : null
+  const riverAheadMissing = riverAhead ? riverAhead.filter((v) => v == null || !Number.isFinite(v)).length : 0
+  const riverPeakAhead = riverAhead
+    ? Math.max(...riverAhead.filter((v): v is number => v != null && Number.isFinite(v)), 0) : null
   const typical = ready(s.riverHistory) && ready(s.river) && riverToday >= 0 ? seasonalMedian(s.river.time[riverToday], s.riverHistory) : null
   const peakRank = ready(s.riverHistory) && riverPeakAhead ? percentileOf(riverPeakAhead, s.riverHistory.values) : null
   const riverPeaks = ready(s.riverHistory) ? peaksByYear(s.riverHistory) : []
@@ -191,34 +235,45 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
         {ready(s.elevation) && s.elevation != null ? <> · {height(s.elevation)} above sea level</> : null}
       </p>
 
-      {alertCount ? (
-        <p className="callout callout-alert">
-          <strong>There {alertCount === 1 ? 'is an active alert' : `are ${alertCount} active alerts`} here.</strong>{' '}
-          Open the Alerts tab and follow the National Weather Service instructions.
+      {failedSources.length ? (
+        <p className="callout callout-info">
+          <strong>Some data unavailable: {failedSources.join(', ')}.</strong>{' '}
+          The sections below list only the sources that loaded. Missing data is not an all-clear.
         </p>
-      ) : !isUS ? (
+      ) : null}
+      {loadingSources.length ? (
+        <p className="report-skeleton" aria-busy="true">Loading {loadingSources.join(', ')}…</p>
+      ) : null}
+      {headline?.text ? (
+        <p className={headline.hasActiveFlood ? 'callout callout-alert' : 'callout callout-info'}>
+          <strong>{headline.text}.</strong>{' '}
+          {headline.hasActiveFlood
+            ? 'Open the Alerts tab and follow the National Weather Service instructions.'
+            : 'None of these is an active flood alert. Upcoming and unknown timing are not flooding happening now.'}
+        </p>
+      ) : null}
+      {sourcesSettled && !hasAlertNews && !isUS ? (
         <p className="callout callout-info">
           For official warnings here, check the national weather service (listed by the{' '}
           <a href="https://severeweather.wmo.int" target="_blank" rel="noopener">WMO</a>). The figures below are models and history, not warnings.
         </p>
-      ) : isHighRisk ? (
+      ) : null}
+      {sourcesSettled && !hasAlertNews && isUS && isHighRisk ? (
         <p className="callout callout-info">
           This area has a mapped flood risk. Renters and owners can buy flood insurance through{' '}
           <a href="https://www.floodsmart.gov" target="_blank" rel="noopener">FloodSmart.gov</a>.
         </p>
-      ) : s.alerts === 'error' ? (
-        <p className="callout callout-info">
-          Couldn't check weather alerts right now, so this is not an all-clear. See{' '}
-          <a href="https://www.weather.gov" target="_blank" rel="noopener">weather.gov</a>.
-        </p>
-      ) : s.alerts === null ? null : (
-        <p className="callout callout-info">No active alerts here. Flooding can still happen in heavy rain.</p>
-      )}
+      ) : null}
+      {sourcesSettled && !hasAlertNews && isUS && !isHighRisk && Array.isArray(s.alerts) ? (
+        <p className="callout callout-info">No active alerts or high-risk zone found here. This is not a safety guarantee.</p>
+      ) : null}
 
       <div className="report-tiles">
-        <Tile label="Rain, next 7 days" value={next7 != null ? rain(next7) : pending(s.rain)}
-          note={last30 != null ? `${rain(last30)} in the last 30` : undefined} />
-        <Tile label="River now" value={riverNow != null && hasRiver ? flow(riverNow) : ready(s.river) ? 'No river' : pending(s.river)}
+        <Tile label="Rain, next 7 days" value={next7 ? rainTotal(next7, nextWindow?.length ?? 0) : pending(s.rain)}
+          note={next7 && next7.missing
+            ? `${next7.missing} day${next7.missing === 1 ? '' : 's'} missing${last30 && last30.missing < (lastWindow?.length ?? 0) ? ` · ${rain(last30.total)} in the last 30` : ''}`
+            : last30 && last30.missing < (lastWindow?.length ?? 0) ? `${rain(last30.total)} in the last 30${last30.missing ? ` (${last30.missing} missing)` : ''}` : undefined} />
+        <Tile label="River now" value={!ready(s.river) ? pending(s.river) : !hasRiver ? 'No river' : riverNow != null ? flow(riverNow) : 'No data'}
           note={typical != null && riverNow != null && hasRiver ? `typical ${flow(typical)}` : undefined} />
         <Tile label="Wettest day since 1991" value={rainYears?.wettest ? rain(rainYears.wettest.mm) : pending(s.rainHistory)}
           note={rainYears?.wettest ? fmtDate(rainYears.wettest.day) : undefined} />
@@ -232,7 +287,11 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
         {s.rain === 'error' ? <Failed what="the rain forecast" /> : !ready(s.rain) ? <Loading what="the rain forecast" /> : (
           <>
             <RainOutlookChart time={s.rain.time} mm={s.rain.mm} today={rainToday} format={rain}
-              summary={next7 != null ? `${rain(next7)} in the next 7 days` : ''} />
+              summary={next7 && next7.missing < (nextWindow?.length ?? 0) ? `${rain(next7.total)} in the next 7 days${next7.missing ? ` (${next7.missing} missing)` : ''}` : next7?.missing ? 'No data' : ''} />
+            {rainToday >= 0 ? <RainDays time={s.rain.time} mm={s.rain.mm} today={rainToday} format={rain} /> : null}
+            {next7 && next7.missing ? (
+              <p className="map-meta">{next7.missing} day{next7.missing === 1 ? '' : 's'} in this forecast have no data. The total skips them.</p>
+            ) : null}
             <p className="map-meta">
               Open-Meteo, local days ({s.rain.timezone}). Days before today are model analysis, not rain gauges; forecasts past a week are rough.
             </p>
@@ -248,6 +307,10 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
             <FlowChart time={s.river.time} flow={s.river.flow} p25={s.river.p25} p75={s.river.p75} min={s.river.min} max={s.river.max}
               today={riverToday} format={flow}
               summary={riverPeakAhead ? `Peak ahead ${flow(riverPeakAhead)}` : ''} />
+            <Row k="Today" v={riverNow != null ? flow(riverNow) : 'No data'} />
+            {riverAheadMissing ? (
+              <p className="map-meta">{riverAheadMissing} day{riverAheadMissing === 1 ? '' : 's'} have no river reading. Today shows only today's value.</p>
+            ) : null}
             {peakRank != null && riverPeakAhead ? (
               <Row k="Forecast peak vs. every day since 1984" v={`higher than ${Math.min(99.9, peakRank).toFixed(peakRank > 99 ? 1 : 0)}%`} />
             ) : null}

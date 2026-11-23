@@ -7,11 +7,12 @@ import { loadAdmin1, loadCountries, loadCounties, loadFloodIndex, loadGrid, load
 import { fetchRainHistory, fetchRainOutlook, fetchRiverHistory, fetchRiverOutlook } from '../openMeteo'
 import { fetchAlerts } from '../pointLookups'
 import { fetchGlobalFloods } from '../gdacs'
-import { busiestMonths, rainByYear, seasonalMedian, todayIndex } from '../../scripting/climate'
+import { busiestMonths, rainByYear, seasonalMedian, sumKnown, todayIndex } from '../../scripting/climate'
 import { cellAt, cellWidthKm } from '../../scripting/cells'
 import { causeRows } from '../../scripting/causes'
 import { distanceKm } from '../../scripting/geo'
 import { mayBeUS } from '../../scripting/region'
+import { shownAlerts } from '../../scripting/alerts'
 import type { FunctionCall } from '../../scripting/assistant'
 import type { LngLat, RegionProps } from '../../scripting/types'
 
@@ -26,7 +27,7 @@ type Result = Record<string, unknown>
 const MM_PER_IN = 25.4
 const round = (x: number, d = 1) => Math.round(x * 10 ** d) / 10 ** d
 const rain = (mm: number) => ({ mm: round(mm), inches: round(mm / MM_PER_IN, 2) })
-const sum = (xs?: readonly (number | null)[]) => (xs ?? []).reduce<number>((a, b) => a + (b ?? 0), 0)
+const sum = (xs?: readonly (number | null)[]) => (xs ?? []).reduce<number>((a, b) => a + (typeof b === 'number' && Number.isFinite(b) ? b : 0), 0)
 
 function point(args: Record<string, unknown> | undefined): LngLat {
   const lat = Number(args?.lat), lon = Number(args?.lon)
@@ -110,15 +111,24 @@ async function rainForecast(at: LngLat, signal: AbortSignal): Promise<Result> {
   const r = await fetchRainOutlook(at, signal)
   const t = todayIndex(r.time)
   if (t < 0) return { ok: false, error: 'The forecast did not include today.' }
-  const next = (n: number) => sum(r.mm.slice(t, t + n))
-  const days = r.time.slice(t, t + 7).map((day, i) => ({ day, ...rain(r.mm[t + i] ?? 0), chance_percent: r.probability[t + i] }))
-  const wettest = r.time.slice(t).reduce((best, day, i) => ((r.mm[t + i] ?? 0) > best.mm ? { day, mm: r.mm[t + i] ?? 0 } : best), { day: '', mm: -1 })
+  const pack = (window: { total: number; missing: number }) => ({ ...rain(window.total), missing_days: window.missing })
+  const next = (n: number) => sumKnown(r.mm.slice(t, t + n))
+  const days = r.time.slice(t, t + 7).map((day, i) => {
+    const value = r.mm[t + i]
+    return value == null || !Number.isFinite(value)
+      ? { day, mm: null, inches: null, chance_percent: r.probability[t + i], note: 'No data' }
+      : { day, ...rain(value), chance_percent: r.probability[t + i] }
+  })
+  const wettest = r.time.slice(t).reduce((best, day, i) => {
+    const value = r.mm[t + i]
+    return value != null && Number.isFinite(value) && value > best.mm ? { day, mm: value } : best
+  }, { day: '', mm: -1 })
   return {
     kind: 'forecast (weather models), not an official warning',
     timezone: r.timezone,
-    past_30_days_total: rain(sum(r.mm.slice(Math.max(0, t - 30), t))),
-    next_7_days_total: rain(next(7)),
-    next_16_days_total: rain(next(16)),
+    past_30_days_total: pack(sumKnown(r.mm.slice(Math.max(0, t - 30), t))),
+    next_7_days_total: pack(next(7)),
+    next_16_days_total: pack(next(16)),
     next_7_days: days,
     wettest_forecast_day: wettest.day ? { day: wettest.day, ...rain(wettest.mm) } : null,
     fetched_at: new Date().toISOString(),
@@ -144,8 +154,8 @@ async function rainHistory(at: LngLat, signal: AbortSignal): Promise<Result> {
 async function riverForecast(at: LngLat, signal: AbortSignal): Promise<Result> {
   const [r, history] = await Promise.all([fetchRiverOutlook(at, signal), fetchRiverHistory(at, signal).catch(() => null)])
   const t = todayIndex(r.time)
-  const now = t >= 0 ? r.flow[t] : null
-  if (now == null || !r.flow.some((f) => (f ?? 0) > 0)) {
+  const now = t >= 0 ? r.flow[t] ?? null : null
+  if (!r.flow.some((f) => f != null && f > 0)) {
     return { ok: false, error: 'No modeled river near this point (GloFAS covers larger rivers only).' }
   }
   let peak = { day: '', flow: -1 }
@@ -153,11 +163,12 @@ async function riverForecast(at: LngLat, signal: AbortSignal): Promise<Result> {
     const f = r.flow[i]
     if (f != null && f > peak.flow) peak = { day: r.time[i], flow: f }
   }
-  const typical = history ? seasonalMedian(r.time[t], history) : null
+  const typical = history && t >= 0 ? seasonalMedian(r.time[t], history) : null
   return {
     kind: 'modeled river discharge (forecast), not flood depth and not street or coastal flooding',
     unit: 'm³/s',
-    today: round(now),
+    today: now == null ? null : round(now),
+    today_status: now == null ? 'No data' : 'value',
     typical_for_this_time_of_year: typical != null ? round(typical) : null,
     highest_next_30_days: peak.day ? { day: peak.day, flow: round(peak.flow) } : null,
     source: 'GloFAS v4 (Copernicus) via the Open-Meteo flood API, nearest river cell (about 5 km)',
@@ -169,15 +180,22 @@ async function weatherAlerts(at: LngLat, signal: AbortSignal): Promise<Result> {
   if (!mayBeUS(at)) {
     return { covered: false, note: 'The NWS covers the US only. Check the national weather service for this country.' }
   }
-  const alerts = await fetchAlerts(at, signal)
+  const alerts = shownAlerts(await fetchAlerts(at, signal))
+  const active = alerts.filter((row) => row.active)
   return {
     covered: true,
-    count: alerts.length,
-    alerts: alerts.slice(0, 8).map((a) => ({
-      event: a.event,
-      headline: a.headline ?? null,
-      instruction: a.instruction ? a.instruction.slice(0, 500) : null,
-      ends: a.ends ?? a.expires ?? null,
+    count: active.filter((row) => row.floodRelevance === 'flood_hazard_notice').length,
+    other_count: active.filter((row) => row.floodRelevance !== 'flood_hazard_notice').length,
+    upcoming_count: alerts.filter((row) => row.hazardTiming === 'upcoming').length,
+    alerts: alerts.slice(0, 8).map((row) => ({
+      event: row.alert.event,
+      headline: row.alert.headline ?? null,
+      instruction: row.alert.instruction ? row.alert.instruction.slice(0, 500) : null,
+      onset: row.alert.onset ?? row.alert.effective ?? null,
+      ends: row.alert.ends ?? row.alert.expires ?? null,
+      hazard_timing: row.hazardTiming,
+      flood_relevance: row.floodRelevance,
+      active: row.active,
     })),
     note: 'No alerts in effect does not mean there is no flood risk.',
     checked_at: new Date().toISOString(),

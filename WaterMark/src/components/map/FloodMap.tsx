@@ -15,7 +15,9 @@
 // US, states, then counties) take the color. Clicking inside a province or county selects that spot
 // and zooms to street level, where the detailed layers (sensors, the NYC model, FEMA zones) draw.
 import { useEffect, useRef } from 'react'
-import maplibregl, { type GeoJSONSource, type MapLayerMouseEvent } from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
+import type { GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Feature, FeatureCollection, Point, Polygon } from 'geojson'
 import { ENDPOINTS } from '../../services/endpoints'
@@ -31,6 +33,11 @@ import type { MapPalette } from '../../scripting/mapTheme'
 import type {
   ColorScheme, GlobalFloodCollection, LayerId, LayerVisibility, Loadable, LngLat, RegionPick, SensorCollection,
 } from '../../scripting/types'
+
+// Vite bundles MapLibre into a hashed chunk and does not emit the sibling
+// worker file v6 looks up from import.meta.url. Without an explicit worker
+// URL the worker 404s, tiles never load, and the map stays blank.
+maplibregl.setWorkerUrl(workerUrl)
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 const STORM_MIN_ZOOM = 10

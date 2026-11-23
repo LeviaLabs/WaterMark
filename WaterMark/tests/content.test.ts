@@ -17,8 +17,8 @@ describe('landing content', () => {
     expect(kinds).toEqual(Object.keys(EVIDENCE_LABELS).sort())
   })
 
-  it('credits all three team members, each item with a build status', () => {
-    expect(TEAM.map((member) => member.name)).toEqual(['Ryan Bergman', 'Ryan Lin', 'Decong Huang'])
+  it('credits all four team members, each item with a build status', () => {
+    expect(TEAM.map((member) => member.name)).toEqual(['Ryan Bergman', 'Daniel Manita', 'Ryan Lin', 'Decong Huang'])
     for (const member of TEAM) {
       expect(member.work.length).toBeGreaterThan(0)
       for (const item of member.work) expect(['built', 'review', 'planned']).toContain(item.status)

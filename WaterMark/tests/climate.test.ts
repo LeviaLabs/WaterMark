@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { busiestMonths, peaksByYear, percentileOf, rainByYear, seasonalMedian, todayIndex } from '../src/scripting/climate'
+import { busiestMonths, peaksByYear, percentileOf, rainByYear, seasonalMedian, sumKnown, todayIndex } from '../src/scripting/climate'
 
 const series = {
   time: ['2020-01-01', '2020-06-01', '2021-03-01', '2021-03-02', '2021-03-03'],
@@ -26,6 +26,10 @@ describe('climate summaries', () => {
   })
   it('finds today in a daily series', () => {
     expect(todayIndex(['2026-11-21', '2026-11-22'], new Date(2026, 10, 22, 9))).toBe(1)
+  })
+  it('sums known days and counts nulls instead of treating them as zero', () => {
+    expect(sumKnown([null, 1.2, null])).toEqual({ total: 1.2, missing: 2 })
+    expect(sumKnown([null, null])).toEqual({ total: 0, missing: 2 })
   })
   it('names the busiest months', () => {
     expect(busiestMonths([0, 0, 0, 0, 0, 3, 9, 9, 1, 0, 0, 0])).toBe('Jul, Aug and Jun')

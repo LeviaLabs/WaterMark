@@ -15,7 +15,8 @@
 // US, states, then counties) take the color. Clicking inside a province or county selects that spot
 // and zooms to street level, where the detailed layers (sensors, the NYC model, FEMA zones) draw.
 import { useEffect, useRef } from 'react'
-import maplibregl, { type GeoJSONSource, type MapLayerMouseEvent } from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
+import type { GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Feature, FeatureCollection, Point, Polygon } from 'geojson'
 import { ENDPOINTS } from '../../services/endpoints'

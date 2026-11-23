@@ -173,11 +173,12 @@ class SmoothZoomControl implements maplibregl.IControl {
       icon.className = 'maplibregl-ctrl-icon'
       icon.setAttribute('aria-hidden', 'true')
       b.append(icon)
-      b.addEventListener('click', () => {
+      b.addEventListener('click', (e) => {
         const from = this.target ?? map.getZoom()
         const zoom = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), Math.round(from) + delta))
         this.target = zoom
-        map.easeTo({ zoom, duration: ZOOM_MS, essential: true })
+        // originalEvent marks it as the user's zoom (FloodMap's onUserZoom), like a wheel or pinch.
+        map.easeTo({ zoom, duration: ZOOM_MS, essential: true }, { originalEvent: e })
       })
       el.append(b)
     }
@@ -220,6 +221,12 @@ interface Props {
   onViewChange: (bounds: BBox, zoom: number) => void
   /** True while map tiles or data are loading, for the progress bar. */
   onBusyChange: (isBusy: boolean) => void
+  /**
+   * The user zoomed (wheel, pinch, keys, the zoom buttons), not a fly to a picked place. Gives the
+   * point zoomed into (under the cursor or pinch, else the middle of the screen), the zoom before and
+   * after, and the zoom a click on a region would fly to.
+   */
+  onUserZoom?: (center: LngLat, zoom: number, prevZoom: number, fitZoom: (bounds: [number, number, number, number]) => number) => void
 }
 
 const data = <T,>(v: Loadable<T>): T | FeatureCollection => (v && v !== 'error' ? v : EMPTY)
@@ -249,6 +256,8 @@ export function FloodMap(props: Props) {
   /** Recomputes the coverage note; set once the map exists. */
   const refreshNote = useRef<() => void>(() => {})
   const shownRegions = useRef<RegionData | null>(null)
+  /** True from the start of a fly made by the app (props.flyTo) until it ends, so it is not taken as a user zoom. */
+  const isFlying = useRef(false)
 
   /** Pushes the sensors and floods near the current view into the map. */
   const syncPoints = (map: maplibregl.Map) => {
@@ -282,6 +291,42 @@ export function FloodMap(props: Props) {
     })
     mapRef.current = map
     map.addControl(new SmoothZoomControl(), 'bottom-right')
+
+    // User zooms, for zoom-to-focus (scripting/zoomFocus.ts). A fly the app started does not count;
+    // a gesture that interrupts it does.
+    // The wheel, a double click and a pinch zoom toward a point and keep it still, so that point (not
+    // the middle of the screen) is the place being zoomed into. Keys and the +/- buttons zoom on the middle.
+    let zoomFrom = map.getZoom()
+    /** The pointer over the map, in screen pixels; the wheel keeps the place under it still. */
+    let cursorAt: maplibregl.Point | null = null
+    /** Middle of a pinch, or null; and whether this zoom came from the keys or the +/- buttons. */
+    let pinch: LngLat | null = null
+    let isCentered = false
+    map.on('mousemove', (e) => { cursorAt = e.point })
+    map.on('mouseout', () => { cursorAt = null })
+    map.on('zoomstart', (e) => {
+      const ev = (e as { originalEvent?: unknown }).originalEvent
+      if (ev) isFlying.current = false
+      zoomFrom = map.getZoom()
+      isCentered = ev instanceof KeyboardEvent || (ev instanceof MouseEvent && ev.type === 'click')
+      pinch = null
+      if (typeof TouchEvent !== 'undefined' && ev instanceof TouchEvent && ev.touches.length >= 2) {
+        const r = map.getCanvas().getBoundingClientRect()
+        const [t0, t1] = [ev.touches[0], ev.touches[1]]
+        const p = map.unproject([(t0.clientX + t1.clientX) / 2 - r.left, (t0.clientY + t1.clientY) / 2 - r.top])
+        pinch = [p.lng, p.lat]
+      }
+    })
+    map.on('moveend', () => { isFlying.current = false })
+    map.on('zoomend', () => {
+      if (isFlying.current) return
+      const c = map.getCenter()
+      const under = !isCentered && cursorAt ? map.unproject(cursorAt) : null
+      const at: LngLat = pinch ?? (under ? [under.lng, under.lat] : [c.lng, c.lat])
+      const fitZoom = (bounds: [number, number, number, number]) =>
+        Math.min(map.cameraForBounds(bounds, { padding: flyPadding() })?.zoom ?? map.getZoom(), map.getMaxZoom())
+      latest.current.onUserZoom?.(at, map.getZoom(), zoomFrom, fitZoom)
+    })
     map.addControl(new maplibregl.ScaleControl({ unit: UNITS }), 'bottom-right')
 
     const addOverlays = () => {
@@ -524,6 +569,7 @@ export function FloodMap(props: Props) {
     const map = mapRef.current
     const to = props.flyTo
     if (!map || !to) return
+    isFlying.current = true
     if ('bounds' in to) {
       map.fitBounds(to.bounds, {
         padding: flyPadding(), maxZoom: to.maxZoom ?? DETAIL_ZOOM - 0.5, duration: 1700, easing: easeInOutCubic, essential: true,

@@ -5,7 +5,7 @@ import type { FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { getJSON } from './http'
 import { markFetched } from '../scripting/freshness'
-import type { LngLat, RegionLevel, RegionProps } from '../scripting/types'
+import type { LngLat, RegionLevel, RegionPick, RegionProps } from '../scripting/types'
 import { parseGrid, type Grid, type GridKind } from '../scripting/cells'
 
 const BASE = '/data/floods'
@@ -87,12 +87,15 @@ function validate(j: unknown): RegionCollection {
 }
 
 const files = new Map<string, Promise<RegionCollection>>()
+/** Files that have arrived, for answers that cannot wait (regionChainNow); and ones that failed this visit. */
+const settled = new Map<string, RegionCollection>()
+const failed = new Set<string>()
 function file(path: string, source: 'gdacs-history' | 'noaa-storm-events'): Promise<RegionCollection> {
   let job = files.get(path)
   if (!job) {
     job = getJSON<unknown>(`${BASE}/${path}`, { timeoutMs: 30_000 }).then((j) => { markFetched(source); return validate(j) })
     files.set(path, job)
-    job.catch(() => files.delete(path))
+    job.then((fc) => { settled.set(path, fc); failed.delete(path) }, () => { files.delete(path); failed.add(path) })
   }
   return job
 }
@@ -140,4 +143,41 @@ export function regionAt(fc: RegionCollection | null, [x, y]: LngLat): RegionPro
     if (inBox && booleanPointInPolygon([x, y], f.geometry)) return f.properties
   }
   return null
+}
+
+/**
+ * The regions at a point, outermost first: its country, then its state and county in the US or its
+ * province elsewhere, from the files already loaded, so it answers at once. When a deeper level's
+ * file is not loaded yet, `missing` is that file loading (started here); ask again once it settles.
+ * A level with no region at the point ends the chain.
+ */
+export function regionChainNow(at: LngLat): { chain: RegionPick[]; missing: Promise<unknown> | null } {
+  const chain: RegionPick[] = []
+  const need = (path: string, load: () => Promise<RegionCollection>) => {
+    const fc = settled.get(path)
+    return fc ? { fc, missing: null } : { fc: null, missing: load().catch(() => null) }
+  }
+  const countries = need('countries.json', loadCountries)
+  if (!countries.fc) return { chain, missing: countries.missing }
+  const country = regionAt(countries.fc, at)
+  if (!country) return { chain, missing: null }
+  chain.push({ level: 'country', props: country })
+  if (country.k === 'USA') {
+    const states = need('us-states.json', loadStates)
+    if (!states.fc) return { chain, missing: states.missing }
+    const state = regionAt(states.fc, at)
+    if (!state) return { chain, missing: null }
+    chain.push({ level: 'state', props: state })
+    if (failed.has(`counties/${state.k}.json`)) return { chain, missing: null }
+    const counties = need(`counties/${state.k}.json`, () => loadCounties(state.k))
+    if (!counties.fc) return { chain, missing: counties.missing }
+    const county = regionAt(counties.fc, at)
+    if (county) chain.push({ level: 'county', props: county })
+  } else if (!failed.has(`admin1/${country.k}.json`)) {
+    const provinces = need(`admin1/${country.k}.json`, () => loadAdmin1(country.k))
+    if (!provinces.fc) return { chain, missing: provinces.missing }
+    const province = regionAt(provinces.fc, at)
+    if (province) chain.push({ level: 'admin1', props: province })
+  }
+  return { chain, missing: null }
 }

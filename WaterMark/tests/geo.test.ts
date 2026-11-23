@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { distanceKm, makeCircle, nearestFlood, stormShare, summarizeSensors } from '../src/scripting/geo'
+import { clampRadiusKm, distanceKm, makeCircle, nearestFlood, stormShare, summarizeSensors } from '../src/scripting/geo'
 import type { GlobalFloodCollection, SensorCollection } from '../src/scripting/types'
 import type { StormFeatures } from '../src/scripting/geo'
 
@@ -25,6 +25,25 @@ describe('summarizeSensors', () => {
   })
   it('returns null when no sensor is inside', () => {
     expect(summarizeSensors(sensors, makeCircle([-80, 25], 1))).toBeNull()
+  })
+  it('leaves the event total unknown when a count is missing', () => {
+    const withGap: SensorCollection = {
+      type: 'FeatureCollection',
+      features: [
+        sensor(-73.986, 40.5755, 4, 1, null, '2024-01-01'),
+        { ...sensor(-73.985, 40.576, 0, 1, null, '2024-01-01'), properties: { sensor_id: 'gap', events: null, max_depth: 1, last_flood: null } },
+      ],
+    }
+    expect(summarizeSensors(withGap, makeCircle(CONEY, 1))?.events).toBeNull()
+  })
+})
+
+describe('clampRadiusKm', () => {
+  it('keeps a drawn circle inside the API radius', () => {
+    expect(clampRadiusKm(0.01)).toBe(0.1)
+    expect(clampRadiusKm(1.2)).toBe(1.2)
+    expect(clampRadiusKm(80)).toBe(10)
+    expect(clampRadiusKm(Number.NaN)).toBe(0.1)
   })
 })
 

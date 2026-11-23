@@ -23,15 +23,14 @@ CAP 1.2, Supabase environment-variable documentation and official FloodNet metad
 | M2 missing area data | FIXED. Validated environmental envelope with public attribution and cache age; unknown counts are null. Positive cache counts remain incomplete lower bounds. Complete area coverage and verified zero are never asserted by the cache. A real empty upstream event query has separate query evidence. SQL and HTTP tests pass. |
 | M3 historical freshness | FIXED. Original event/observation and cache times remain separate. Cache over 24 hours old, including mixed snapshots, is stale. Observation staleness is also retained. Area cache oldest/newest times and row timestamps are tested. Source publication freshness is not fabricated. |
 | M4 provider coverage | FIXED within the explicitly documented adapter scope. Unsupported candidates make no NWS request; border-region point verification prevents unsupported alert queries. Marine-only/other NWS coverage remains unsupported by this adapter. NYC, London and Toronto were tested live. |
-| M5 frontend contract | PARTIAL / ACCEPTANCE DEFERRED. GeoJSON alert/station output is added; existing paths, enum and center/radius input remain. Polygon input has an explicit pending-contract error, not an unsafe circle approximation. Nullable fields, null counts and envelope additions are documented and proposed to Ryan Lin. No acceptance has been received; do not treat this as a final agreed contract. |
+| M5 frontend contract | ACCEPTED. M5 contract accepted by Decong (@deconghh), Nov 22, 2026. GeoJSON alert/station output is added; existing paths, enum and center/radius input remain. Polygon input has an explicit pending-contract error, not an unsafe circle approximation. Nullable fields, null counts and envelope additions are part of the accepted frontend contract. `/flood-zones` is not a contract route. |
 | M6 provider health | FIXED. Location unsupported/missing/error outcomes never overwrite contact evidence. Newer successful contacts are persisted atomically; reverse-arriving older writes are ignored. Health explicitly says global availability is unknown. Unit, real SQL and NYC→outside-NYC HTTP regressions pass. |
 
 The M5 proposal was posted for Ryan Lin's decision in
 [this PR #4 comment](https://github.com/LeviaLabs/WaterMark/pull/4#issuecomment-7068917730).
-The outstanding decisions are polygon input/bounds/layers, status mapping versus
-the README proposal, and acceptance of the corrected nullable/envelope fields.
-No version/status rename, alternate endpoint namespace, frontend edits or implicit
-approval was introduced. PR #4 must remain draft until acceptance.
+M5 contract accepted by Decong (@deconghh), Nov 22, 2026.
+Polygon input remains `GEOMETRY_CONTRACT_PENDING`. No version/status rename or
+alternate endpoint namespace was introduced.
 
 ## Verification
 

@@ -1,10 +1,25 @@
-# WaterMark data API v1 — proposal for integration review
+# WaterMark data API v1 — accepted frontend contract
 
 Task: WM-CODEX-001. Human owner: Decong. Branch: `feat/decong-data-api`.
-Status: proposed; Ryan Lin's acceptance and Grokbot's overlap check are pending.
+M5 contract accepted by Decong (@deconghh), Nov 22, 2026.
+The endpoints in the table below are the approved frontend contract. The map reads
+them from `VITE_WATERMARK_API_URL` when that variable is set, and keeps its direct
+public sources when the variable is empty so a build without it still loads.
+Guest reads send no API key and no credentials.
+
+`/flood-zones` is not part of this contract. The frontend does not call it.
+
+Preview and branch origins are unsupported until the backend owner adds them to
+`WATERMARK_ALLOWED_ORIGINS`. A browser origin that is not on that list receives
+403 `ORIGIN_NOT_ALLOWED`. The map shows data unavailable for that failure. It does
+not treat the failure as an all-clear, and it does not switch back to direct
+provider calls while the variable is set. `http://localhost:5173`,
+`https://watermark.works`, and `https://www.watermark.works` are the origins the
+issue recorded on the allowlist.
+
 Revision proposal: WM-CODEX-001-R2. Existing endpoint paths, `apiVersion: "1.0"`,
 status values and center/radius input remain in place. The corrections below
-require Ryan Lin's explicit acceptance before integration; nullable alert text
+were accepted with the contract on Nov 22, 2026. Nullable alert text
 and unknown (null) area counts correct unsafe assumptions in the original draft.
 
 R1 adds message validity separately from hazard timing, nullable official
@@ -27,7 +42,10 @@ the bounded PostGIS geometry contract. No status is silently renamed to
 `insufficient_data` until an agreed version change.
 This interface was proposed before implementation; a tested local draft now
 exists. Existing README endpoint names are retained under one versioned Supabase
-Edge Function. This is not an approved frontend or hosted deployment contract.
+Edge Function. M5 contract accepted by Decong (@deconghh), Nov 22, 2026.
+This is the approved frontend contract for the routes below. Hosted deployment
+and gateway CORS for any origin outside `WATERMARK_ALLOWED_ORIGINS` stay an
+operational limit: those browsers receive 403 and the map shows data unavailable.
 
 Base: `/functions/v1/watermark-v1`. Public environmental reads require no account.
 No notification, login, assistant, frontend, or deployment interface is changed.

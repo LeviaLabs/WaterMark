@@ -42,6 +42,8 @@ jobs:
           VITE_WATERMARK_TTS_URL: ${{ vars.VITE_WATERMARK_TTS_URL }}
           # Public function URL. Empty: the flood outlook shows its figures and no AI summary.
           VITE_WATERMARK_SUMMARY_URL: ${{ vars.VITE_WATERMARK_SUMMARY_URL }}
+          # Public watermark-v1 base. Empty: the map keeps its direct public sources.
+          VITE_WATERMARK_API_URL: ${{ vars.VITE_WATERMARK_API_URL }}
       # SPA fallback so /map, /login, /signup work on refresh
       - run: cp dist/index.html dist/404.html
       # Static client routes from WaterMark/src/App.tsx (map, alerts, login, signup).

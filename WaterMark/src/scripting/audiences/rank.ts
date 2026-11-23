@@ -25,6 +25,8 @@ export interface AreaInput {
   yearEnd: number
   sourceName: string
   sensorEvents: number
+  /** False when a sensor omitted its count. That is not the same as zero floods. */
+  sensorEventsKnown?: boolean
   sensorCount: number
   deepestIn: number | null
   activeFloods: number
@@ -37,7 +39,7 @@ function score(area: AreaInput): number {
   let value = 0
   if (area.alertEvents.length) value += 1_000_000
   if (area.activeFloods) value += 500_000
-  value += area.sensorEvents * 100
+  if (area.sensorEventsKnown !== false) value += area.sensorEvents * 100
   value += area.reports
   if (area.femaHighRisk) value += 40
   if (area.stormDeepPct != null && area.stormDeepPct > 0) value += area.stormDeepPct
@@ -48,7 +50,12 @@ function itemsOf(area: AreaInput): EvidenceItem[] {
   const items: EvidenceItem[] = []
   if (area.alertEvents.length) items.push({ source: 'National Weather Service', detail: area.alertEvents.join('; ') })
   if (area.activeFloods) items.push({ source: 'GDACS', detail: `${area.activeFloods} active flood event${area.activeFloods === 1 ? '' : 's'} plotted in this square` })
-  if (area.sensorCount) items.push({ source: 'FloodNet', detail: `${area.sensorCount} sensor${area.sensorCount === 1 ? '' : 's'}, ${area.sensorEvents} recorded flood${area.sensorEvents === 1 ? '' : 's'}${area.deepestIn != null ? `, deepest ${area.deepestIn} in` : ''}` })
+  if (area.sensorCount) {
+    const floods = area.sensorEventsKnown === false
+      ? 'recorded floods: No data'
+      : `${area.sensorEvents} recorded flood${area.sensorEvents === 1 ? '' : 's'}`
+    items.push({ source: 'FloodNet', detail: `${area.sensorCount} sensor${area.sensorCount === 1 ? '' : 's'}, ${floods}${area.deepestIn != null ? `, deepest ${area.deepestIn} in` : ''}` })
+  }
   items.push({ source: area.sourceName, detail: `${area.reports} recorded flood${area.reports === 1 ? '' : 's'} in this square, ${area.yearStart}–${area.yearEnd}. The count is the whole square.` })
   if (area.femaHighRisk === true) items.push({ source: 'FEMA NFHL', detail: 'A high-risk zone was mapped at the selected spot in this square. Checked only for the spot you picked.' })
   if (area.stormDeepPct != null) items.push({ source: 'NYC Stormwater Flood Map', detail: `${area.stormDeepPct.toFixed(0)}% of the selected spot is in the deep-flooding scenario (1 ft or more). A scenario, not today.` })
@@ -64,7 +71,7 @@ export function rankEvidence(areas: readonly AreaInput[], stagingPool: readonly 
   const used = new Set(response.map((area) => area.id))
   const staging = [...stagingPool]
     .filter((area) => !used.has(area.id) && area.alertEvents.length === 0 && area.activeFloods === 0)
-    .sort((a, b) => a.reports - b.reports || a.sensorEvents - b.sensorEvents || a.id.localeCompare(b.id))
+    .sort((a, b) => a.reports - b.reports || quietEvents(a) - quietEvents(b) || a.id.localeCompare(b.id))
     .slice(0, 3)
     .map((area) => ({
       id: area.id,
@@ -79,7 +86,7 @@ export function rankEvidence(areas: readonly AreaInput[], stagingPool: readonly 
   return { response, staging }
 }
 
-export interface SensorHit { id: string; name: string; lon: number; lat: number; events: number; depthIn: number; last: string | null }
+export interface SensorHit { id: string; name: string; lon: number; lat: number; events: number | null; depthIn: number; last: string | null }
 export interface FloodHit { lon: number; lat: number; active: boolean }
 
 function contains(bounds: [number, number, number, number], lon: number, lat: number): boolean {
@@ -99,6 +106,8 @@ export function areaFromCell(cell: CellProps, years: [number, number], sourceNam
   const here = sensors.filter((sensor) => contains(cell.bounds, sensor.lon, sensor.lat))
   const active = floods.filter((flood) => flood.active && contains(cell.bounds, flood.lon, flood.lat))
   const deepest = here.reduce((max, sensor) => Math.max(max, sensor.depthIn), 0)
+  const counts = here.map((sensor) => sensor.events)
+  const known = counts.every((count): count is number => count != null)
   return {
     id: cell.k,
     name: nameOf(cell),
@@ -108,7 +117,8 @@ export function areaFromCell(cell: CellProps, years: [number, number], sourceNam
     yearStart: years[0],
     yearEnd: years[1],
     sourceName,
-    sensorEvents: here.reduce((sum, sensor) => sum + sensor.events, 0),
+    sensorEvents: known ? counts.reduce((sum, count) => sum + count, 0) : 0,
+    sensorEventsKnown: known,
     sensorCount: here.length,
     deepestIn: here.length ? deepest : null,
     activeFloods: active.length,
@@ -116,6 +126,10 @@ export function areaFromCell(cell: CellProps, years: [number, number], sourceNam
     stormDeepPct: extra?.stormDeepPct ?? null,
     alertEvents: extra?.alertEvents ?? [],
   }
+}
+
+function quietEvents(area: AreaInput): number {
+  return area.sensorEventsKnown === false ? Number.POSITIVE_INFINITY : area.sensorEvents
 }
 
 /** The eight squares around `id` ("column_row"), including squares with no records. */
@@ -142,10 +156,10 @@ export interface SensorRank { id: string; name: string; point: LngLat; events: n
 
 /** FloodNet sensors with the most recorded floods, and a few with none near the busiest one. */
 export function rankSensors(sensors: readonly SensorHit[]): { recorded: SensorRank[]; quiet: SensorRank[] } {
-  const recorded = [...sensors].filter((sensor) => sensor.events > 0)
+  const recorded = [...sensors].filter((sensor): sensor is SensorHit & { events: number } => sensor.events != null && sensor.events > 0)
     .sort((a, b) => b.events - a.events || b.depthIn - a.depthIn || a.id.localeCompare(b.id))
     .slice(0, 6)
-    .map((sensor) => ({ id: sensor.id, name: sensor.name, point: [sensor.lon, sensor.lat] as LngLat, events: sensor.events, depthIn: sensor.depthIn, last: sensor.last }))
+      .map((sensor) => ({ id: sensor.id, name: sensor.name, point: [sensor.lon, sensor.lat] as LngLat, events: sensor.events ?? 0, depthIn: sensor.depthIn, last: sensor.last }))
   const top = recorded[0]
   const quietPool = sensors.filter((sensor) => sensor.events === 0)
   const quiet = (top

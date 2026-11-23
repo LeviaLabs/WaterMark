@@ -14,6 +14,7 @@
 // a country focuses it: the camera eases in, everything outside goes dark and its provinces (in the
 // US, states, then counties) take the color. Clicking inside a province or county selects that spot
 // and zooms to street level, where the detailed layers (sensors, the NYC model, FEMA zones) draw.
+// Clicking open water while zoomed out (outside every country) returns to the world view.
 import { useEffect, useRef } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl'
@@ -216,6 +217,8 @@ interface Props {
   onRegionClick: (pick: RegionPick) => void
   /** A spot was clicked: at street zoom, or inside a focused province or county (`shouldZoom`). */
   onSpotClick: (at: LngLat, shouldZoom: boolean) => void
+  /** Open water was clicked (zoomed out, outside every country). */
+  onWaterClick: () => void
   onStormNote: (note: string | null) => void
   /** The visible area [west, south, east, north] and zoom after every move. */
   onViewChange: (bounds: BBox, zoom: number) => void
@@ -499,6 +502,7 @@ export function FloodMap(props: Props) {
       const pick = pickAt(at, p.regions)
       if (pick === 'inside') p.onSpotClick(at, true)
       else if (pick) p.onRegionClick(pick)
+      else if (p.regions.countries) p.onWaterClick()
     })
     // Hover outlines are worked out at most once a frame.
     let hoverFrame = 0

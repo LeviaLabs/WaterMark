@@ -1,10 +1,10 @@
-# WaterMark
+﻿# WaterMark
 
 **Flood and extreme-rainfall intelligence for communities.**
 
-**Status:** EvoHacks 2.0 hackathon prototype, in development  
+**Live demo:** [https://watermark.works](https://watermark.works)  
+**Status:** EvoHacks 2.0 hackathon build (deployed on GitHub Pages + Supabase)  
 **Theme:** Projects for Social Good  
-**Submission deadline:** November 22, 2026, 3:00 PM Eastern Time  
 **Planning source:** [EvoHacks2.0 Planning (team Google Doc)](https://docs.google.com/document/d/1VLHw8AHFrXIV64P9YD5abx2CkHGvjEz97zxK9glnjhw/edit)  
 **Developer instructions:** [AGENTS.md](./AGENTS.md)
 
@@ -12,390 +12,210 @@
 
 ## 1. Why WaterMark exists
 
-Flooding and extreme rainfall can affect homes, schools, public infrastructure, and emergency response. Relevant information is scattered across weather forecasts, government flood maps, tide gauges, local sensors, and historical incident datasets. Many residents and volunteer responders cannot quickly reconcile those sources for a location they care about.
+Flooding and extreme rainfall affect homes, schools, public infrastructure, and emergency response, yet critical context is scattered across weather forecasts, government flood maps, tide gauges, local sensors, and historical incident datasets. Many residents and volunteer responders cannot quickly reconcile those sources for a block they care about.
 
-WaterMark aims to make this information **accessible, understandable, and actionable**. A user should be able to select a location or draw an area on a 2D map, inspect current warnings and forecast conditions, explore documented flood exposure and historical events, and see exactly where the information came from.
+WaterMark brings that evidence together on a fast, accessible **2D map** (`https://watermark.works/map`) with global baseline coverage and enriched NYC/US layers. A visitor can explore without signing in, search any location or zoom straight down from the globe to a single city block, scrub ten years of historical flood episodes and causes, inspect a deterministic Flood Outlook with a grounded AI block summary, ask questions by text or voice, switch into tailored audience views, and review screened official alert emails.
 
-The initial motivation includes coastal and flood-prone communities such as **Coney Island, the Rockaways, and Red Hook** in New York City. Additional example regions under consideration include the Outer Banks and parts of California. The global map should remain useful outside these pilot areas, while clearly showing where specialized local datasets are unavailable.
+The initial motivation comes from coastal and flood-prone communities such as **Coney Island, the Rockaways, and Red Hook** in New York City, while keeping the 2D map useful anywhere in the world and clearly disclosing where local datasets are unavailable.
 
-### Intended users
+### Intended users (and tailored views on `/map`)
 
-- **Homeowners and residents:** Understand official alerts, local rainfall forecasts, mapped exposure, and preparedness resources.
-- **Schools:** Review available flood exposure and warnings affecting a campus or vicinity; never claim a precise inundation path without suitable data.
-- **Community Emergency Response Teams (CERT):** Inspect alerts and documented past events to inform situational awareness.
-- **Volunteer fire departments and community groups:** Review conditions and evidence before contacting official incident coordinators or checking on vulnerable areas.
-
-**Impact we can demonstrate in the hackathon:** Fewer manual steps to find relevant, correctly labeled hazard information for a selected location; accurate source attribution; and the ability to distinguish forecast, historical, and current information. We cannot claim that the prototype has prevented property damage or improved public safety without real-world evaluation.
+- **Homeowners and residents:** Active NWS warnings, local rainfall forecasts, stormwater exposure, ZIP-level OpenFEMA NFIP insurance claims context, and the **Move Your Car** higher-ground elevation lookup.
+- **Schools:** Campus flood exposure, nearest modeled river and elevation approach bearing, and active warnings ahead of arrival or dismissal.
+- **Community Emergency Response Teams (CERT):** Priority flood blocks ranked from historical episodes, FloodNet sensors, and 311 calls, plus the screened `/alerts` inbox.
+- **Volunteer fire departments:** Check-first streets and blocks, FloodNet street sensors, NOAA tide gauges, and hands-free voice-assisted queries.
 
 ## 2. Scope and non-goals
 
-### In scope
+### Shipped in the EvoHacks 2.0 build
 
-1. **Extreme rainfall:** Forecast precipitation amounts and intensity, plus official heavy-rain alerts where available.
-2. **Flooding:** Official warning information, mapped flood exposure, observed flooding data where supported, and modeled **river** flood forecasts at supported locations.
-3. **Interactive 2D map:** Explore globally, search locations, select points, and, if ready, draw a circle to summarize supported geographic data.
-4. **Evidence-backed explanations:** Measurements, timestamps, units, severity rationale, historical context, source links, and uncertainty.
-5. **NYC demonstration:** Richer stormwater, coastal, and street-flood context than can be provided globally.
+1. **Interactive 2D Map (`MapLibre GL JS v6`)**: Light and dark map styles, global NASA GPM IMERG rainfall & 30-day GDACS flood layers, Photon/OpenStreetMap place search, and Back/breadcrumb/Escape/open-water navigation.
+2. **Automatic zoom-to-focus selection**: Zooming smoothly steps from **World → Country → State/Province → US County → Grid Block** under your cursor with hysteresis thresholds so exploration requires zero manual clicking.
+3. **Flood timeline & NOAA cause analytics**: Play/pause year-by-year timeline slider (`2016–2025` + `All years`) built from deduplicated NOAA Storm Events `EPISODE_ID` records and GDACS history, with flood-cause breakdowns (heavy rain, flash floods, coastal surge, tropical systems, snowmelt, dams/levees, lakes).
+4. **Evidence-labeled point & circle-area reports**: Official NWS alerts, Open-Meteo rainfall forecasts and ERA5 rain history, Copernicus GloFAS v4 river discharge, static NYC Stormwater vector tiles (`Limited`, `Moderate`, `Extreme`), FEMA NFHL flood zones, FloodNet NYC street sensors, NOAA tide gauges, USGS stream gauges, NYC 311, and OpenFEMA NFIP v3 claims—queried with Turf.js and Supabase PostGIS.
+5. **Flood Outlook & AI block summaries**: Deterministic flood recurrence and busiest-season analysis paired with an AI block/region summary (`outlook-summary` Edge Function) verified to quote only computed figures.
+6. **Voice-enabled Flood Assistant**: Grounded Google Gemini assistant (`assistant` Edge Function) using function-calling tools over WaterMark's own data lookups, browser `SpeechRecognition` mic input, budgeted ElevenLabs read-aloud (`watermark-tts`) with browser `speechSynthesis` fallback, plus per-client and global rate-limit safeguards.
+7. **Agentboxd alert inbox (`/alerts`) & optional sign-in**: Screened USGS/NWS/FEMA alert email digests with positive sender authentication and quarantine, alongside optional guest-first **MojoAuth** email-code and **Agentboxd OIDC + PKCE** login (`auth-verify`).
+8. **Five-language localization**: English, Spanish (`es`), Chinese (`zh-Hans`), Russian (`ru`), and Hindi (`hi`) UI and voice language contract.
 
-### Explicitly out of scope for the hackathon MVP
+### Explicitly out of scope
 
-- Drought, water scarcity, lake/reservoir depletion, and groundwater depletion.
-- Predicting an exact home's flood depth, the direction water will enter a school, or a street's future flood condition without a validated local hydraulic model.
-- Claiming a location or driving route **will not flood**.
-- Issuing original evacuation orders or replacing official NWS, NYC, NOAA, or FEMA warnings.
-- Training an unvalidated AI model and describing its numerical output as a measured flood probability.
-- Global street-level flood precision. Worldwide weather/river coverage and NYC-specific local layers are **different coverage levels**.
+- Drought, lake/reservoir depletion, and groundwater depletion.
+- Predicting an exact home's flood depth, guaranteed safe driving routes, or replacing official NWS, NYC, NOAA, or FEMA warnings.
+- Fabricated flood probabilities or hiding missing data as "low risk".
 
 ## 3. The product experience
 
-1. **Open the map:** Start with a fast, responsive 2D world map. **MVP recommendation:** do not require sign-in to evaluate public flood data.
-2. **Choose a place:** Search a city, address, ZIP/postal code where supported, or use map coordinates. Telephone area codes are **not** reliable geographic identifiers.
-3. **Choose data layers:** Rainfall forecast, active alerts, river conditions, modeled flood exposure, historical incidents, or coastal levels, depending on coverage.
-4. **Inspect a point:** Show a side panel on desktop and a bottom sheet on mobile. Display the **observation time** separately from the **retrieval time**.
-5. **Review the evidence:** Show a short explanation, source links, relevant charts, and an **unknown/insufficient data** state when the evidence does not support a classification.
-6. **Explore an area (stretch goal):** Draw a circle and receive statistics that are valid at that geographic scale, with units, assumptions, and coverage bounds.
-
-### UI requirements
-
-- Accessible navigation, keyboard support, high-contrast text, readable severity labels, and visible focus indicators.
-- Distinguish **current alerts**, **observations**, **forecasts**, **scenario maps**, and **historical records** in the interface.
-- A collapsible or dismissible data/AI panel that does not obscure map controls.
-- Display local time with an explicit timezone, and retain UTC internally.
-- Clear loading, no-data, stale-data, upstream-error, and success states.
-- No globe/3D requirement. The agreed map direction is **2D**.
-- Plain language first, with expandable scientific details for advanced users.
+1. **Landing page (`/`):** Interactive glass droplet hero, continuous scroll-driven 2D flooding city parallax (`#how`) with live interactive previews for all 10 capabilities, underwater `EvidenceSea` explaining the 7 evidence types, public dataset catalog (`#data`), tailored audience cards (`#audiences`), team credits (`#team`), and footer.
+2. **Flood map (`/map`):** Opens directly in guest mode. Search any place, zoom into a block, draw a circle, scrub the flood timeline, switch audience views (`Homeowner`, `School`, `Fire & CERT`), inspect Flood Outlook + AI summaries, or open the voice-enabled `Ask WaterMark` assistant.
+3. **Alert inbox (`/alerts`):** Screened official alert email summaries via Agentboxd with links to the authoritative agency record.
+4. **Optional account (`/login`, `/signup`):** Guest-first access never blocks `/map`; sign-in supports MojoAuth email codes and Agentboxd OIDC when configured.
 
 ## 4. Hazard interpretation: do not confuse these data types
 
 | Data type | Example | What it can support | What it does **not** prove |
 | --- | --- | --- | --- |
 | Official active warning | NWS flood warning | An authority issued a warning covering an area | Precise water depth at an individual property |
-| Forecast precipitation | Hourly rainfall forecast | Predicted amount and timing of rain | That a particular street will flood |
-| Modeled river discharge | Open-Meteo/GloFAS | Expected river flow at supported river locations | Coastal storm surge or urban storm-drain flooding |
+| Forecast precipitation | Open-Meteo hourly/daily rain | Predicted amount and timing of rain | That a particular street will flood |
+| Modeled river discharge | Open-Meteo / Copernicus GloFAS | Expected river flow at supported river points | Coastal storm surge or urban storm-drain flooding |
 | Scenario-based exposure | NYC stormwater flood maps | Areas modeled to flood under specified rain scenarios | That flooding is occurring now |
 | Regulatory mapped hazard | FEMA NFHL flood zones | Designated mapped flood hazard areas | A live flood observation or deterministic short-term forecast |
-| Sensor reading | FloodNet / NOAA tide gauge | Measurements at the sensor's place and time | Conditions at every nearby street or home |
-| Historical report | NYC 311 / FEMA claims | Prior reports or claims in a geographic area | Current flooding or proof an unreported location is safe |
-
-### Severity and confidence
-
-There is **no universal WaterMark flood percentage** computed by mixing arbitrary features. Represent the following separately:
-
-- `officialAlert`: official alert type, severity/urgency if supplied, area, issuance, and expiration.
-- `forecast`: numeric rainfall or discharge forecast, units, model/source, valid period, and uncertainty if published.
-- `exposure`: whether the selected point/area intersects a mapped flood-exposure layer and the layer's scenario or classification.
-- `observation`: recorded level/depth/flow with units, quality flags, and timestamp.
-- `dataStatus`: `available | stale | unavailable | unsupported | error`.
-
-A human-readable severity badge may be displayed **only when its derivation is explicit**: for example, an official NWS warning level or a documented data-provider classification. Do not silently convert forecast rainfall millimeters into a property-level flood danger category. Unknown is not green.
-
-### Predictions
-
-When WaterMark shows a prediction, identify whether it is **provided by an external forecast model** or **derived by WaterMark**. Do not invent probabilistic confidence. Backtesting against historical observations is required before presenting independent model accuracy claims.
+| Sensor / satellite observation | FloodNet, NOAA tides, USGS, NASA IMERG | Measurements at the sensor's place/time or satellite granule | Conditions at every nearby street or home |
+| Historical record | NOAA Storm Events, GDACS, NYC 311, NFIP claims | Prior episodes, causes, reports, or claims in an area | Current flooding or proof an unreported area is safe |
 
 ## 5. Geographic coverage strategy
 
-**Global baseline:** Map navigation, place search, Open-Meteo rainfall forecasts, and modeled river discharge forecasts at supported locations. Geographic coverage and model resolution must be disclosed.
+- **Global baseline:** Map navigation, Photon place search, NASA GPM IMERG rainfall, GDACS global floods, Open-Meteo rainfall forecasts & ERA5 history, Copernicus DEM elevation, and GloFAS river discharge forecasts.
+- **US baseline:** NWS active alerts, NOAA Storm Events episodes & flood causes, FEMA NFHL flood zones, NOAA Tides & Currents, USGS stream gauges, US Census TIGERweb ZCTAs, and OpenFEMA NFIP v3 claims.
+- **NYC enriched demo:** Static NYC Stormwater Flood Map vector tiles (`public/data/stormwater/`), FloodNet street sensors, NYC 311 street-flooding reports, and NYC hurricane evacuation zones.
 
-**US baseline:** NWS alerts and appropriate NOAA/USGS datasets where available.
+## 6. Data sources
 
-**NYC enriched demo:** Stormwater flood scenario polygons, street-flood sensor records, FEMA mapped flood zones, NOAA coastal water levels, NYC hurricane evacuation zones, and optionally 311/FEMA history.
-
-**Important:** The NYC coastal pilot requires coastal and stormwater data. GloFAS **does not** provide a substitute for local coastal surge or street-level pluvial flood modeling.
-
-## 6. Planned data sources
-
-The following providers are named in the team plan. **They are candidate integrations, not a claim that all connectors have already passed tests.** Validate response schemas, attribution/licensing, coverage, rate limits, timestamps, and production suitability before shipping.
-
-| Provider / dataset | Intended use | Geography / interpretation |
+| Provider / dataset | Use in WaterMark | Geography / interpretation |
 | --- | --- | --- |
-| [NWS alerts API](https://www.weather.gov/documentation/services-web-api) | Active official warnings | US; check `api.weather.gov/alerts/active?point=LAT,LON`, provide required User-Agent/contact |
-| [Open-Meteo weather API](https://open-meteo.com/en/docs) | Forecast and historical precipitation | Broad geographic coverage; values are model/reanalysis products |
-| [Open-Meteo Flood API / GloFAS](https://open-meteo.com/en/docs/flood-api) | Modeled river discharge forecasts | Global modeled **river** data, not street-level inundation or coastal surge |
-| [NYC Stormwater Flood Maps](https://data.cityofnewyork.us/d/9i7c-xyvv) | Rainfall-driven flood scenario polygons | NYC scenario/exposure, **not live events** |
-| [FloodNet event records](https://data.cityofnewyork.us/d/aq7i-eu5q) and [sensor locations](https://data.cityofnewyork.us/d/kb2e-tjy3) | Observed street flooding and sensor context | NYC, limited sensor footprint; confirm update frequency before calling it live |
-| [FloodNet dashboard](https://dataviz.floodnet.nyc/) | Visual cross-check for sensor reports | NYC; confirm whether any feed supports direct real-time access |
-| [NYC 311 service requests](https://data.cityofnewyork.us/d/erm2-nwe9) | Historical public reports | Reports are not verified flood-depth observations |
-| [FEMA National Flood Hazard Layer](https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer) | Regulatory flood-hazard polygons | Static/mapped hazard context, not live predictions |
-| [NOAA Tides & Currents API](https://api.tidesandcurrents.noaa.gov/api/prod/) | Coastal water-level measurements | Selected stations, e.g. The Battery and Sandy Hook; not property-level surge forecasts |
-| [NYC hurricane evacuation zones](https://www.nyc.gov/site/em/ready/hurricane-evacuation-zones.page) | Official coastal emergency planning context | Zones are not real-time inundation predictions |
-| [OpenFEMA NFIP claims v3](https://www.fema.gov/openfema-data-page/nfip-redacted-claims-v3) and [other OpenFEMA sets](https://www.fema.gov/about/openfema/data-sets) | Historical insurance claims, policies, declarations | Aggregate with privacy considerations; no unsupported claims about individual households |
-| [USGS Water Data APIs](https://api.waterdata.usgs.gov/) | Selected US stream gauges | Availability and measurements depend on site |
-| [Census ACS](https://www.census.gov/data/developers.html) | Optional neighborhood socioeconomic context | Aggregate statistical estimates, not identity or individual financial status |
+| [NWS alerts API](https://www.weather.gov/documentation/services-web-api) | Active official warnings | United States; authoritative agency wording and timestamps |
+| [Open-Meteo weather & historical ERA5](https://open-meteo.com/en/docs) | Forecast & historical daily precipitation | Global gridded model/reanalysis, not a rain gauge |
+| [Open-Meteo Flood API / GloFAS v4](https://open-meteo.com/en/docs/flood-api) | Modeled river discharge forecasts | Global modeled river cells (~5 km), not coastal surge |
+| [Open-Meteo Elevation (Copernicus DEM)](https://open-meteo.com/en/docs/elevation-api) | Ground elevation & Move Your Car / School bearings | Global ~90 m DEM; elevation alone does not set risk |
+| [NASA GPM IMERG (via GIBS)](https://www.earthdata.nasa.gov/data/tools/gibs) | Near-real-time global precipitation overlay | Global (~0.1°, fades past native zoom) |
+| [GDACS](https://www.gdacs.org/) | 30-day active flood alerts & 2001–2025 country archive | Global international flood events |
+| [NOAA Storm Events Database](https://www.ncdc.noaa.gov/stormevents/) | 2016–2025 US flood episodes & causes | US; deduplicated by `EPISODE_ID` per state/county/square |
+| [NYC Stormwater Flood Maps](https://data.cityofnewyork.us/d/9i7c-xyvv) | Static vector tiles (`Limited`, `Moderate`, `Extreme`) | NYC scenario/exposure, **not live events** |
+| [FloodNet NYC](https://data.cityofnewyork.us/d/aq7i-eu5q) | Street-flooding sensors & depth events | NYC sensor footprint |
+| [NYC 311 service requests](https://data.cityofnewyork.us/d/erm2-nwe9) | Historical street-flooding reports | NYC historical public reports |
+| [FEMA NFHL](https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer) | Regulatory flood-hazard polygons | US mapped hazard context |
+| [OpenFEMA NFIP claims v3](https://www.fema.gov/openfema-data-page/nfip-redacted-claims-v3) | ZIP-level historical flood insurance claims | US; aggregate historical context only |
+| [NOAA Tides & Currents](https://api.tidesandcurrents.noaa.gov/api/prod/) | Coastal water-level measurements | US tide stations (e.g. The Battery, Sandy Hook) |
+| [USGS Water Data APIs](https://api.waterdata.usgs.gov/) | Stream gauge observations & screened alerts | Selected US stream gauges |
+| [NYC Hurricane Evacuation Zones](https://www.nyc.gov/site/em/ready/hurricane-evacuation-zones.page) | Coastal emergency planning zones | NYC reference zones |
+| [US Census TIGERweb / ACS](https://tigerweb.geo.census.gov/) | ZCTA lookup & neighborhood context | United States |
+| [Photon (komoot) / OpenStreetMap](https://photon.komoot.io) | Global place, ZIP & address search | Global geocoding |
 
-**Data handling rules:**
+## 7. Architecture
 
-- Prefer documented APIs to scraping. Decodo scraping is exploratory and **not required** if authoritative APIs work.
-- Separate `observedAt`, `forecastIssuedAt`, `validFrom`, `validTo`, and `fetchedAt` as appropriate.
-- Include provider name, original record ID/link, units, coordinate system, and provider-specific quality flags.
-- Respect API restrictions and attribution; do not bulk-download all global forecasts to the database.
-- Never infer insurance coverage or household income about an individual from neighborhood-level statistics.
-
-## 7. Proposed architecture (not yet a claim of deployed infrastructure)
-
-The team has chosen to pursue **Supabase** for the API and database, with **Decong** responsible for that backend and `.xyz` domain coordination. The public frontend is **GitHub Pages at [https://watermark.works](https://watermark.works)**, built by [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml). An earlier plan used AWS Amplify for hosting. Cloudflare is not part of the current MVP stack.
+WaterMark runs as a static React + Vite frontend on **GitHub Pages** (`https://watermark.works`, built by [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml) with per-route 200 SPA HTML indexes) backed by **Supabase PostgreSQL + PostGIS** and **Supabase Edge Functions**:
 
 ```text
-Browser (React + TypeScript + Vite + 2D MapLibre map)
-  |
-  | location selection, layer toggle, charts, area circle
-  v
-Supabase Edge Functions (planned integration and risk API)
-  |                     \
-  |                      \__ Public APIs: NWS, NOAA, Open-Meteo, NYC, FEMA
-  v
-Supabase PostgreSQL + PostGIS
-  | selected stations, bounded historical records, geospatial overlays,
-  | provenance metadata, optional cached results
-  v
-Structured responses to the frontend (source, timestamp, quality, scope)
-
-GitHub Pages (https://watermark.works): the Vite build from .github/workflows/deploy-pages.yml.
-.xyz domain: optional custom domain pointed at that Pages site.
+Browser (React 19 + TypeScript + Vite + Astryx + MapLibre GL JS v6 + Turf.js)
+  ├── /          Landing page, droplet hero, 2D city parallax, EvidenceSea, team credits
+  ├── /map       2D map, zoom-to-focus, flood timeline, role views, voice Gemini assistant, Flood Outlook
+  ├── /alerts    Screened Agentboxd official alert email inbox
+  └── /login     Optional guest-first MojoAuth / Agentboxd OIDC sign-in
+        │
+        ├── Public APIs (NWS, Open-Meteo, GloFAS, FloodNet, FEMA, OpenFEMA, NASA GIBS, GDACS, Photon)
+        │
+        └── Supabase Edge Functions (Deno / TypeScript) + PostgreSQL / PostGIS
+              ├── watermark-v1     Normalized flood data API & PostGIS area queries
+              ├── assistant        Rate-limited Google Gemini proxy (grounded tool calls)
+              ├── outlook-summary  Verified AI block/region summary generator
+              ├── watermark-tts    Budgeted ElevenLabs text-to-speech proxy
+              ├── alert-inbox      Agentboxd alert email ingestion & sender-auth quarantine
+              └── auth-verify      MojoAuth & Agentboxd OIDC + PKCE verification
 ```
 
-**Why this split:** The frontend is a static Vite build on GitHub Pages. Supabase Edge Functions integrate APIs and protect secrets; PostgreSQL/PostGIS stores selected structured and geospatial information. Domain registration and DNS are separate from web application hosting. Avoid introducing Lambda, API Gateway, Cloudflare Workers, or additional databases unless a documented requirement justifies them.
+- **Frontend technologies:** React 19, TypeScript, Vite 8, React Router 7, Astryx (`@astryxdesign/core`), MapLibre GL JS v6, Turf.js, Lenis, Vitest, ESLint.
+- **Backend technologies:** Supabase Edge Functions, PostgreSQL + PostGIS, Google Gemini API, ElevenLabs TTS API, Agentboxd, MojoAuth.
+- **Deployment & CI:** GitHub Pages (`https://watermark.works`), PR frontend quality gates (`.github/workflows/frontend-ci.yml`), TTS CI (`.github/workflows/tts-ci.yml`), and Cloudflare Pages PR previews.
 
-### Proposed implementation technologies
+## 8. Feature status
 
-- Frontend: React, TypeScript, Vite, Tailwind CSS.
-- 2D mapping: **MapLibre GL JS** (proposed selection; team also considered Leaflet).
-- Spatial interaction: Turf.js for circles/intersections; PostGIS for database-side spatial queries.
-- Charts: Recharts or a similarly lightweight React charting library.
-- Backend: Supabase Edge Functions (TypeScript/Deno runtime as supported by Supabase).
-- Database: Supabase PostgreSQL with PostGIS enabled.
-- Deployment: GitHub Pages at `https://watermark.works` via `.github/workflows/deploy-pages.yml`.
-- CI: typecheck, lint, unit tests, and smoke test on pull requests.
-
-### Proposed API response contract
-
-**These endpoints and types are design proposals and must be implemented or adjusted together. They do not yet exist.**
-
-```text
-GET /location-summary?lat=...&lon=...
-GET /rainfall?lat=...&lon=...
-GET /alerts?lat=...&lon=...
-GET /flood-exposure?lat=...&lon=...
-POST /area-summary { "geometry": <GeoJSON Polygon>, "layers": [...] }
-```
-
-Every result should contain at least:
-
-```json
-{
-  "status": "available",
-  "location": { "lat": 40.58, "lon": -73.99 },
-  "kind": "forecast_rainfall",
-  "source": { "name": "PROVIDER_NAME", "url": "https://provider.example/resource" },
-  "observedAt": null,
-  "forecastIssuedAt": "ISO_8601_OR_NULL",
-  "validFrom": "ISO_8601_OR_NULL",
-  "validTo": "ISO_8601_OR_NULL",
-  "fetchedAt": "ISO_8601_TIMESTAMP",
-  "units": "mm",
-  "data": {},
-  "qualityFlags": [],
-  "limitations": []
-}
-```
-
-The values above illustrate the **shape** only, not live or verified observations. Coordinates are examples, and implementers should use a consistent longitude/latitude convention across GeoJSON and APIs.
-
-### Database guidance
-
-Prefer small, focused tables such as `monitoring_stations`, `datasets`, `observations`, `historical_events`, and `risk_assessments`, adding columns only when an implemented feature needs them. Store raw/normalized geometry with a defined CRS and spatial index; ensure publicly exposed tables have properly scoped Row Level Security and least-privilege grants. Large public geometry datasets can be distributed as static tiles/GeoJSON rather than loading every polygon into PostgreSQL.
-
-## 8. Feature priorities and acceptance criteria
-
-| Priority | Feature | Evidence required to mark complete |
-| --- | --- | --- |
-| **P0** | Public, responsive 2D map | Pan/zoom, location selection/search, working desktop/mobile layout |
-| **P0** | Rainfall conditions and forecast | Real provider response, correct units, issuance time, and chart |
-| **P0** | Official alerts | Correct NWS response for supported US point; alert area/time/source; no-warning is not interpreted as no flood risk |
-| **P0** | Flood context | At least one working NYC stormwater/flood exposure layer and one validated flood-oriented observation or forecast source |
-| **P0** | Location panel | Distinguishes current, forecast, historical, mapped exposure; source/last-updated/limits visible |
-| **P0** | Error and uncertainty handling | Meaningful no-data, stale, and unavailable states; no fabricated risk values |
-| **P0** | Public deployment | GitHub Pages demo at watermark.works loads without local services; source code and setup instructions accessible to judges |
-| **P1** | Draw-circle summary | Spatially valid metrics with coverage, units, and area selection feedback |
-| **P1** | Historical events and insurance context | Historical years, aggregation, spatial limits, and source clearly labeled |
-| **P1** | Agentboxd alert digests | Clearly supplementary summaries; official alert record remains source of truth |
-| **P1** | Plain-language or multilingual assistant | Answers cite the browser lookup they were given and are labeled as unverified; no invented forecasts or emergency orders |
-| **P2** | ElevenLabs voice, multiple role views, MojoAuth/SSOJet | Only after P0 passes and privacy/accessibility are reviewed |
-| **P2** | SMS alerts / expanded global local layers | Requires consent, rate-limits, source freshness, and operational testing |
-| **Research only** | “Move Your Car” | Cannot recommend a guaranteed safe spot/route from modeled exposure alone; requires verified current road, parking, closures, and flood conditions before any actionable recommendation |
-
-### Minimum viable demo scenario
-
-1. Open WaterMark and select an NYC coastal neighborhood (e.g., Coney Island or Rockaway).
-2. View the relevant stormwater or mapped flood-exposure layer **labeled as a scenario**, not as a live flood.
-3. View actual rainfall forecast data and active NWS alerts (or explicitly show no active alerts at query time).
-4. Inspect one supporting coastal or street-flood observation **with its original timestamp**, or select a supported river location to inspect GloFAS discharge forecast.
-5. Explain what each source adds, what it cannot predict, and a legitimate preparedness link.
-
-Record a deterministic fixture-based replay if live conditions are uneventful. Label replay as historical, never as current.
+| Priority | Feature | Status | Implementation notes |
+| --- | --- | --- | --- |
+| **P0** | Public, responsive 2D map & place search | **Built** | MapLibre v6 light/dark styles + Photon geocoding (`PR #6`, `#38`) |
+| **P0** | Automatic zoom-to-focus selection | **Built** | Drills World → Country → State → US County → Block under cursor (`PR #39`) |
+| **P0** | Flood timeline & NOAA cause breakdown | **Built** | Play/pause 2016–2025 slider, deduplicated `EPISODE_ID` counts, flood causes (`PR #25`) |
+| **P0** | Official alerts, rainfall, river & sensor layers | **Built** | NWS, Open-Meteo, GloFAS, FloodNet, NOAA tides, USGS, NASA IMERG, GDACS (`PR #4`, `#6`, `#36`) |
+| **P0** | NYC stormwater vector tiles & FEMA zones | **Built** | Static vector tiles (`public/data/stormwater/`) + FEMA NFHL (`PR #6`, `#9`) |
+| **P0** | GitHub Pages production deployment | **Built** | Live at `https://watermark.works` with 200 SPA route indexes (`PR #10`, `#11`, `#35`) |
+| **P1** | Circle-area report & PostGIS queries | **Built** | Turf.js area report & Supabase PostGIS backend (`PR #4`, `#6`, `#36`) |
+| **P1** | Flood Outlook & AI block summaries | **Built** | Recurrence & seasonality + verified AI summary (`PR #28`) |
+| **P1** | Voice-enabled Gemini flood assistant | **Built** | Grounded tool calls, mic voice input, rate limits & kill switch (`PR #23`, `#26`) |
+| **P1** | Agentboxd alert inbox (`/alerts`) | **Built** | Screened official alert emails with sender-auth quarantine (`PR #21`, `#31`, `#33`) |
+| **P2** | Budgeted ElevenLabs voice read-aloud | **Built** | `watermark-tts` Edge Function with character budget & browser fallback (`PR #29`) |
+| **P2** | Tailored role views & Move Your Car | **Built** | Homeowner (NFIP + Move Your Car), School, Fire & CERT + Back/Esc (`PR #24`, `#27`) |
+| **P2** | 5-language localization & optional login | **Built** | `en`, `es`, `zh-Hans`, `ru`, `hi` + MojoAuth & Agentboxd OIDC (`PR #1`, `#7`, `#20`) |
+| **Planned / Unused** | OpenRouter Llama fallback, Decodo scraping, SMS alerts, `.xyz` domain, AWS Amplify | **Not used** | Replaced by Gemini, official public APIs, and GitHub Pages (`watermark.works`) |
 
 ## 9. AI integrations and sponsor services
 
-The team plan mentions Gemini or an OpenRouter-hosted model, ElevenLabs, Agentboxd, MojoAuth/SSOJet, and Decodo. **These are ideas under evaluation, not confirmed production integrations.**
+- **Google Gemini (`assistant` & `outlook-summary`):** Powers both the grounded flood chat assistant and block/region Flood Outlook summaries. The browser performs public data lookups and passes tool/figure context to the Edge Function; responses are checked for grounding and rate-limited (`PR #23`, `#26`, `#28`).
+- **ElevenLabs (`watermark-tts`):** Budgeted text-to-speech output for assistant replies with automatic browser `speechSynthesis` fallback (`PR #29`).
+- **Agentboxd (`alert-inbox` & `auth-verify`):** Ingests and screens official USGS/NWS/FEMA alert emails with sender-auth quarantine (`PR #21`, `#31`, `#33`) and provides optional AI-agent OIDC + PKCE sign-in (`PR #20`).
+- **MojoAuth (`auth-verify`):** Optional passwordless email-code authentication without blocking guest map exploration (`PR #7`).
 
-- **AI chat (Ryan B):** Optional assistant. The browser runs the lookups and sends the results to a Gemini proxy. Those results are untrusted user-supplied data: the proxy does not re-fetch or verify them, and the chat is not a server-verified flood report. It must cite the lookup's source, time window, and limits, and it must never manufacture a risk probability.
-- **Voice / languages (Ryan B voice pipeline; Decong multilingual integration):** Accessibility enhancements considered for Chinese, Russian, Spanish, and Indian languages. Specify actual languages and dialects before implementation ("Indian" is not a single language).
-- **Agentboxd (Decong):** Optional ingestion/summarization of official alert emails; use authoritative API alerts for time-sensitive status. Email summaries can be late, duplicated, or stale.
-- **MojoAuth/SSOJet (Decong, coordinated with Ryan L demo page):** Optional authentication, not required to view public flood data. Avoid a login bottleneck for the demo.
-- **Decodo (Ryan B):** Scraping only if documented sources do not meet requirements and terms permit collection.
+*Note: Earlier planning doc notes evaluated OpenRouter Llama fallback, Decodo web scraping, AWS Amplify, SSOJet, SMS alerts, and a `.xyz` domain; none of those were needed because Gemini, official public APIs, GitHub Pages (`watermark.works`), MojoAuth, and Agentboxd covered the shipped stack.*
 
-**Hackathon rule:** AI assistance is allowed, but AI must not create the entire project. Human teammates must make substantive contributions, understand their code, and explain AI use in the submission/video.
+## 10. Team task ownership and verified contributions
 
-## 10. Verified team task ownership (from the colored highlights)
+Cross-referenced against the Google Doc **Assignments** tab and merged pull requests / commits on `main`:
 
-The team Google Doc's **Assignments** tab uses background colors as an ownership key. This is the authoritative interpretation of those colors **as currently highlighted**, rather than an AI-suggested repartition of work. A colored assignment means **ownership**, not completion or automatic approval to ship.
+### Ryan Bergman (`@stuyry`) — Frontend, Voice AI & Map Systems
+- **Landing page, 2D flooding city parallax & Astryx design system (`PR #9`, `#30`):** Vite + React 19 setup, custom Astryx theme (`themes/watermark/`), interactive droplet hero with title scramble, continuous scroll-driven flooding city parallax (`FloodStory`), `EvidenceSea`, `TeamSection`, `Footer`, Photon place search, and mobile sticky/overlap fixes (`c26127b`, `f949e61`, `9996572`, `6ce43fd`, `4d96a28`, `97626e7`, `688e5e3`).
+- **Voice-enabled Gemini flood assistant (`PR #23`):** Built `Assistant.tsx`, `useAssistant.ts`, `scripting/assistant.ts`, `services/assistant/` tool-calling client, browser `SpeechRecognition` mic input & read-aloud controls, and the `supabase/functions/assistant/` Gemini proxy (`1c9900f`).
+- **AI summaries for blocks & areas + Flood Outlook (`PR #28`):** Built `FloodOutlook.tsx`, `useFloodOutlook.ts`, `scripting/outlook.ts`, `services/outlook/`, and the `outlook-summary` Edge Function for deterministic recurrence/seasonality plus grounded AI block summaries (`be1fa1b`).
+- **Automatic zoom-to-focus selection (`PR #39`):** Built `zoomFocus.ts` and map zoom tracking so zooming drills seamlessly from World → Country → State/Province → US County → Grid Block under the cursor (`6686101`, `e8e03cb`, `4dee83a`).
+- **Flood timeline & NOAA episode cause analytics (`PR #25`):** Built the year-by-year play/pause flood slider, deduplicated NOAA Storm Events by `EPISODE_ID`, added Storm Surge/Tide & Seiche records, and added flood-cause bars (`6d4710b`, `74fea57`).
+- **Map performance, stormwater vector tiles & GitHub Pages CI/CD (`PR #10`, `#11`, `#38`):** Restyled `/map`, built static NYC stormwater vector tile pipeline (`scripts/stormwater/`), wired live NFIP claims, fixed MapLibre v6 worker loading (`0e0fbd3`), and configured GitHub Pages auto-deployment to `watermark.works` (`f2c90eb`, `0c836db`, `c3a396f`, `26cdbf0`).
 
-| Highlight in Google Doc | Owner | Assigned scope | Proposed branch names (not existing-branch claims) |
-| --- | --- | --- | --- |
-| **Green** (`#D9EAD3`) | **Ryan Bergman (Ryan B)** | Frontend design and **landing-page shell**; Gemini/OpenRouter chatbot and primary ElevenLabs voice integration; **AWS automatic deployment**; optional Decodo scraping investigation | `feat/ryan-b-landing`, `feat/ryan-b-ai-assistant`, `infra/ryan-b-amplify` |
-| **Effervescent Yellow** (`yellow`) | **Daniel Manita (Daniel M)** | Audience role views, **Move Your Car**, finer zoom detail, flood-assistant request limits, and map selection navigation | `cursor/role-views-0985`, `cursor/assistant-abuse-limits-8c5f`, `cursor/map-selection-back-bdab` |
-| **Pink** (`#EAD1DC`) | **Ryan Lin (Ryan L)** | **Application/demo page**, interactive **2D map**, collapsible/draggable data panel, **circle selection and area-statistics UI**, forecasting/data charts, **landing-page resources/bibliography content**, exploratory **Move Your Car** UI | `feat/ryan-l-map`, `feat/ryan-l-data-panel`, `feat/ryan-l-area-analysis` |
-| **Blue** (`#C9DAF8`) | **Decong** | **Supabase PostgreSQL/PostGIS and Edge Functions**; **Agentboxd** email reading/summaries and optional sending; **MojoAuth/login integration**; multilingual support and localization/ElevenLabs languages; **.xyz domain/DNS coordination**; investigate SMS | `feat/decong-data-api`, `feat/decong-agentboxd`, `infra/decong-domain` |
-| **Yellow note** (`#FFF2CC`) | **Joint / conditional** | Tailored views for homeowners, schools, CERT, and firefighters, **only if time remains** and the data actually supports the audience-specific claims | Joint ticket after P0 |
+### Decong Huang (`@deconghh`) — Backend, Auth, TTS & Localization
+- **Supabase PostGIS & Edge Function flood data API (`PR #4`, `#36`):** Built `watermark-v1` with NWS, Open-Meteo, GloFAS, FloodNet, PostGIS spatial queries, provider health, and missing-data safety (`dbd2922`, `820f811`, `06fcddf`, `7f46ac9`).
+- **Budgeted ElevenLabs voice read-aloud (`PR #29`):** Built the `watermark-tts` Edge Function with character budgets, concurrency guards, and `services/voice/output.ts` browser fallback (`3b5f9fc`).
+- **Agentboxd alert inbox (`PR #21`, `#31`, `#33`):** Built `/alerts` and `alert-inbox` Edge Function for screened USGS/NWS/FEMA alert emails with positive sender authentication and quarantine (`329c1b0`, `5dc739d`, `948bcb0`, `380be18`).
+- **Optional guest-first authentication (`PR #7`, `#20`):** Built MojoAuth email-code login, Agentboxd OIDC + PKCE sign-in, and `auth-verify` Edge Function (`f9064c8`, `e3fdef5`, `8735137`).
+- **Five-language localization, landing scaffold & CI (`PR #1`, `#3`, `#8`, `#35`):** Built `en`/`es`/`zh-Hans`/`ru`/`hi` localization and voice contract, initial landing/theme scaffold, frontend quality gates, and 200 SPA route HTML indexes (`3a5d3f5`, `b249ef5`, `f456e1e`).
 
-### Contributions
+### Ryan Lin (`@ryanmarklin-arch`) — 2D Map, Data Panel & Global Layers
+- **Interactive 2D MapLibre flood map (`PR #6`):** Built and ported `/map` with light and dark OpenFreeMap styles and layer re-attachment (`0dce0bd`, `dda6f4d`, `2b89372`).
+- **Draggable data panel & Turf.js circle-area report (`PR #6`):** Built `DataPanel.tsx`, `useDraggablePanel.ts`, `AreaReport.tsx`, and `useAreaReport.ts` (`2b89372`).
+- **Global hazard layers (`PR #6`):** Added NASA GPM IMERG rainfall overlay and 30-day GDACS global flood events (`133f9e8`, `2b89372`).
+- **FloodNet / NFIP starter data & sources bibliography (`PR #6`):** Built starter data pipeline (`scripts/watermark_data.py`) and toggleable `SourcesList` bibliography (`b2d300e`, `2b89372`).
+- **Move Your Car concept:** Originated the parking/exposure concept in the planning doc, realized on `/map` as an informational lookup.
 
-[Daniel Manita](https://github.com/Danx3mer) (@Danx3mer). Checked on 22 November 2026 against the pull request authors, descriptions, and merge commits.
+### Daniel Manita (`@Danx3mer`) — Audience Views, Safety & Navigation
+- **Audience role views & Move Your Car (`PR #24`):** Built Homeowner (insurance claims), School (campus flood approach), and Fire & CERT (priority flood areas) views, Move Your Car elevation/parking lookup, and finer high-zoom detail (`152cf8c`).
+- **Flood assistant hardening (`PR #26`):** Added per-client and global rate limits, kill switch, bounded Gemini requests, and untrusted browser-data safeguards (`b117bbe`).
+- **Map selection navigation (`PR #27`):** Added Back button, breadcrumb trail, Escape key support, and World reset clearing selection (`997cab0`).
+- **Cross-branch merge resolution (`PR #32`):** Resolved merge conflicts for PRs #21, #24, and #28 and reviewed/merged PR #23 (`c340955`).
 
-- [PR #24](https://github.com/LeviaLabs/WaterMark/pull/24): role views. School shows a flood approach direction, Homeowner shows insurance-claim context, and Fire & CERT shows the most probable flood areas. Also the Move your car feature, and finer map detail when zoomed in.
-- [PR #26](https://github.com/LeviaLabs/WaterMark/pull/26): flood assistant hardening. Per-client and global rate limits, a kill switch, bounded requests, browser and grounding data handled as untrusted, and the Pages deploy workflow variable. He merged the Gemini assistant in [PR #23](https://github.com/LeviaLabs/WaterMark/pull/23); this pull request is the follow-up.
-- [PR #27](https://github.com/LeviaLabs/WaterMark/pull/27): an explicit Back button, a breadcrumb, and Escape to leave a selection, plus a fix so World clears the selection.
-- Merge-conflict resolution for [PR #21](https://github.com/LeviaLabs/WaterMark/pull/21), [PR #24](https://github.com/LeviaLabs/WaterMark/pull/24), and [PR #28](https://github.com/LeviaLabs/WaterMark/pull/28).
-
-**Assignments versus build priority:** The colors assign responsibility for investigating or implementing a feature. They **do not** make P1/P2 features mandatory for the MVP. The feature-priority table in Section 8 remains the acceptance gate. A teammate may contribute a limited spike or component for a stretch feature without claiming the full feature is shipped.
-
-### Explicit interfaces to prevent parallel agents from colliding
-
-| Boundary | Primary owner | Other owner | Integration rule |
-| --- | --- | --- | --- |
-| **Landing page and bibliography** | Ryan B owns layout, navigation, and landing composition | Ryan L owns the resources/data/bibliography **component and content** | Ryan L delivers an isolated component/export and required props; Ryan B mounts it. Avoid both editing the same landing-page file. |
-| **Application map and flood data** | Ryan L owns map interaction, layer toggles, area selection, charts, and data panel | Decong owns Supabase API, geospatial queries, normalization, data provenance | Agree on typed endpoint contracts and GeoJSON coordinate conventions first. Ryan L may use **labeled mock fixtures** until the real API is integrated, but must not present them as live. |
-| **Chat and multilingual/voice** | Ryan B owns assistant experience, LLM adapter, voice pipeline | Decong owns translation/localization support, language controls, and coordination for multilingual voice | Agree on one assistant/voice interface. Do not independently create competing ElevenLabs clients or LLM response schemas. The browser runs the lookups. The proxy treats tool results and page context as untrusted user-supplied data and does not re-fetch them. |
-| **Guest access and optional login** | Ryan L owns the public demo/application shell | Decong owns any MojoAuth integration and authenticated session handling | The demo map must work in **guest mode**; adding login cannot block public data access or the judges' demo. |
-| **Deployment and domain** | Ryan B owns the GitHub Pages workflow (`.github/workflows/deploy-pages.yml`) and the public site at watermark.works | Decong owns `.xyz` domain/DNS setup and the Supabase backend | The live origin is `https://watermark.works`. Do not point production DNS at an unverified target. |
-| **Warnings and alert digests** | Decong owns Agentboxd email integration and Supabase-backed delivery endpoint | Ryan L owns on-map alert presentation; Ryan B may surface cited summaries in assistant | Source of truth remains the official warning API. Email summaries are supplemental and may be late. |
-| **Move Your Car** | Ryan L owns UI concept and feasibility research | Decong supports data availability review; other teammates review safety | **Research only until separately approved.** Never recommend a 'safe' route or guaranteed non-flooding destination based only on static hazard overlays. |
-
-### Branch and integration protocol
-
-1. Each teammate works in a distinct branch or worktree. **Do not commit directly to the protected default/deployment branch.** One branch per feature is preferable to one massive personal branch.
-2. Before editing a shared file, check the ownership table and communicate the intended changes. Use a small integration PR or ask the owner to integrate the component.
-3. Contract-first: Decong proposes API schemas with Ryan L's map/data needs; Ryan B agrees on the assistant's read-only input shape. Commit reviewed contracts before parallel implementation when possible.
-4. Each PR describes files changed, owner, feature status, data sources, tests, environment-variable **names only**, and dependent PRs. All secrets stay in approved secret storage.
-5. Merge small passing PRs after human review and run a real integrated smoke test. **Do not save all three teammates' changes for one final merge** just before the deadline.
-6. A failed or missing integration is reported as `blocked` or `not implemented`, never silently substituted with fake live data.
-
-### Owner-specific completion evidence
-
-- **Ryan B:** Landing renders responsively, the resources component can mount without layout collisions, optional assistant output cites the browser lookup it was given and is not presented as a server-verified flood report, and the public site is the GitHub Pages build at https://watermark.works.
-- **Ryan L:** Public map and location selection work; panel states are usable; area selection produces a valid geometry payload and supported, well-labeled area metrics; forecast charts preserve units/times. 'Move Your Car' remains non-operational unless safety prerequisites are met.
-- **Decong:** Supabase API validates inputs and returns provenance and status; spatial queries have bounds; database permissions/RLS are reviewed; Agentboxd summaries clearly reference official warnings and times; guest access is preserved even if optional authentication is added.
-
-See [AGENTS.md](./AGENTS.md) for more detailed AI-agent instructions and integration safeguards.
-
-## 11. Suggested repository layout
-
-**This is a proposed structure. Adapt to the actual repository instead of creating duplicate projects.**
+## 11. Repository layout
 
 ```text
 WaterMark/
-├── README.md
-├── AGENTS.md
-├── apps/
-│   └── web/                  # React/Vite app: map, panels, charts
+├── README.md                 # Project brief, architecture, sources, credits
+├── AGENTS.md                 # Agent rules, ownership boundaries, safety gates
+├── .github/workflows/        # deploy-pages.yml, frontend-ci.yml, tts-ci.yml
+├── docs/                     # Auth, voice, and alert integration docs
 ├── supabase/
-│   ├── functions/            # Provider adapters and server-side API logic
-│   └── migrations/           # Reviewed PostGIS/schema migrations
-├── packages/
-│   └── shared/               # DTOs, severity labels, source/time metadata
-├── public/
-│   └── data/                 # Small permitted, versioned demo layers only
-├── docs/
-│   ├── DATA_SOURCES.md       # Validated endpoints, licensing, freshness
-│   ├── API_CONTRACTS.md      # Agreed request/response contracts
-│   └── DEMO.md               # Demo steps and replay provenance
-└── .github/
-    └── workflows/           # CI as needed
+│   ├── config.toml           # Edge Function configuration (verify_jwt=false)
+│   ├── functions/            # watermark-v1, assistant, outlook-summary, watermark-tts, auth-verify, alert-inbox
+│   ├── migrations/           # PostGIS & feature schema migrations
+│   └── tests/                # Deno/SQL backend unit & concurrency tests
+└── WaterMark/                # Vite + React 19 + TypeScript web app
+    ├── .env.example          # Public VITE_* placeholder env names
+    ├── public/data/          # Static stormwater vector tiles & NOAA/GDACS flood archives
+    ├── scripts/              # stormwater/ tile builder, floods/ NOAA+GDACS builder
+    ├── src/                  # App.tsx, components/, context/, hooks/, scripting/, services/, styling/, themes/
+    └── tests/                # Vitest unit & component tests
 ```
-
-Do not create this tree unless the team approves the structure. A simpler single-app repo is also acceptable for the hackathon.
 
 ## 12. Local setup and deployment
 
-**Setup commands must be filled in after the repository scaffold is verified.** Do not assume a package manager, app path, or environment-variable names from this planning document alone.
-
-1. Clone the repository and inspect the lockfile, package scripts, and workspace layout.
-2. Install dependencies using the repo's chosen, pinned package manager.
-3. Configure a local `.env` from a committed **placeholder-only** `.env.example`; never commit real secrets.
-4. Set up a Supabase project and apply the reviewed schema/PostGIS migrations.
-5. Configure required secret values in Supabase Edge Function secrets, not README or screenshots. Frontend build values for GitHub Pages are repository variables (`VITE_MOJOAUTH_API_KEY`, `VITE_WATERMARK_AUTH_VERIFY_URL`, `VITE_WATERMARK_ASSISTANT_URL`).
-6. Run typecheck, tests, build, and local application smoke test.
-7. Push to `main`. `.github/workflows/deploy-pages.yml` publishes the Vite build to GitHub Pages. The workflow copies `index.html` to `dist/404.html` so `/map`, `/login`, and `/signup` work on refresh. The public origin is `https://watermark.works`.
-
-### Frontend app (`WaterMark/`)
-
-The web app is a Vite + React + TypeScript project in [`WaterMark/`](./WaterMark). Its file structure and frontend rules are in [AGENTS.md › Frontend conventions](./AGENTS.md#frontend-conventions-set-by-ryan-b-landing-page-and-frontend-owner).
-
 ```bash
 cd WaterMark
-npm ci          # install the locked dependencies
-npm run dev     # local dev server
-npm test        # Vitest unit tests (tests/)
-npm run lint    # ESLint
-npm run build   # typecheck + production build into dist/
+npm ci                  # install locked dependencies
+cp .env.example .env.local   # optional: configure Supabase function URLs & local dev keys
+npm run dev             # local Vite dev server (includes /api/assistant & /api/outlook-summary dev proxies)
+npm test                # Vitest unit tests
+npm run lint            # ESLint
+npm run build           # tsc -b && vite build -> dist/
 ```
 
-Routes (React Router, declared in `WaterMark/src/App.tsx`): `/` landing page, `/map`, `/login` and `/signup`, and a 404 page for anything else. Refresh on those paths works because the Pages workflow copies `index.html` to `dist/404.html`.
-
-**The team reports $200 in AWS credits**, but account eligibility and balance are not independently verified. Set spending alerts and avoid adding unnecessary services.
-
-## 13. Security, reliability, and privacy
-
-**Immediate credential action:** The team planning document contains a credential-like string in the Assignments tab. Treat it as exposed: confirm provider, revoke/rotate as applicable, remove plaintext copies from shared documents/prompts, and audit repo/history. Do not reproduce the value in docs, tests, or chat.
-
-- **Never put keys, tokens, private URLs, or connection strings in code, markdown, commit history, screenshots, or agent prompts.** Rotate exposed secrets and review previous copies if any exist.
-- Validate/sanitize location inputs, bounding boxes, polygon size, and request rates before external queries.
-- Restrict CORS; protect write operations; use proper RLS for any Supabase Data API tables exposed to browser roles.
-- Cache upstream requests carefully and show timestamps; on upstream failure, display **unavailable/stale**, not a fabricated answer.
-- Keep raw user location ephemeral unless explicitly needed and consented to. Avoid publishing exact personal locations.
-- Do not infer insurance coverage, poverty, disability, or vulnerability of an individual from aggregate datasets.
-- Do not represent simulated alert emails, test fixtures, or historical replay as current emergency guidance.
-- Public attribution for third-party data, maps, libraries, and AI assistance is mandatory.
-
-## 14. Definition of done
-
-The hackathon MVP is done only when:
-
-- A public, responsive 2D map can be opened by judges.
-- A selected location displays authentic rainfall forecasts and appropriately sourced flood information.
-- Every displayed value has a provider, units, an appropriate data timestamp, and a clear observed/forecast/historical/scenario designation.
-- Severity wording is derived from documented source categories or explicitly supported thresholds; missing information is labeled unknown.
-- Error, stale-data, and no-coverage states behave correctly.
-- No exposed secrets or privileged database permissions are present.
-- Humans can explain the important code paths, map layers, analytics, and integrations.
-- Repository documentation, working demo, and a **maximum three-minute** demonstration video are prepared for Devpost.
-
-## 15. Source-of-truth and decision process
-
-The current scope in this README supersedes older brainstorming comments about drought and depletion. The [shared planning document](https://docs.google.com/document/d/1VLHw8AHFrXIV64P9YD5abx2CkHGvjEz97zxK9glnjhw/edit) remains the record of ideas and tasks, but new functionality is committed only after the team agrees on scope and a corresponding issue/PR makes the acceptance criteria explicit.
-
-**Unresolved decisions:** final map library (MapLibre versus Leaflet), exact AI provider, authentication priority (but public guest access is required), verified FloodNet feed availability, and whether the assigned circle-selection feature meets the P0 integration cutoff. The frontend host is GitHub Pages at `https://watermark.works`. **Color-coded ownership is known** from the Assignments tab; completion status still requires evidence. Mark unresolved items `TBD`.
+Deployment runs automatically on pushes to `main` via `.github/workflows/deploy-pages.yml`, publishing `WaterMark/dist/` to GitHub Pages at `https://watermark.works`. Never commit secrets; `VITE_*` public endpoints live in GitHub Actions repository variables and server API keys (`WATERMARK_GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, etc.) live in Supabase secrets.
 
 ## References
 
+- [Live WaterMark site](https://watermark.works/)
 - [EvoHacks 2.0 official Devpost](https://evohacks2.devpost.com/)
 - [Team planning document](https://docs.google.com/document/d/1VLHw8AHFrXIV64P9YD5abx2CkHGvjEz97zxK9glnjhw/edit)
-- [National Weather Service API](https://www.weather.gov/documentation/services-web-api)
-- [Open-Meteo forecast and flood documentation](https://open-meteo.com/en/docs)
-- [NYC Stormwater Flood Maps](https://data.cityofnewyork.us/d/9i7c-xyvv)
-- [FloodNet NYC](https://dataviz.floodnet.nyc/)
-- [FEMA National Flood Hazard Layer](https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer)
-- [Supabase PostGIS](https://supabase.com/docs/guides/database/extensions/postgis)
-- [GitHub Pages](https://docs.github.com/en/pages) (frontend host: https://watermark.works)
 
 *WaterMark is a prototype, not an emergency alert authority. Confirm all time-sensitive conditions with official sources.*

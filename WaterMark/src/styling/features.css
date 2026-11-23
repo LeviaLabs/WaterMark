@@ -1431,3 +1431,267 @@
     transform: translateY(10px) rotateX(18deg);
   }
 }
+
+/* ---- Zoom & timeline preview ---- */
+
+.zoom-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.zoom-chip {
+  padding: 5px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 0.25s,
+    background-color 0.25s,
+    border-color 0.25s,
+    transform 0.3s var(--ease-spring);
+}
+
+.zoom-chip:hover {
+  transform: translateY(-1px);
+  color: var(--text);
+}
+
+.zoom-chip.is-path {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text);
+}
+
+.zoom-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.zoom-readout,
+.timeline-box,
+.outlook-preview-quote,
+.role-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.zoom-readout > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.zoom-scope {
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.zoom-count {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom-unit,
+.zoom-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.timeline-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.timeline-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.timeline-year {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-year strong {
+  color: var(--text);
+}
+
+.timeline-cause {
+  display: grid;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.timeline-bar {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.timeline-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--kind-forecast));
+  transition: width 0.35s var(--ease-out);
+}
+
+/* ---- Outlook & AI summary preview ---- */
+
+.outlook-preview-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.outlook-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kind-official) 18%, transparent);
+  color: var(--kind-official);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.outlook-preview-quote {
+  margin: 0;
+  border-left: 3px solid var(--accent);
+}
+
+.outlook-preview-quote blockquote,
+.outlook-preview-quote p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.outlook-preview-quote figcaption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.outlook-preview-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.outlook-preview-facts div {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.outlook-preview-facts dt {
+  color: var(--text-subtle);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.outlook-preview-facts dd {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* ---- Voice assistant pill ---- */
+
+.voice-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 0.25s,
+    background-color 0.25s,
+    border-color 0.25s;
+}
+
+.voice-pill.is-on {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---- Role views preview ---- */
+
+.role-card-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.94rem;
+}
+
+.role-card-metric {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.role-card-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  list-style: disc;
+}

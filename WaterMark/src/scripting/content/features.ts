@@ -12,8 +12,24 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 }
 
 export const AUDIENCES: readonly { title: string; body: string; icon: 'pin' | 'layers' | 'shield' | 'bell' }[] = [
-  { title: 'Homeowners & renters', body: 'Understand the alerts, forecasts and mapped exposure around home.', icon: 'pin' },
-  { title: 'Schools', body: 'Review warnings and documented flood exposure near a campus.', icon: 'layers' },
-  { title: 'CERT volunteers', body: 'Check official alerts and past events for situational awareness.', icon: 'shield' },
-  { title: 'Volunteer fire departments', body: 'See conditions and evidence before coordinating with incident command.', icon: 'bell' },
+  {
+    title: 'Homeowners & renters',
+    body: 'Check active warnings, historical NFIP flood claims, stormwater exposure, and the Move Your Car higher-ground lookup around your block.',
+    icon: 'pin',
+  },
+  {
+    title: 'Schools',
+    body: 'See campus flood exposure, nearest river and elevation approach direction, and active warnings before arrival or dismissal.',
+    icon: 'layers',
+  },
+  {
+    title: 'CERT volunteers',
+    body: 'Inspect ranked priority flood blocks, screened Agentboxd alert digests, and verified sensor and 311 records in one view.',
+    icon: 'shield',
+  },
+  {
+    title: 'Volunteer fire departments',
+    body: 'Spot streets to check first, FloodNet sensor readings, NOAA tide gauges, and hands-free voice lookups before coordinating response.',
+    icon: 'bell',
+  },
 ]

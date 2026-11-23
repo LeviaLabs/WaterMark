@@ -33,8 +33,10 @@ describe('landing content', () => {
     }
   })
 
-  it('calls the assistant built now that it is on main (src/services/assistant, supabase/functions/assistant)', () => {
-    expect(STORY_STEPS.find((step) => step.id === 'assistant')?.status).toBe('built')
+  it('marks all shipped story features including zoom/timeline, assistant, and audiences as built', () => {
+    for (const id of ['zoom', 'area', 'assistant', 'audiences', 'digest'] as const) {
+      expect(STORY_STEPS.find((step) => step.id === id)?.status).toBe('built')
+    }
   })
 })
 

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type AnimationEvent, type CSSProperties } from 'react'
+﻿import { useEffect, useLayoutEffect, useRef, useState, type AnimationEvent, type CSSProperties } from 'react'
 import { useScrollProgress } from '../../hooks/useScrollProgress'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { STATUS_LABELS, STORY_STEPS, activeStepIndex, type StoryStep } from '../../scripting/content/featureStory'
@@ -11,7 +11,7 @@ import { SplitText } from '../common/SplitText'
 import { FeaturePreview } from './FeaturePreview'
 
 /** Rain over the city at each step: the storm builds, peaks, then eases. */
-const STEP_RAIN = [0.15, 0.35, 0.9, 0.7, 0.45, 0.25, 0.1, 0]
+const STEP_RAIN = [0.15, 0.3, 0.5, 0.9, 0.75, 0.55, 0.4, 0.25, 0.15, 0]
 
 const INTRO_TITLE = ['Watch the water rise.', '\n', { text: 'See what we know.', accent: true }] as const
 
@@ -192,3 +192,4 @@ export function FloodStory() {
     </section>
   )
 }
+

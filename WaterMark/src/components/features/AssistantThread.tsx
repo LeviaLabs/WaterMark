@@ -1,4 +1,4 @@
-import { useId, type CSSProperties } from 'react'
+﻿import { useId, useState, type CSSProperties } from 'react'
 import type { AssistantMessage } from '../../scripting/content/featureExamples'
 import { Icon } from '../common/Icon'
 import { LogoMark } from '../common/Logo'
@@ -8,6 +8,8 @@ type Props = {
   isExample?: boolean
   /** False until the assistant service is connected: the composer says so instead of pretending. */
   isConnected?: boolean
+  /** Shows the live voice mic + read-aloud preview state on the landing page. */
+  voicePreview?: boolean
 }
 
 /**
@@ -15,13 +17,24 @@ type Props = {
  * link to the evidence it summarized, colored by kind of evidence. The
  * assistant only summarizes data WaterMark fetched (AGENTS.md, LLM/voice).
  */
-export function AssistantThread({ messages, isExample = false, isConnected = false }: Props) {
+export function AssistantThread({ messages, isExample = false, isConnected = false, voicePreview = false }: Props) {
   const inputId = useId()
+  const [readAloud, setReadAloud] = useState(true)
   return (
     <article className="evidence-panel assistant" aria-label={isExample ? 'Assistant, example conversation' : 'Assistant'}>
       <header className="evidence-panel-head">
         <h3>Ask WaterMark</h3>
         <span className="evidence-panel-tags">
+          {voicePreview && (
+            <button
+              type="button"
+              className={`voice-pill ${readAloud ? 'is-on' : ''}`}
+              aria-pressed={readAloud}
+              onClick={() => setReadAloud((on) => !on)}
+            >
+              <Icon name="mic" size={12} /> {readAloud ? 'Read aloud on · ElevenLabs' : 'Read aloud off'}
+            </button>
+          )}
           {isExample && <span className="example-badge">Example conversation</span>}
         </span>
       </header>
@@ -78,7 +91,7 @@ export function AssistantThread({ messages, isExample = false, isConnected = fal
         <input
           id={inputId}
           className="assistant-input"
-          placeholder={isConnected ? 'Ask about this place…' : 'The assistant is not connected yet'}
+          placeholder={isConnected || voicePreview ? 'Ask by text or voice on /map…' : 'The assistant is not connected yet'}
           disabled={!isConnected}
         />
         <button type="button" className="assistant-icon-button" disabled={!isConnected} aria-label="Speak your question">
@@ -88,7 +101,9 @@ export function AssistantThread({ messages, isExample = false, isConnected = fal
           <Icon name="send" size={18} />
         </button>
       </form>
-      <p className="evidence-limit">Answers summarize cited WaterMark data only. Official warnings always take priority.</p>
+      <p className="evidence-limit">
+        Answers run Gemini tool calls over cited WaterMark data and support voice input plus ElevenLabs or browser read-aloud.
+      </p>
     </article>
   )
 }

@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+﻿import type { CSSProperties } from 'react'
 import { Avatar } from '@astryxdesign/core/Avatar'
 import { STATUS_LABELS } from '../../scripting/content/featureStory'
 import { TEAM } from '../../scripting/content/team'
@@ -17,8 +17,8 @@ export function TeamSection() {
           <SplitText parts={TITLE} />
         </h2>
         <p className="section-lede">
-          Built during EvoHacks II. Roles follow the color-coded assignments in our planning doc, and everything
-          below shipped and is live on watermark.works.
+          Built during EvoHacks II. Roles combine the assignments in our planning doc with merged pull requests and
+          commit history across watermark.works.
         </p>
       </Reveal>
       <ul className="team-grid">

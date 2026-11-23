@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from 'react'
+﻿import { useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../../hooks/useAuth'
 import { useInView } from '../../hooks/useInView'
@@ -57,7 +57,7 @@ export function Footer() {
             ))}
           </ul>
           <p className="footer-data-credit">
-            Data credit: NWS, NOAA, FEMA, USGS, NYC Open Data, FloodNet NYC, Open-Meteo and Copernicus GloFAS. AI coding assistants (Claude, Cursor, Codex and Grok) helped write parts of this project.
+            Data credit: NWS, NOAA (Tides & Storm Events), NASA GPM IMERG, GDACS, FEMA, USGS, NYC Open Data, FloodNet NYC, Open-Meteo and Copernicus (GloFAS & DEM). Powered by Google Gemini, ElevenLabs, Photon, Agentboxd and MojoAuth. AI coding assistants (Claude, Cursor, Codex and Grok) helped write parts of this project.
           </p>
         </section>
         <section className="footer-team" aria-labelledby="footer-team-title">
@@ -93,6 +93,9 @@ export function Footer() {
           <Link to="/map">
             <RollText text="Map" />
           </Link>
+          <Link to="/alerts">
+            <RollText text="Alerts" />
+          </Link>
           {canSignIn && (
             <Link to="/login">
               <RollText text="Log in" />
@@ -106,3 +109,4 @@ export function Footer() {
     </footer>
   )
 }
+

@@ -1,4 +1,4 @@
-import { Button } from '@astryxdesign/core/Button'
+﻿import { Button } from '@astryxdesign/core/Button'
 import { Icon } from '../common/Icon'
 import { Reveal } from '../common/Reveal'
 import { RollText } from '../common/RollText'
@@ -15,7 +15,9 @@ export function CtaSection() {
         <h2 id="cta-title" className="section-title">
           <SplitText parts={TITLE} />
         </h2>
-        <p className="section-lede">Search a city, ZIP code or coordinates. No account needed to explore.</p>
+        <p className="section-lede">
+          Zoom into any block, scrub the flood timeline, ask the voice assistant, or review screened alerts. No account needed.
+        </p>
         <div className="cta-actions">
           <Button
             label="Open the map"
@@ -27,8 +29,15 @@ export function CtaSection() {
           >
             <RollText text="Open the map" />
           </Button>
-          <Button label="Create a free account" variant="secondary" size="lg" href="/signup" as={RouterLink}>
-            <RollText text="Create a free account" />
+          <Button
+            label="Alert inbox"
+            variant="secondary"
+            size="lg"
+            href="/alerts"
+            as={RouterLink}
+            endContent={<Icon name="mail" size={18} />}
+          >
+            <RollText text="Alert inbox" />
           </Button>
         </div>
       </Reveal>

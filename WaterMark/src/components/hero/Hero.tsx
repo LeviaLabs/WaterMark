@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+﻿import { useRef } from 'react'
 import { useInView } from '../../hooks/useInView'
 import { Button } from '@astryxdesign/core/Button'
 import { usePointerParallax } from '../../hooks/usePointerParallax'
@@ -9,7 +9,19 @@ import { RouterLink } from '../common/RouterLink'
 import { SplitText } from '../common/SplitText'
 import { Droplet } from './Droplet'
 
-const PROVIDERS = ['National Weather Service', 'NOAA Tides & Currents', 'FEMA', 'USGS', 'NYC Open Data', 'FloodNet NYC', 'Open-Meteo', 'Copernicus GloFAS']
+const PROVIDERS = [
+  'National Weather Service',
+  'NOAA Tides & Currents',
+  'NOAA Storm Events',
+  'NASA GPM IMERG',
+  'GDACS',
+  'FEMA',
+  'USGS',
+  'NYC Open Data',
+  'FloodNet NYC',
+  'Open-Meteo',
+  'Copernicus GloFAS',
+]
 
 const TITLE = ['Know the water', '\n', { text: 'around you.', accent: true }] as const
 
@@ -46,8 +58,8 @@ export function Hero() {
           <SplitText parts={TITLE} play delay={250} scramble="accent" hoverScramble />
         </h1>
         <p className="hero-lede">
-          Official flood warnings, rainfall forecasts, stormwater scenarios, sensor readings and flood history on one
-          honest 2D map. Every number says where it came from and when.
+          Official flood warnings, rainfall forecasts, stormwater scenarios, flood timelines, AI block summaries and a
+          voice-enabled assistant on one honest 2D map. Every number says where it came from and when.
         </p>
         <div className="hero-actions">
           <Button

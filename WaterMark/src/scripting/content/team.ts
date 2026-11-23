@@ -1,11 +1,10 @@
 import type { BuildStatus } from './featureStory'
 
 /**
- * Team credits. Cross-referenced on 2026-11-22 against two sources:
+ * Team credits. Cross-referenced on 2026-11-23 against two sources:
  *   1. the Assignments tab of the EvoHacks2.0 planning doc (highlight colors:
- *      green Ryan B, pink Ryan L, blue Decong; README Section 10), and
- *   2. what each person has actually pushed to the repository.
- * Daniel's items are the merged pull requests checked that day.
+ *      green Ryan B, pink Ryan L, blue Decong, yellow Daniel/joint), and
+ *   2. merged pull requests and commits on main.
  * `status` says which: built (merged on main), review (on a branch, not merged
  * yet) or planned (assigned, not started). Update this list, not the
  * components, when work lands.
@@ -22,46 +21,47 @@ export type TeamMember = {
 export const TEAM: readonly TeamMember[] = [
   {
     name: 'Ryan Bergman',
-    role: 'Frontend, AI & deployment',
+    role: 'Frontend, Voice AI & Map Systems',
     work: [
-      { text: 'Landing page design, theme, routing and frontend conventions', status: 'built' },
-      { text: 'Vite + React app setup and the Astryx design system for the team', status: 'built' },
-      { text: 'AI assistant (Gemini) and ElevenLabs voice', status: 'built' },
-      { text: 'Automatic deployments to watermark.works', status: 'built' },
-      { text: 'Flood outlook with sourced AI summaries', status: 'built' },
+      { text: 'Landing page, 2D flooding city parallax, EvidenceSea & Astryx design system', status: 'built' },
+      { text: 'Voice-enabled Gemini flood assistant with grounded map tool calls & mic input', status: 'built' },
+      { text: 'AI summaries for blocks & areas and Flood Outlook recurrence analysis', status: 'built' },
+      { text: 'Automatic zoom-to-focus region & block selection (world to street block)', status: 'built' },
+      { text: 'Interactive flood timeline slider (play/pause) & NOAA episode cause analytics', status: 'built' },
+      { text: 'Static NYC stormwater vector tiles, Photon search, MapLibre v6 fix & GitHub Pages CI/CD', status: 'built' },
     ],
   },
   {
     name: 'Daniel Manita',
-    role: 'Audience views & map fixes',
+    role: 'Audience Views, Safety & Navigation',
     work: [
-      { text: 'School, homeowner, and fire & CERT views on the flood map', status: 'built' },
-      { text: 'Move your car, and finer map detail when zoomed in', status: 'built' },
-      { text: 'Flood assistant rate limits, kill switch, bounded requests, and untrusted browser data', status: 'built' },
-      { text: 'Back, breadcrumb, and Escape; World clears the selection', status: 'built' },
-      { text: 'Merge-conflict resolution for the alert inbox, role views, and flood outlook', status: 'built' },
+      { text: 'School, Homeowner, and Fire & CERT audience views on the flood map', status: 'built' },
+      { text: 'Move Your Car parking exposure view and finer detail at high zoom', status: 'built' },
+      { text: 'Flood assistant rate limits, kill switch, bounded requests & untrusted data checks', status: 'built' },
+      { text: 'Back button, breadcrumbs, Escape key & World reset navigation', status: 'built' },
+      { text: 'Cross-branch merge-conflict resolution and PR integration', status: 'built' },
     ],
   },
   {
     name: 'Ryan Lin',
-    role: 'Map, data panel & charts',
+    role: '2D Map, Data Panel & Global Layers',
     work: [
-      { text: '2D flood map with light and dark map styles', status: 'built' },
-      { text: 'Draggable, stowable data panel and circle-area report', status: 'built' },
-      { text: 'Global layers: NASA rainfall and GDACS floods', status: 'built' },
-      { text: 'FloodNet and NFIP claims starter data, and the sources list', status: 'built' },
-      { text: '“Move Your Car” research view and audience views', status: 'built' },
+      { text: 'Interactive 2D MapLibre flood map with light and dark map styles', status: 'built' },
+      { text: 'Draggable, stowable data panel and Turf.js circle-area report', status: 'built' },
+      { text: 'Global hazard layers: NASA GPM IMERG rainfall and 30-day GDACS floods', status: 'built' },
+      { text: 'FloodNet & NFIP claims starter data pipeline and toggleable sources bibliography', status: 'built' },
+      { text: '“Move Your Car” concept and multi-audience hazard research', status: 'built' },
     ],
   },
   {
     name: 'Decong Huang',
-    role: 'Backend, data & languages',
+    role: 'Backend, Auth, TTS & Languages',
     work: [
-      { text: 'Supabase Edge Function data API: NWS, Open-Meteo, GloFAS, FloodNet', status: 'built' },
-      { text: 'PostGIS area queries, request budgets and provider health', status: 'built' },
-      { text: 'Five-language localization and the voice language contract', status: 'built' },
-      { text: 'Optional MojoAuth email-code sign-in', status: 'built' },
-      { text: 'Agentboxd alert inbox and digests, and the custom domain', status: 'built' },
+      { text: 'Supabase PostGIS & Edge Function flood data API (NWS, Open-Meteo, GloFAS, FloodNet)', status: 'built' },
+      { text: 'Budgeted ElevenLabs voice read-aloud Edge Function with browser speech fallback', status: 'built' },
+      { text: 'Agentboxd alert inbox (/alerts) with sender authentication & quarantine', status: 'built' },
+      { text: 'Optional guest-first auth: MojoAuth email codes & Agentboxd OIDC + PKCE', status: 'built' },
+      { text: 'Five-language localization, voice language contract, CI gates & 200 SPA route indexes', status: 'built' },
     ],
   },
 ]

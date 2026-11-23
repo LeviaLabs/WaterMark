@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+﻿import type { CSSProperties } from 'react'
 import { AUDIENCES } from '../../scripting/content/features'
 import { Icon } from '../common/Icon'
 import { Reveal } from '../common/Reveal'
@@ -7,7 +7,7 @@ import { TiltCard } from '../common/TiltCard'
 
 const TITLE = ['Made for the people', '\n', { text: 'who respond first.', accent: true }] as const
 
-/** Who WaterMark is for. The features themselves are shown in the flood story above. */
+/** Who WaterMark is for. Mirrors the role views shipped on /map. */
 export function FeaturesSection() {
   return (
     <section className="features section" aria-labelledby="audiences-title">
@@ -17,17 +17,17 @@ export function FeaturesSection() {
           <SplitText parts={TITLE} />
         </h2>
         <p className="section-lede">
-          The same evidence, read by four kinds of neighbors. Tailored views for each come after the core map is
-          reliable.
+          The same verified evidence, arranged into tailored role views on the flood map for the decisions each group
+          actually has to make.
         </p>
       </Reveal>
 
-      <ul className="audience-list">
+      <ul className="audience-grid">
         {AUDIENCES.map((audience, index) => (
           <li key={audience.title}>
-            <Reveal delay={index * 90}>
-              <TiltCard className="audience" maxDegrees={8}>
-                <span className="audience-icon" style={{ '--i': index } as CSSProperties} aria-hidden="true">
+            <Reveal delay={index * 80}>
+              <TiltCard className="audience">
+                <span className="audience-icon" style={{ '--i': index } as CSSProperties}>
                   <Icon name={audience.icon} size={22} />
                 </span>
                 <h3>{audience.title}</h3>

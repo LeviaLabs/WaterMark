@@ -1,7 +1,6 @@
 /**
- * Landing-page copy about the data WaterMark plans to use.
- * Mirrors README Section 6. These are candidate integrations: nothing here is
- * a live reading, and the landing page must never present it as one.
+ * Landing-page copy about the public datasets WaterMark draws from.
+ * Mirrors README Section 6 and scripting/sources.ts.
  */
 
 export type EvidenceKind = 'official' | 'forecast' | 'modeled' | 'scenario' | 'observed' | 'historical' | 'reference'
@@ -28,6 +27,9 @@ export const DATA_SOURCES: readonly DataSource[] = [
   { name: 'Active alerts API', provider: 'National Weather Service', url: 'https://www.weather.gov/documentation/services-web-api', kind: 'official', coverage: 'United States' },
   { name: 'Weather API', provider: 'Open-Meteo', url: 'https://open-meteo.com/en/docs', kind: 'forecast', coverage: 'Global' },
   { name: 'Flood API (GloFAS)', provider: 'Open-Meteo / Copernicus', url: 'https://open-meteo.com/en/docs/flood-api', kind: 'modeled', coverage: 'Global rivers' },
+  { name: 'IMERG precipitation (GIBS)', provider: 'NASA GPM', url: 'https://www.earthdata.nasa.gov/data/tools/gibs', kind: 'observed', coverage: 'Global' },
+  { name: 'Global flood alerts', provider: 'UN / JRC GDACS', url: 'https://www.gdacs.org/', kind: 'historical', coverage: 'Global' },
+  { name: 'Storm Events Database', provider: 'NOAA NCEI', url: 'https://www.ncdc.noaa.gov/stormevents/', kind: 'historical', coverage: 'United States' },
   { name: 'Stormwater Flood Maps', provider: 'NYC Open Data', url: 'https://data.cityofnewyork.us/d/9i7c-xyvv', kind: 'scenario', coverage: 'New York City' },
   { name: 'FloodNet event records', provider: 'FloodNet NYC', url: 'https://data.cityofnewyork.us/d/aq7i-eu5q', kind: 'observed', coverage: 'NYC sensor sites' },
   { name: 'FloodNet sensor locations', provider: 'FloodNet NYC', url: 'https://data.cityofnewyork.us/d/kb2e-tjy3', kind: 'observed', coverage: 'NYC sensor sites' },
@@ -37,6 +39,7 @@ export const DATA_SOURCES: readonly DataSource[] = [
   { name: 'National Flood Hazard Layer', provider: 'FEMA', url: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer', kind: 'reference', coverage: 'United States' },
   { name: 'NFIP redacted claims v3', provider: 'OpenFEMA', url: 'https://www.fema.gov/openfema-data-page/nfip-redacted-claims-v3', kind: 'historical', coverage: 'United States' },
   { name: 'Hurricane evacuation zones', provider: 'NYC Emergency Management', url: 'https://www.nyc.gov/site/em/ready/hurricane-evacuation-zones.page', kind: 'reference', coverage: 'New York City' },
+  { name: 'Copernicus DEM elevation', provider: 'ESA / Open-Meteo', url: 'https://open-meteo.com/en/docs/elevation-api', kind: 'reference', coverage: 'Global' },
   { name: 'American Community Survey', provider: 'US Census Bureau', url: 'https://www.census.gov/data/developers.html', kind: 'reference', coverage: 'United States' },
 ]
 
@@ -68,19 +71,19 @@ export const EVIDENCE_RULES: readonly { kind: EvidenceKind; is: string; isNot: s
   },
   {
     kind: 'observed',
-    is: 'Readings from a specific FloodNet sensor, tide station or stream gauge.',
+    is: 'Readings from a specific FloodNet sensor, tide station or stream gauge, plus near-real-time satellite rain.',
     isNot: 'A measurement for the whole neighborhood around it.',
-    shownAs: 'The exact sensor or station, its reading with units and the time it was taken. Gaps in the record stay gaps.',
+    shownAs: 'The exact sensor, station or satellite granule, its reading with units and the time it was taken. Gaps stay gaps.',
   },
   {
     kind: 'historical',
-    is: '311 flooding reports and insurance claims from past events.',
+    is: 'NOAA flood episodes, GDACS events, 311 flooding reports and insurance claims from past events.',
     isNot: 'Present conditions, or a statement about any one household.',
-    shownAs: 'Counts with their date range. Capped counts read “at least”, and counts we could not load read “Unknown”, never zero.',
+    shownAs: 'Counts with their date range and flood causes. Capped counts read “at least”, and missing counts read “Unknown”, never zero.',
   },
   {
     kind: 'reference',
-    is: 'FEMA flood zones, evacuation zones and census context for planning.',
+    is: 'FEMA flood zones, evacuation zones, ground elevation and census context for planning.',
     isNot: 'A current warning, a live prediction, or facts about one person.',
     shownAs: 'As a reference layer with its publisher, kept apart from anything that describes right now.',
   },

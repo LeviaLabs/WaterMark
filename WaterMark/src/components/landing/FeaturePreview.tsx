@@ -1,6 +1,5 @@
-import { Suspense, use, type ReactElement } from 'react'
+﻿import { Suspense, use, type ReactElement } from 'react'
 import {
-  EXAMPLE_AREA,
   EXAMPLE_RAINFALL,
   EXAMPLE_THREAD,
   EXAMPLE_TIDE,
@@ -37,6 +36,7 @@ const PREVIEWS: Record<StoryPreview, Chunk<ReactElement>> = {
       </article>
     )),
   ),
+  zoom: chunk(() => import('./ZoomTimelinePreview').then((m) => <m.ZoomTimelinePreview />)),
   alerts: chunk(() => import('./AlertsPreview').then((m) => <m.AlertsPreview />)),
   rainfall: chunk(() =>
     import('../features/RainfallChart').then((m) => <m.RainfallChart result={EXAMPLE_RAINFALL} isExample timeZone={EXAMPLE_TIME_ZONE} />),
@@ -45,8 +45,11 @@ const PREVIEWS: Record<StoryPreview, Chunk<ReactElement>> = {
   sensors: chunk(() =>
     import('../features/SensorSparkline').then((m) => <m.SensorSparkline result={EXAMPLE_TIDE} isExample timeZone={EXAMPLE_TIME_ZONE} />),
   ),
-  area: chunk(() => import('../features/AreaSummary').then((m) => <m.AreaSummary result={EXAMPLE_AREA} isExample timeZone={EXAMPLE_TIME_ZONE} />)),
-  assistant: chunk(() => import('../features/AssistantThread').then((m) => <m.AssistantThread messages={EXAMPLE_THREAD} isExample />)),
+  area: chunk(() => import('./AreaOutlookPreview').then((m) => <m.AreaOutlookPreview />)),
+  assistant: chunk(() =>
+    import('../features/AssistantThread').then((m) => <m.AssistantThread messages={EXAMPLE_THREAD} isExample voicePreview />),
+  ),
+  audiences: chunk(() => import('./AudiencesPreview').then((m) => <m.AudiencesPreview />)),
   digest: chunk(() => import('../features/AlertDigest').then((m) => <m.AlertDigest isExample />)),
 }
 

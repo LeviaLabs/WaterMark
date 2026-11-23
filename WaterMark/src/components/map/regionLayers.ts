@@ -10,7 +10,7 @@
 //
 // Picking (click and hover) is done on the loaded geometry, not on rendered pixels, so a state's
 // counties are clickable the moment the state is focused, at any zoom.
-import type maplibregl from 'maplibre-gl'
+import type * as maplibregl from 'maplibre-gl'
 import type { ExpressionSpecification, GeoJSONSource } from 'maplibre-gl'
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'

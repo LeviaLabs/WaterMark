@@ -81,6 +81,8 @@ describe('school approach estimate', () => {
     expect(withAlert.timing.source).toBe('National Weather Service')
     expect(withAlert.timing.label).toMatch(/onset/)
     expect(firstFloodAlert([{ event: 'Wind Advisory' }, { event: 'Flood Warning' }])?.event).toBe('Flood Warning')
+    expect(firstFloodAlert([{ event: 'Flood Warning', status: 'Test' }])).toBeNull()
+    expect(firstFloodAlert([{ event: 'Flood Watch', status: 'Actual', onset: '2099-01-01T00:00:00Z', expires: '2099-01-02T00:00:00Z' }])).toBeNull()
     expect(firstFloodAlert('unsupported')).toBeNull()
     expect(nextRainDay(['2026-11-22', '2026-11-23'], [1, 12], 0)).toEqual({ day: '2026-11-23', mm: 12 })
   })

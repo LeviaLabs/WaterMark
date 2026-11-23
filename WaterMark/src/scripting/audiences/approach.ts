@@ -7,6 +7,8 @@
 // and a missing direction is never described as safe.
 import type { Compass } from './compass'
 import { bearingOf } from './compass'
+import { classifyAlert } from '../alerts'
+import type { WeatherAlert } from '../types'
 
 export interface DirectionSample {
   compass: Compass
@@ -53,7 +55,7 @@ export function estimateApproach(input: {
   centerElevationM: number | null
   samples: readonly DirectionSample[]
   water: WaterCue | null
-  alert: { event: string; severity?: string; onset?: string | null; ends?: string | null; expires?: string | null } | null
+  alert: { event: string; severity?: string | null; onset?: string | null; ends?: string | null; expires?: string | null } | null
   rain: { day: string; mm: number } | null
 }): ApproachEstimate {
   const reasons: ApproachReason[] = []
@@ -132,16 +134,17 @@ export function estimateApproach(input: {
   return { compass, bearing: compass ? bearingOf(compass) : null, basis, headline, reasons, severity, timing, limitation: LIMITATION }
 }
 
-const FLOOD_EVENT = /flood|storm surge|surge/i
-
-/** The first NWS alert whose name is a flood or surge, or null. Other alerts are not treated as a flood. */
-export function firstFloodAlert<T extends { event: string }>(alerts: readonly T[] | null | 'error' | 'unsupported'): T | null {
+/** The first flood alert that is in effect now, or null. Upcoming, test and non-flood alerts are skipped. */
+export function firstFloodAlert(alerts: readonly WeatherAlert[] | null | 'error' | 'unsupported'): WeatherAlert | null {
   if (!Array.isArray(alerts)) return null
-  return alerts.find((a) => FLOOD_EVENT.test(a.event)) ?? null
+  return alerts.find((alert) => {
+    const row = classifyAlert(alert)
+    return row.active && row.floodRelevance === 'flood_hazard_notice'
+  }) ?? null
 }
 
-/** The first day from today forward with at least 10 mm. Rainfall, not a flood probability. */
-export function nextRainDay(time: readonly string[], mm: readonly number[], today: number): { day: string; mm: number } | null {
+/** The first day from today forward with at least 10 mm. Null days are skipped. Rainfall, not a flood probability. */
+export function nextRainDay(time: readonly string[], mm: readonly (number | null)[], today: number): { day: string; mm: number } | null {
   if (today < 0) return null
   for (let i = today; i < time.length; i++) {
     const value = mm[i]

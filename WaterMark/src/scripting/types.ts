@@ -51,8 +51,11 @@ export interface Selection {
 /** Past 30 days and next 16 of daily rain at a point (Open-Meteo; the past days are model analysis). */
 export interface RainOutlook {
   time: string[]
-  /** Daily totals, millimeters. */
-  mm: number[]
+  /**
+   * Daily precipitation_sum, millimeters. Null where Open-Meteo returned no value.
+   * A null day is missing data, not zero rain.
+   */
+  mm: (number | null)[]
   /** Highest hourly chance of rain each day, percent (forecast days only). */
   probability: (number | null)[]
   timezone: string
@@ -88,12 +91,24 @@ export interface StormShare {
 }
 export interface WeatherAlert {
   event: string
-  headline?: string
-  instruction?: string
-  severity?: string
+  headline?: string | null
+  instruction?: string | null
+  severity?: string | null
+  /** NWS CAP status. Anything other than Actual is not an active alert. */
+  status?: string | null
+  /** NWS CAP messageType. Cancel (and Ack/Error) are not shown. */
+  messageType?: string | null
   onset?: string | null
+  effective?: string | null
   ends?: string | null
   expires?: string | null
+  /**
+   * Set together when the record comes from watermark-v1. Classification uses these
+   * three fields instead of deriving timing from the CAP clock.
+   */
+  hazardTiming?: 'upcoming' | 'active' | 'ended' | 'unknown'
+  messageValidity?: 'in_force' | 'upcoming' | 'expired' | 'unknown'
+  floodRelevance?: 'flood_hazard_notice' | 'multi_hazard_context'
 }
 
 /**

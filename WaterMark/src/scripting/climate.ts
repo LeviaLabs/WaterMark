@@ -68,6 +68,17 @@ export function seasonalMedian(isoDay: string, s: DailySeries, windowDays = 7): 
   return vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2
 }
 
+/** Sum of the numbers in a series. Nulls are skipped, and `missing` counts them. */
+export function sumKnown(values: readonly (number | null)[]): { total: number; missing: number } {
+  let total = 0
+  let missing = 0
+  for (const value of values) {
+    if (value == null || !Number.isFinite(value)) missing += 1
+    else total += value
+  }
+  return { total, missing }
+}
+
 /** Index of today's date in a daily series (or -1), for splitting past from forecast. */
 export function todayIndex(time: readonly string[], now = new Date()): number {
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`

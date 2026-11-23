@@ -71,24 +71,30 @@ export function YearBars({ title, data, format, summary, accent = 'accent', high
   )
 }
 
-/** Daily rain bars: the past 30 days muted, today marked, the forecast in the accent. */
+/** Daily rain bars: the past 30 days muted, today marked, the forecast in the accent. Null days are gaps, not zero. */
 export function RainOutlookChart({ time, mm, today, format, summary }: {
-  time: string[]; mm: number[]; today: number; format: (mm: number) => string; summary: ReactNode
+  time: string[]; mm: readonly (number | null)[]; today: number; format: (mm: number) => string; summary: ReactNode
 }) {
   const { i, bind } = useHover(time.length)
-  const max = Math.max(5, ...mm)
+  const known = mm.filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  const max = Math.max(5, ...known)
   const step = W / time.length
   const gap = Math.min(2, step * 0.3)
   const day = (iso: string) => new Date(`${iso}T12:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const at = i == null ? null : mm[i]
   return (
     <Frame title="Rain, past 30 days and next 16" fallback={summary} ends={[day(time[0]), day(time.at(-1)!)]}
-      readout={i == null ? null : { label: `${day(time[i])}${i > today ? ' (forecast)' : i === today ? ' (today)' : ''}`, value: format(mm[i]) }}>
+      readout={i == null ? null : {
+        label: `${day(time[i])}${i > today ? ' (forecast)' : i === today ? ' (today)' : ''}`,
+        value: at == null || !Number.isFinite(at) ? '—' : format(at),
+      }}>
       <svg className="chart-svg chart--accent" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img"
         aria-label={`Daily rain from ${day(time[0])} to ${day(time.at(-1)!)}; days after today are forecast.`} {...bind}>
         <line className="chart-base" x1="0" x2={W} y1={H - 0.5} y2={H - 0.5} />
         {today >= 0 ? <rect className="chart-future" x={today * step} y="0" width={W - today * step} height={H} /> : null}
         {mm.map((v, k) => {
-          const h = Math.max(v > 0 ? 1.5 : 0, ((H - PAD_TOP) * v) / max)
+          const amount = typeof v === 'number' && Number.isFinite(v) ? v : null
+          const h = amount == null ? 0 : Math.max(amount > 0 ? 1.5 : 0, ((H - PAD_TOP) * amount) / max)
           const cls = `chart-bar${today >= 0 && k < today ? ' is-past' : ''}${k === i ? ' is-hot' : ''}`
           return <rect key={time[k]} className={cls} x={k * step + gap / 2} y={H - h} width={Math.max(1, step - gap)} height={h} rx="1.5" />
         })}

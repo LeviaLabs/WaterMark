@@ -44,6 +44,15 @@ jobs:
           VITE_WATERMARK_SUMMARY_URL: ${{ vars.VITE_WATERMARK_SUMMARY_URL }}
       # SPA fallback so /map, /login, /signup work on refresh
       - run: cp dist/index.html dist/404.html
+      # Static client routes from WaterMark/src/App.tsx (map, alerts, login, signup).
+      # A real dist/<route>/index.html makes GitHub Pages return 200. The "*" route
+      # stays on 404.html, so unknown paths remain HTTP 404. The build base is
+      # absolute ("/" on watermark.works), so these nested copies still load /assets/… .
+      - run: |
+          for route in map alerts login signup; do
+            mkdir -p "dist/$route"
+            cp dist/index.html "dist/$route/index.html"
+          done
       - uses: actions/upload-pages-artifact@v3
         with:
           path: WaterMark/dist

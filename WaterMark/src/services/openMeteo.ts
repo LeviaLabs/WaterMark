@@ -38,7 +38,7 @@ export function fetchRainOutlook(center: LngLat, signal: AbortSignal): Promise<R
     const rain = daily(j, 'precipitation_sum')
     const prob = j.daily && isNumList(j.daily.precipitation_probability_max) ? j.daily.precipitation_probability_max : rain.time.map(() => null)
     markFetched('rain')
-    return { time: rain.time, mm: rain.values.map((v) => v ?? 0), probability: prob, timezone: typeof j.timezone === 'string' ? j.timezone : 'UTC' }
+    return { time: rain.time, mm: rain.values, probability: prob, timezone: typeof j.timezone === 'string' ? j.timezone : 'UTC' }
   }, signal)
 }
 

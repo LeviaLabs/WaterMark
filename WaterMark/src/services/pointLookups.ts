@@ -9,6 +9,7 @@ import { markFetched } from '../scripting/freshness'
 import type { Feature, Polygon } from 'geojson'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { HIGH_RISK_ZONES } from '../scripting/mapTheme'
+import { readWeatherAlert } from '../scripting/alerts'
 import type { FloodZone, LngLat, WeatherAlert, ZoneReport } from '../scripting/types'
 
 const LIVE_TTL = 10 * MINUTE
@@ -24,8 +25,8 @@ export function fetchAlerts(center: LngLat, signal: AbortSignal): Promise<Weathe
     )
     markFetched('nws')
     return (j.features ?? [])
-      .map((f) => f.properties)
-      .filter((p): p is WeatherAlert => typeof p?.event === 'string')
+      .map((f) => readWeatherAlert(f.properties))
+      .filter((p): p is WeatherAlert => p !== null)
   }, signal)
 }
 

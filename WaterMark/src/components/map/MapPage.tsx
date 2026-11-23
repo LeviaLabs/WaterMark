@@ -44,6 +44,8 @@ import { audienceMarks } from '../../scripting/audiences/marks'
 import { estimateApproach, firstFloodAlert, nextRainDay } from '../../scripting/audiences/approach'
 import { rankParking } from '../../scripting/audiences/parking'
 import { todayIndex } from '../../scripting/climate'
+import { shownAlerts } from '../../scripting/alerts'
+import { ErrorBoundary } from '../common/ErrorBoundary'
 import { usePlaceSamples } from '../../hooks/usePlaceSamples'
 import { RolePicker } from './audiences/RolePicker'
 import { SchoolView } from './audiences/SchoolView'
@@ -311,7 +313,7 @@ export default function MapPage() {
     return () => removeEventListener('keydown', onKey)
   }, [path.length, selection, isDrawing, stepBack])
 
-  const alertCount = Array.isArray(report.alerts) ? report.alerts.length : 0
+  const alertCount = Array.isArray(report.alerts) ? shownAlerts(report.alerts).length : 0
   const isReportLoading = selection ? Object.values(report).some((v) => v === null) : false
   const crumbName = (p: RegionPick) => (p.level === 'county' ? `${p.props.n} County` : p.level === 'country' && p.props.k === 'USA' ? 'United States' : p.props.n)
   const named = placeName && placeName.for === selection ? placeName.name : null
@@ -435,21 +437,27 @@ export default function MapPage() {
           isClosing={panelPresence.isClosing}
           presence={panelPresence.bind}
           area={
-            <>
-              {carOn ? <MoveCar place={title} origin={selection?.center ?? null} samples={carSamples} report={report}
-                floods={floods && floods !== 'error' ? floods : null} onLocate={onLocate} /> : null}
-              {role === 'school' ? <SchoolView place={selection ? title : ''} samples={schoolSamples} report={report} /> : null}
-              {role === 'home' ? <HomeownerView selection={selection} place={title} report={report}
-                cellMeta={selection?.cell ? history.index?.cells[selection.cell.grid] : null} /> : null}
-              {role === 'responder' ? <ResponderView model={responder} onFocus={(bounds) => setFlyTo({ bounds, maxZoom: 11 })} /> : null}
-              {selection ? null : <RegionSummary region={region} index={history.index} status={history.status} year={year} />}
-              {selection && outlook ? <FloodOutlook outlook={outlook} summary={summary} /> : null}
-              {selection ? <AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods}
-                cellMeta={selection.cell ? history.index?.cells[selection.cell.grid] : null} year={year} /> : null}
-            </>
+            <ErrorBoundary label="The area report">
+              <>
+                {carOn ? <MoveCar place={title} origin={selection?.center ?? null} samples={carSamples} report={report}
+                  floods={floods && floods !== 'error' ? floods : null} onLocate={onLocate} /> : null}
+                {role === 'school' ? <SchoolView place={selection ? title : ''} samples={schoolSamples} report={report} /> : null}
+                {role === 'home' ? <HomeownerView selection={selection} place={title} report={report}
+                  cellMeta={selection?.cell ? history.index?.cells[selection.cell.grid] : null} /> : null}
+                {role === 'responder' ? <ResponderView model={responder} onFocus={(bounds) => setFlyTo({ bounds, maxZoom: 11 })} /> : null}
+                {selection ? null : <RegionSummary region={region} index={history.index} status={history.status} year={year} />}
+                {selection && outlook ? <FloodOutlook outlook={outlook} summary={summary} /> : null}
+                {selection ? <AreaReport selection={selection} report={report} onRetry={retry} sensors={sensors} floods={floods}
+                  cellMeta={selection.cell ? history.index?.cells[selection.cell.grid] : null} year={year} /> : null}
+              </>
+            </ErrorBoundary>
           }
-          alerts={selection ? <AlertsList alerts={report.alerts} />
-            : <p className="map-meta">Select a spot to check its official alerts: click inside a region on the map, or search for a place.</p>}
+          alerts={
+            <ErrorBoundary label="Alerts">
+              {selection ? <AlertsList alerts={report.alerts} />
+                : <p className="map-meta">Select a spot to check its official alerts: click inside a region on the map, or search for a place.</p>}
+            </ErrorBoundary>
+          }
           sources={<SourcesList isToggleable={false} />}
         />
       ) : null}

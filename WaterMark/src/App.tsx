@@ -28,6 +28,7 @@ import { authAdapter } from './services/auth/appAuth'
 import { ScrollGlow } from './components/layout/ScrollGlow'
 import { SiteLayout } from './components/layout/SiteLayout'
 import { LandingPage } from './components/pages/LandingPage'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 
 // Secondary routes load on demand so the landing page ships less JavaScript.
 const AuthPage = lazy(() => import('./components/pages/AuthPage').then((m) => ({ default: m.AuthPage })))
@@ -45,6 +46,7 @@ export default function App() {
       {/* Sign-in state for the nav and pages. Children never wait for it; see AuthProvider. */}
       <AuthProvider adapter={authAdapter}>
         <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <ErrorBoundary label="This page">
           <Routes>
             <Route path="map" element={<Suspense fallback={null}><MapPage /></Suspense>} />
             <Route element={<SiteLayout />}>
@@ -55,6 +57,7 @@ export default function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
+          </ErrorBoundary>
           <ScrollGlow />
         </BrowserRouter>
       </AuthProvider>

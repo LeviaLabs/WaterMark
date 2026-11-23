@@ -4,6 +4,7 @@ import { fmtTime, fmtUsd } from '../../../scripting/format'
 import { HIGH_RISK_ZONES, ZONE_TEXT } from '../../../scripting/mapTheme'
 import { howOften } from '../../../scripting/cells'
 import type { CellMeta } from '../../../services/floodHistory'
+import { classifyAlert } from '../../../scripting/alerts'
 import type { AreaReport, Selection } from '../../../scripting/types'
 
 const ready = <T,>(value: T | null | 'error' | 'unsupported'): value is T => value !== null && value !== 'error' && value !== 'unsupported'
@@ -43,8 +44,15 @@ export function HomeownerView({ selection, place, report, cellMeta }: {
       rows.push({ label: 'NYC stormwater scenario', value: report.storm.none ? 'None of the selected area is in the moderate-flood scenario. A scenario is not an all-clear.' : `${report.storm.deep.toFixed(0)}% deep (1 ft or more), ${report.storm.nuisance.toFixed(0)}% nuisance (4 in to 1 ft). Moderate flood, current sea level. Not water today.` })
     }
     if (Array.isArray(report.alerts)) {
-      const flood = report.alerts.filter((alert) => /flood|surge/i.test(alert.event))
-      rows.push({ label: 'Active NWS flood alerts', value: flood.length ? flood.map((alert) => alert.event).join('; ') : 'None found at this point right now. That does not mean the property is safe.' })
+      const classified = report.alerts.map((alert) => classifyAlert(alert))
+      const flood = classified.filter((row) => row.active && row.floodRelevance === 'flood_hazard_notice')
+      const upcoming = classified.filter((row) => row.shown && row.hazardTiming === 'upcoming' && row.floodRelevance === 'flood_hazard_notice')
+      const value = flood.length
+        ? flood.map((row) => row.alert.event).join('; ')
+        : upcoming.length
+          ? `${upcoming.map((row) => row.alert.event).join('; ')} (upcoming, not in effect yet). That does not mean the property is safe.`
+          : 'None found at this point right now. That does not mean the property is safe.'
+      rows.push({ label: 'Active NWS flood alerts', value })
     } else if (report.alerts === 'unsupported') rows.push({ label: 'Active NWS flood alerts', value: 'NWS alerts cover the United States. None were requested here.' })
     if (ready(report.claims) && report.claims !== 'none') {
       const claims = report.claims

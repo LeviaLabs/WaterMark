@@ -26,6 +26,7 @@ import { STORM_PROTOCOL, loadStormTile } from '../../services/stormwater'
 import { markFetched } from '../../scripting/freshness'
 import { MAP_PALETTES } from '../../scripting/mapTheme'
 import { fmtDate, fmtDepthIn, UNITS } from '../../scripting/format'
+import { httpsUrl } from '../../scripting/httpsUrl'
 import { bboxesOverlap, NYC_BOUNDS, type BBox } from '../../scripting/region'
 import { selectionGrid, selectionStepForView } from '../../scripting/cells'
 import { DETAIL_ZOOM } from '../../scripting/choropleth'
@@ -242,9 +243,13 @@ function popup(lines: (string | [string, string])[]): HTMLElement {
     if (typeof line === 'string') {
       if (i === 0) { const b = document.createElement('strong'); b.textContent = line; el.append(b) } else el.append(line)
     } else {
-      const a = document.createElement('a')
-      a.href = line[1]; a.textContent = line[0]; a.target = '_blank'; a.rel = 'noopener'
-      el.append(a)
+      const href = httpsUrl(line[1])
+      if (!href) el.append(`${line[0]} (link omitted)`)
+      else {
+        const a = document.createElement('a')
+        a.href = href; a.textContent = line[0]; a.target = '_blank'; a.rel = 'noopener'
+        el.append(a)
+      }
     }
   })
   return el
@@ -459,7 +464,7 @@ export function FloodMap(props: Props) {
       const p = f.properties
       new maplibregl.Popup({ offset: 8 }).setLngLat(e.lngLat).setDOMContent(popup([
         String(p.street_name || p.sensor_name || 'FloodNet sensor'),
-        `${p.events} recorded floods`,
+        `${p.events == null || p.events === '' || p.events === 'null' ? 'No data' : p.events} recorded floods`,
         `Deepest: ${fmtDepthIn(Number(p.max_depth) || 0, UNITS)}`,
         `Last flood: ${fmtDate(p.last_flood === 'null' ? null : p.last_flood)}`,
       ])).addTo(map)

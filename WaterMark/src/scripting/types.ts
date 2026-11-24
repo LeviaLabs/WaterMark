@@ -4,6 +4,7 @@ import type { Feature, FeatureCollection, Point, Polygon } from 'geojson'
 import type { ClaimsSummary } from '../services/claims'
 import type { DailySeries } from './climate'
 import type { CellProps } from './cells'
+import type { WatermarkReport } from './watermark/types'
 
 export type LngLat = [number, number]
 export type { ColorScheme } from './theme/themeStorage'
@@ -18,8 +19,8 @@ export interface SensorProps {
   sensor_name?: string
   street_name?: string
   date_installed?: string
-  /** Flood events this sensor recorded (FloodNet). */
-  events: number
+  /** Flood events this sensor recorded. Null when the source omitted the count. */
+  events: number | null
   /** Deepest recorded flood, inches. */
   max_depth: number
   last_flood: string | null
@@ -132,6 +133,11 @@ export interface AreaReport {
   alerts: Coverable<WeatherAlert[]>
   /** NFIP claim totals for the ZIP at the center; 'none' when the point has no US ZIP. */
   claims: Coverable<ClaimsSummary | 'none'>
+  /**
+   * Set when VITE_WATERMARK_API_URL is configured. Null while that request is in flight.
+   * Absent when the map is still using direct public sources.
+   */
+  watermark?: WatermarkReport | null
 }
 
 export type LayerId = 'rain' | 'floods' | 'sensors' | 'storm' | 'fema'

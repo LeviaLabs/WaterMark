@@ -8,6 +8,13 @@ import type { SensorCollection, SensorProps } from '../scripting/types'
 interface RawSensor { sensor_id: string; sensor_name?: string; street_name?: string; date_installed?: string; date_removed?: string }
 interface RawStat { sensor_id: string; events?: string; max_depth?: string; last_flood?: string }
 
+/** A FloodNet event count. A blank or missing field stays null, never 0. */
+export function floodEventCount(value: string | undefined): number | null {
+  if (value == null || value.trim() === '') return null
+  const count = Number(value)
+  return Number.isFinite(count) && count >= 0 ? count : null
+}
+
 export async function fetchSensors(signal?: AbortSignal): Promise<SensorCollection> {
   const [geo, stats] = await Promise.all([
     getJSON<FeatureCollection<Point | null, RawSensor>>(ENDPOINTS.sensors, { signal }),
@@ -23,7 +30,7 @@ export async function fetchSensors(signal?: AbortSignal): Promise<SensorCollecti
         sensor_name: f.properties.sensor_name,
         street_name: f.properties.street_name,
         date_installed: f.properties.date_installed,
-        events: Number(s?.events) || 0,
+        events: floodEventCount(s?.events),
         max_depth: Number(s?.max_depth) || 0,
         last_flood: s?.last_flood ?? null,
       }

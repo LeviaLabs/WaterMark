@@ -18,7 +18,7 @@ for implementation; neither comment is merge or deployment authorization.
 | R1-N1 secondary NWS lookup | FIXED. Non-authoritative lookup failures no longer suppress an independently successful point-filtered alert response. The lookup stage/code/HTTP status or retry delay survives with incomplete-geographic-resolution flags. Candidate rejection and authoritative point 400/404 still avoid unsupported alert requests. No zone lookup is required. Failed alert retrieval still produces a structured error, retaining lookup diagnostics. |
 | R1-N2 ended hazard | FIXED IN DRAFT CONTRACT. `hazardTiming` gains `ended`; explicit expected end is separate from message validity. An update issued after the expected end does not invent a later hazard start. Future onset remains upcoming; contradictory explicit bounds stay unknown. No state is treated as observed flooding or confirmed safety. Ryan Lin must accept the enum addition. |
 | Intermittent FloodNet failure | DIAGNOSTICS/HANDLING FIXED; ORIGINAL CAUSE UNVERIFIED. Failed sensor retrieval remains error/null. Failed event retrieval preserves validated sensor metadata with insufficient-data status, structured error, partial flag and request-stage diagnostics. Transport, HTTP, JSON/shape, timeout and rate-limit cases are distinct where evidence permits. The earlier failure lacked diagnostics, so a cause cannot be reconstructed. Successful live samples do not establish uptime. |
-| M5 frontend interface | PENDING. Ryan's preliminary support is not final acceptance. A full dated area response and proposed map/panel/landing field mapping are now in the API contract. Existing paths, root version, status enum and center/radius request stay. Explicit acceptance is needed for R1 nullable/envelope changes, R2 `ended`, partial results with errors and diagnostics. No new table is needed. |
+| M5 frontend interface | ACCEPTED. M5 contract accepted by Decong (@deconghh), Nov 22, 2026. A full dated area response and the map/panel field mapping are in the API contract. Existing paths, root version, status enum and center/radius request stay. The accepted contract includes the R1 nullable/envelope changes, R2 `ended`, and partial results with errors and diagnostics. No new table is needed. |
 
 ## Verification actually run
 
@@ -77,8 +77,8 @@ claim of survey completeness. R2 needs no migration or notification table.
 
 ## Remaining gates and hosted verification plan
 
-PR #4 stays **draft**. M5, landing-page integration and the effective CORS gate
-remain open. No final merge approval is requested by this correction. R1's eight
+PR #4 stays **draft** until merge authorization. M5 contract accepted by Decong (@deconghh), Nov 22, 2026.
+Landing-page integration and the effective CORS gate remain open. No final merge approval is requested by this correction. R1's eight
 assumption dispositions remain: U5 source GMT and local SQL evidence are
 verified; hosted key privilege mapping, guest access, effective CORS, runtime/
 database parity and shared-egress behavior remain unverified. NWS content-age

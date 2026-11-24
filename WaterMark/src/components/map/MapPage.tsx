@@ -31,7 +31,7 @@ import { useFloodOutlook } from '../../hooks/useFloodOutlook'
 import { useFloodHistory } from '../../hooks/useFloodHistory'
 import { useDraggablePanel } from '../../hooks/useDraggablePanel'
 import { usePresence } from '../../hooks/usePresence'
-import { distanceKm, makeCircle } from '../../scripting/geo'
+import { distanceKm, makeCircle, clampRadiusKm } from '../../scripting/geo'
 import { bboxesOverlap, mayBeUS, NYC_BOUNDS, touchesNYC, type BBox } from '../../scripting/region'
 import { DETAIL_ZOOM, focusAtDepth, pathTo, stepUpFocus } from '../../scripting/choropleth'
 import { cellAt, cellWidthKm, selectionBounds, selectionStep, squareOf } from '../../scripting/cells'
@@ -226,12 +226,12 @@ export default function MapPage() {
       setHint({ text: 'Now click the edge of the area.', transient: false })
       return
     }
-    const km = distanceKm(drawCenter, at)
+    const km = clampRadiusKm(distanceKm(drawCenter, at))
     stopDrawing()
     choose(select(drawCenter, km, AREA_LABEL))
   }
   const onDrawMove = (at: LngLat) => {
-    if (drawCenter) setPreview(makeCircle(drawCenter, distanceKm(drawCenter, at)))
+    if (drawCenter) setPreview(makeCircle(drawCenter, clampRadiusKm(distanceKm(drawCenter, at))))
   }
 
   const onPick = (place: GeocodedPlace) => {

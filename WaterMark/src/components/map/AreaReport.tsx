@@ -16,8 +16,12 @@ import { nearestFlood, summarizeSensors } from '../../scripting/geo'
 import { touchesNYC } from '../../scripting/region'
 import { percentileOf, peaksByYear, rainByYear, seasonalMedian, sumKnown, todayIndex } from '../../scripting/climate'
 import { alertHeadline } from '../../scripting/alerts'
+import { httpsUrl } from '../../scripting/httpsUrl'
+import { sampleOnUtcDay } from '../../scripting/watermark/present'
 import { HIGH_RISK_ZONES, ZONE_TEXT } from '../../scripting/mapTheme'
 import type { AreaReport as Report, Coverable, GlobalFloodCollection, Selection, SensorCollection } from '../../scripting/types'
+import type { WatermarkReport } from '../../scripting/watermark/types'
+import { WatermarkEvidence } from './WatermarkEvidence'
 
 interface Props {
   selection: Selection
@@ -178,6 +182,32 @@ function CellRecord({ cell, meta, year, finer }: { cell: CellProps; meta: CellMe
   )
 }
 
+function apiRainValue(view: WatermarkReport, format: (mm: number) => string): string {
+  const result = view.rainfall
+  if (result.status === 'error') return '—'
+  if (result.status !== 'available' && result.status !== 'stale') return 'No data'
+  const samples = result.data ?? []
+  const sum = sumKnown(samples.map((sample) => sample.value))
+  if (!samples.length || sum.missing === samples.length) return 'No data'
+  return format(sum.total)
+}
+
+function apiRainNote(view: WatermarkReport): string | undefined {
+  if (view.rainfall.status !== 'available' && view.rainfall.status !== 'stale') return undefined
+  const samples = view.rainfall.data ?? []
+  const sum = sumKnown(samples.map((sample) => sample.value))
+  return sum.missing ? `${sum.missing} hour${sum.missing === 1 ? '' : 's'} missing` : undefined
+}
+
+function apiRiverValue(view: WatermarkReport, format: (value: number) => string): string {
+  const result = view.river
+  if (result.status === 'error') return '—'
+  if (result.status !== 'available' && result.status !== 'stale') return 'No data'
+  const today = sampleOnUtcDay(result.data ?? [])
+  if (!today || today.value == null) return 'No data'
+  return format(today.value)
+}
+
 export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, floods, cellMeta, year = null }: Props) {
   const { center, radiusKm, circle } = selection
   const sensors: Coverable<SensorCollection> = touchesNYC(circle) ? sensorsIn : 'unsupported'
@@ -190,18 +220,21 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
   const highZones = zones ? zones.inArea.filter((z) => HIGH_RISK_ZONES.has(z)) : []
   const isHighRisk = highZones.length > 0 || (ready(s.storm) && s.storm.deep > 1)
   const headline = Array.isArray(s.alerts) ? alertHeadline(s.alerts) : null
+  const apiMode = s.watermark !== undefined
+  const api = s.watermark ?? null
   const failedSources = [
-    s.alerts === 'error' ? 'weather alerts' : null,
+    s.alerts === 'error' && (!apiMode || api?.alerts.status === 'error') ? 'weather alerts' : null,
     s.zone === 'error' ? 'FEMA flood zones' : null,
     s.storm === 'error' ? 'the heavy-rain flood model' : null,
   ].filter((name): name is string => name !== null)
   const loadingSources = [
-    s.alerts === null ? 'weather alerts' : null,
+    !apiMode && s.alerts === null ? 'weather alerts' : null,
     s.zone === null ? 'FEMA flood zones' : null,
     s.storm === null ? 'the heavy-rain flood model' : null,
   ].filter((name): name is string => name !== null)
-  const sourcesSettled = failedSources.length === 0 && loadingSources.length === 0
+  const sourcesSettled = failedSources.length === 0 && loadingSources.length === 0 && (!apiMode || api !== null)
   const hasAlertNews = headline?.text != null
+  const alertsProvenEmpty = !apiMode || (api != null && (api.alerts.status === 'available' || api.alerts.status === 'stale') && Array.isArray(s.alerts))
 
   // Worldwide figures. Null rainfall is missing, not zero.
   const rainToday = ready(s.rain) ? todayIndex(s.rain.time, new Date(new Date().toLocaleString('en-US', { timeZone: s.rain.timezone }))) : -1
@@ -264,17 +297,17 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
           <a href="https://www.floodsmart.gov" target="_blank" rel="noopener">FloodSmart.gov</a>.
         </p>
       ) : null}
-      {sourcesSettled && !hasAlertNews && isUS && !isHighRisk && Array.isArray(s.alerts) ? (
+      {sourcesSettled && !hasAlertNews && isUS && !isHighRisk && Array.isArray(s.alerts) && alertsProvenEmpty ? (
         <p className="callout callout-info">No active alerts or high-risk zone found here. This is not a safety guarantee.</p>
       ) : null}
 
       <div className="report-tiles">
-        <Tile label="Rain, next 7 days" value={next7 ? rainTotal(next7, nextWindow?.length ?? 0) : pending(s.rain)}
-          note={next7 && next7.missing
+        <Tile label={api ? 'Rain, known hours' : 'Rain, next 7 days'} value={api ? apiRainValue(api, rain) : (next7 ? rainTotal(next7, nextWindow?.length ?? 0) : pending(s.rain))}
+          note={api ? apiRainNote(api) : (next7 && next7.missing
             ? `${next7.missing} day${next7.missing === 1 ? '' : 's'} missing${last30 && last30.missing < (lastWindow?.length ?? 0) ? ` · ${rain(last30.total)} in the last 30` : ''}`
-            : last30 && last30.missing < (lastWindow?.length ?? 0) ? `${rain(last30.total)} in the last 30${last30.missing ? ` (${last30.missing} missing)` : ''}` : undefined} />
-        <Tile label="River now" value={!ready(s.river) ? pending(s.river) : !hasRiver ? 'No river' : riverNow != null ? flow(riverNow) : 'No data'}
-          note={typical != null && riverNow != null && hasRiver ? `typical ${flow(typical)}` : undefined} />
+            : last30 && last30.missing < (lastWindow?.length ?? 0) ? `${rain(last30.total)} in the last 30${last30.missing ? ` (${last30.missing} missing)` : ''}` : undefined)} />
+        <Tile label="River now" value={api ? apiRiverValue(api, flow) : (!ready(s.river) ? pending(s.river) : !hasRiver ? 'No river' : riverNow != null ? flow(riverNow) : 'No data')}
+          note={!api && typical != null && riverNow != null && hasRiver ? `typical ${flow(typical)}` : undefined} />
         <Tile label="Wettest day since 1991" value={rainYears?.wettest ? rain(rainYears.wettest.mm) : pending(s.rainHistory)}
           note={rainYears?.wettest ? fmtDate(rainYears.wettest.day) : undefined} />
         <Tile label={`Days over ${UNITS === 'metric' ? '50 mm' : '2 in'}`} value={heavyTotal != null ? heavyTotal.toLocaleString('en-US') : pending(s.rainHistory)}
@@ -283,6 +316,10 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
             : undefined} />
       </div>
 
+      {apiMode ? (
+        api ? <WatermarkEvidence report={api} /> : <Loading what="WaterMark rainfall, river, and alerts" />
+      ) : (
+        <>
       <Block kind="forecast">
         {s.rain === 'error' ? <Failed what="the rain forecast" /> : !ready(s.rain) ? <Loading what="the rain forecast" /> : (
           <>
@@ -321,6 +358,8 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
           </>
         )}
       </Block>
+        </>
+      )}
 
       <Block kind="historical">
         {s.rainHistory === 'error' ? <Failed what="the rain history" /> : !rainYears ? <Loading what="35 years of rain" /> : (
@@ -344,7 +383,7 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
       {sensors !== 'unsupported' ? (
         <Section title="Street flooding sensors" kind="observed"
           summary={line(sensors, () => (sensorSummary
-            ? `${sensorSummary.count} sensor${sensorSummary.count === 1 ? '' : 's'}, ${sensorSummary.events.toLocaleString('en-US')} floods recorded`
+            ? `${sensorSummary.count} sensor${sensorSummary.count === 1 ? '' : 's'}, ${sensorSummary.events == null ? 'flood count No data' : `${sensorSummary.events.toLocaleString('en-US')} floods recorded`}`
             : 'No sensors in this area'))}>
           {sensors === 'error' ? <Failed what="FloodNet sensors" /> : !sensorSummary ? (
             <Empty>No FloodNet sensors in this area. Sensors cover parts of NYC, so no sensor does not mean no flooding.</Empty>
@@ -352,8 +391,8 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
             <>
               <Row k="Sensors in area" v={sensorSummary.count} />
               <Row k="Monitoring since" v={fmtDate(sensorSummary.since)} />
-              <Row k="Floods recorded" v={sensorSummary.events.toLocaleString('en-US')} />
-              <Row k="Deepest flood" v={sensorSummary.events ? fmtDepthIn(sensorSummary.deepestIn, UNITS) : 'none yet'} />
+              <Row k="Floods recorded" v={sensorSummary.events == null ? 'No data' : sensorSummary.events.toLocaleString('en-US')} />
+              <Row k="Deepest flood" v={sensorSummary.events == null ? 'No data' : sensorSummary.events ? fmtDepthIn(sensorSummary.deepestIn, UNITS) : 'none yet'} />
               <Row k="Most recent flood" v={fmtDate(sensorSummary.lastFlood)} />
             </>
           )}
@@ -436,7 +475,9 @@ export function AreaReport({ selection, report: s, onRetry, sensors: sensorsIn, 
             <Row k="Distance" v={fmtDistance(near.km, UNITS)} />
             <Row k="Status" v={`${near.feature.properties.alertlevel} alert, ${near.feature.properties.active ? 'active' : `ended ${fmtDate(near.feature.properties.todate)}`}`} />
             <p className="map-meta">
-              <a href={near.feature.properties.report} target="_blank" rel="noopener">Read the GDACS report</a>.
+              {httpsUrl(near.feature.properties.report)
+                ? <a href={httpsUrl(near.feature.properties.report) ?? undefined} target="_blank" rel="noopener">Read the GDACS report</a>
+                : 'The GDACS report link was omitted because it is not an https address.'}
             </p>
           </>
         )}

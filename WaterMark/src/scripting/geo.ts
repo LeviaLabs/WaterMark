@@ -9,6 +9,13 @@ import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import type { GlobalFloodCollection, LngLat, SensorCollection, StormShare } from './types'
 
 const MIN_RADIUS_KM = 0.05
+/** Circle-tool limits that match the watermark-v1 radius (100 m to 10 km). */
+export const AREA_RADIUS_KM = { min: 0.1, max: 10 } as const
+
+export function clampRadiusKm(km: number): number {
+  if (!Number.isFinite(km)) return AREA_RADIUS_KM.min
+  return Math.min(AREA_RADIUS_KM.max, Math.max(AREA_RADIUS_KM.min, km))
+}
 
 export function makeCircle(center: LngLat, radiusKm: number): Feature<Polygon> {
   return circle(center, Math.max(MIN_RADIUS_KM, radiusKm), { steps: 64, units: 'kilometers' })
@@ -20,7 +27,8 @@ export function distanceKm(a: LngLat, b: LngLat): number {
 
 export interface SensorSummary {
   count: number
-  events: number
+  /** Null when any sensor in the circle omitted its count. Unknown is not zero. */
+  events: number | null
   deepestIn: number
   lastFlood: string | null
   since: string | null
@@ -32,9 +40,11 @@ export function summarizeSensors(sensors: SensorCollection, area: Feature<Polygo
   if (!inside.length) return null
   const dates = (pick: (p: (typeof inside)[number]['properties']) => string | null | undefined) =>
     inside.map((f) => pick(f.properties)).filter((d): d is string => Boolean(d)).sort()
+  const counts = inside.map((f) => f.properties.events)
+  const eventsKnown = counts.every((count): count is number => count != null)
   return {
     count: inside.length,
-    events: inside.reduce((sum, f) => sum + f.properties.events, 0),
+    events: eventsKnown ? counts.reduce((sum, count) => sum + count, 0) : null,
     deepestIn: Math.max(...inside.map((f) => f.properties.max_depth)),
     lastFlood: dates((p) => p.last_flood).pop() ?? null,
     since: dates((p) => p.date_installed)[0] ?? null,
